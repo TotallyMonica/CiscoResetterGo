@@ -23,9 +23,9 @@ func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
 	noDataCount := 0
 	lineCount := 0
-	output := make([][]byte, maxLines)
+	output := make([][]byte, 1, maxLines)
 	for i := 0; i < maxLines; i++ {
-		output[i] = make([]byte, buffSize)
+		output[i] = make([]byte, 1, buffSize)
 		for {
 			// Reads up to buffSize bytes
 			n, err := port.Read(output[i])
@@ -37,19 +37,18 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			} else {
 				noDataCount = 0
 			}
+			fmt.Printf("%s", output[i][:n])
 			if n == '\n' {
 				lineCount++
 			}
-			if noDataCount >= 300 {
-				break
-			} else if lineCount >= maxLines {
+			if noDataCount >= 300 || lineCount >= maxLines {
 				break
 			}
-
-			fmt.Printf("%s", string(output[i][:n]))
 		}
-		if debug {
-			fmt.Printf("DEBUG: %s", output[i])
+	}
+	if debug {
+		for _, line := range output {
+			fmt.Printf("FROM DEVICE: %s", string(line))
 		}
 	}
 	return output
@@ -61,9 +60,11 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected prefix: %s\n", prompt)
+			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
-			fmt.Printf("DEBUG: %s", output)
+			fmt.Printf("FROM DEVICE: %s", output)
+			time.Sleep(1 * time.Second)
 		}
 		fmt.Println(output)
 	} else {
@@ -72,6 +73,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("Expected prefix: %s\n", prompt)
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
+			time.Sleep(1 * time.Second)
 		}
 	}
 }
@@ -82,9 +84,11 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected prefix: %s\n", prompt)
-			fmt.Printf("DEBUG: %s", output)
+			fmt.Printf("FROM DEVICE: %s", output)
+			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
+			time.Sleep(1 * time.Second)
 		}
 		fmt.Println(output)
 	} else {
@@ -93,8 +97,29 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("Expected prefix: %s\n", prompt)
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
+			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func IsEmpty(output []byte) bool {
+	for _, outputByte := range output {
+		if outputByte != byte(0) {
+			return false
+		}
+	}
+	return true
+}
+
+func RemoveEmpty(output []byte) []byte {
+	nonEmptyBytes := make([]byte, 0, len(output))
+	for _, outputByte := range output {
+		if outputByte != byte(0) {
+			nonEmptyBytes[len(nonEmptyBytes)-1] = outputByte
+		}
+	}
+
+	return nonEmptyBytes
 }
 
 func FormatCommand(cmd string) []byte {
@@ -162,7 +187,7 @@ func SetupSerial() string {
 }
 
 func RouterDefaults(SerialPort string, debug bool) {
-	const BUFFER_SIZE = 32768
+	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
 	const CONFIRMATION_PROMPT = "[confirm]"
@@ -201,7 +226,8 @@ func RouterDefaults(SerialPort string, debug bool) {
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
 			output = ReadLine(port, BUFFER_SIZE, debug)
 			time.Sleep(1 * time.Second)
-			fmt.Printf("DEBUG: %s", strings.ToLower(strings.TrimSpace(string(output[:]))))
+			fmt.Printf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:]))))
+			fmt.Printf("TO DEVICE: %s\n", "^c")
 			port.Write([]byte("\x03"))
 		}
 		fmt.Println(output)
@@ -221,17 +247,20 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	for idx, cmd := range commands {
 		WaitForPrefix(port, ROMMON_PROMPT+" "+strconv.Itoa(idx+1), debug)
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", cmd)
+		}
 		port.Write(FormatCommand(cmd))
 		output = ReadLine(port, BUFFER_SIZE, debug)
-		if debug {
-			fmt.Printf("DEBUG: %s", output)
-		}
-
+		fmt.Printf("FROM DEVICE: %s", output)
 	}
 	for strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", "\\n")
+		}
 		port.Write(FormatCommand(""))
 		if debug {
-			fmt.Printf("DEBUG: %s", output)
+			fmt.Printf("FROM DEVICE: %s\n", output)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -241,12 +270,14 @@ func RouterDefaults(SerialPort string, debug bool) {
 	port.SetReadTimeout(15)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-		if debug {
-			fmt.Printf("DEBUG: %s", output)
-		}
+		fmt.Printf("FROM DEVICE: %x\n", output[:80]) // We don't really need all 32k bytes
 		output = ReadLine(port, BUFFER_SIZE, debug)
-		fmt.Printf("DEBUG: Output size: %d\n", len(strings.TrimSpace(string(output))))
-		if len(strings.TrimSpace(string(output))) == 0 {
+		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
+		fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
+		if IsEmpty(output) {
+			if debug {
+				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
+			}
 			port.Write([]byte("\r\n"))
 		}
 		time.Sleep(1 * time.Second)
@@ -257,6 +288,9 @@ func RouterDefaults(SerialPort string, debug bool) {
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
 	for _, cmd := range commands {
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", cmd)
+		}
 		port.Write(FormatCommand(cmd))
 		ReadLines(port, BUFFER_SIZE, 2, debug)
 
@@ -266,16 +300,28 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// Now reset config and restart
 	fmt.Println("Resetting the configuration")
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "erase nvram:")
+	}
 	port.Write(FormatCommand("erase nvram:"))
 	ReadLines(port, BUFFER_SIZE, 2, debug)
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "\\n")
+	}
 	port.Write(FormatCommand(""))
 	ReadLines(port, BUFFER_SIZE, 2, debug)
 
 	WaitForPrefix(port, SHELL_PROMPT, debug)
 	fmt.Println("Reloading the router")
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "reload")
+	}
 	port.Write(FormatCommand("reload"))
 	WaitForSubstring(port, SAVE_PROMPT, debug)
 	port.Write(FormatCommand("yes"))
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "yes")
+	}
 	WaitForSubstring(port, SAVE_PROMPT, debug)
 
 	fmt.Println("Successfully reset! Will continue trailing the output, but ^C at any point to exit.")
@@ -318,12 +364,19 @@ func SwitchDefaults(SerialPort string, debug bool) {
 
 	// Initialize Flash
 	fmt.Println("Entered recovery console, now initializing flash")
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "flash_init")
+	}
 	port.Write(FormatCommand("flash_init"))
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Get files
 	fmt.Println("Flash has been initialized, now listing directory")
 	port.SetReadTimeout(15)
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "dir flash:")
+	}
+	port.Write(FormatCommand("dir flash:"))
 	listing := ReadLines(port, BUFFER_SIZE, 30, debug)
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
@@ -338,11 +391,15 @@ func SwitchDefaults(SerialPort string, debug bool) {
 		fmt.Println("Deleting files")
 		for _, file := range filesToDelete {
 			fmt.Println("Deleting " + file)
+			if debug {
+				fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
+			}
 			port.Write(FormatCommand("del flash:" + file))
 			WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
 			if debug {
 				fmt.Printf("DEBUG: Confirming deletion\n")
 			}
+			fmt.Printf("TO DEVICE: %s\n", "y")
 			port.Write(FormatCommand("y"))
 			ReadLines(port, BUFFER_SIZE, 2, debug)
 		}
@@ -352,9 +409,15 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	fmt.Println("Restarting the switch")
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "reset")
+	}
 	port.Write(FormatCommand("reset"))
 	WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
 
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "y")
+	}
 	port.Write(FormatCommand("y"))
 	ReadLines(port, BUFFER_SIZE, 10, debug)
 
@@ -396,6 +459,7 @@ func TrailOutput(SerialPort string) {
 			log.Fatal(err)
 		}
 
+		fmt.Printf("TO DEVICE: %s\n", userInput)
 		_, err = port.Write(FormatCommand(userInput))
 		if err != nil {
 			log.Fatal(err)
@@ -406,12 +470,12 @@ func TrailOutput(SerialPort string) {
 }
 
 func main() {
-	var debug bool
+	var terminalIO bool
 	var resetRouter bool
 	var resetSwitch bool
 	var serialDevice string
 
-	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
+	flag.BoolVar(&terminalIO, "terminal-io", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.Parse()
@@ -425,9 +489,9 @@ func main() {
 	}
 
 	if resetRouter {
-		RouterDefaults(serialDevice, debug)
+		RouterDefaults(serialDevice, terminalIO)
 	}
 	if resetSwitch {
-		SwitchDefaults(serialDevice, debug)
+		SwitchDefaults(serialDevice, terminalIO)
 	}
 }
