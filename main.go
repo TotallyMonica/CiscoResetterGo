@@ -56,7 +56,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
-			fmt.Printf("FROM DEVICE: %s", output)
+			fmt.Printf("FROM DEVICE: %s", RemoveNonPrintable(output))
 			time.Sleep(1 * time.Second)
 		}
 		fmt.Println(output)
@@ -76,8 +76,8 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 	if debug {
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
-			fmt.Printf("FROM DEVICE: %s", output)
+			fmt.Printf("Expected substring: %s\n", prompt)
+			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(RemoveNonPrintable(output))))
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
@@ -85,9 +85,9 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 		}
 		fmt.Println(output)
 	} else {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output[:])))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
+			fmt.Printf("Expected substring: %s\n", prompt)
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
 			time.Sleep(1 * time.Second)
@@ -104,15 +104,34 @@ func IsEmpty(output []byte) bool {
 	return true
 }
 
-func RemoveEmpty(output []byte) []byte {
-	nonEmptyBytes := make([]byte, 0, len(output))
-	for _, outputByte := range output {
-		if outputByte != byte(0) {
-			nonEmptyBytes[len(nonEmptyBytes)-1] = outputByte
+func TrimNull(bytes []byte) []byte {
+	var noNullBytes []byte
+
+	for _, unknownByte := range bytes {
+		if unknownByte != 0 {
+			noNullBytes = append(noNullBytes, unknownByte)
 		}
 	}
 
-	return nonEmptyBytes
+	return noNullBytes
+}
+
+func RemoveNonPrintable(output []byte) []byte {
+	printable := [255 - 32]byte{}
+	for i := 0; i < len(printable); i++ {
+		printable[i] = byte(32 + i)
+	}
+	printableOutput := make([]byte, 0, len(output))
+	for _, outputByte := range output {
+		for _, printableByte := range printable {
+			if outputByte == printableByte {
+				printableOutput[len(printable)-1] = outputByte
+				break
+			}
+		}
+	}
+
+	return printableOutput
 }
 
 func FormatCommand(cmd string) []byte {
@@ -121,14 +140,14 @@ func FormatCommand(cmd string) []byte {
 }
 
 func ParseFilesToDelete(files [][]byte, debug bool) []string {
-	commonPrefixes := []string{"private-config", "config", "vlan"}
+	commonPrefixes := []string{"config", "vlan"}
 	filesToDelete := make([]string, len(files))
 
 	if debug {
 		for _, file := range files {
 			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
 			for _, prefix := range commonPrefixes {
-				if strings.HasPrefix(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
+				if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
 					filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
 				}
 			}
@@ -137,7 +156,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 		for _, file := range files {
 			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
 			for _, prefix := range commonPrefixes {
-				if strings.HasPrefix(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
+				if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
 					filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
 				}
 			}
@@ -202,7 +221,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(1 * time.Second)
 
 	fmt.Println("Trigger the recovery sequence by following these steps: ")
 	fmt.Println("1. Turn off the router")
@@ -249,7 +268,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
-	port.SetReadTimeout(15)
+	port.SetReadTimeout(15 * time.Second)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
 		output = ReadLine(port, BUFFER_SIZE, debug)
@@ -266,7 +285,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	}
 
 	fmt.Println("Setting the registers back to regular")
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(1 * time.Second)
 	WaitForPrefix(port, SHELL_PROMPT, debug)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
@@ -312,10 +331,10 @@ func RouterDefaults(SerialPort string, debug bool) {
 }
 
 func SwitchDefaults(SerialPort string, debug bool) {
-	const BUFFER_SIZE = 32768
+	const BUFFER_SIZE = 4096
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
-	const STARTUP_HINT = "Xmodem file system is available."
+	const STARTUP_HINT = "xmodem file system is available."
 
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -330,7 +349,7 @@ func SwitchDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(1 * time.Second)
 
 	fmt.Println("Trigger password recovery by following these steps: ")
 	fmt.Println("1. Unplug the switch")
@@ -341,7 +360,7 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	fmt.Scanln()
 
 	// Wait for switch to startup
-	WaitForPrefix(port, STARTUP_HINT, debug)
+	WaitForSubstring(port, STARTUP_HINT, false)
 	fmt.Println("Release the MODE button now")
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
@@ -351,21 +370,23 @@ func SwitchDefaults(SerialPort string, debug bool) {
 		fmt.Printf("TO DEVICE: %s\n", "flash_init")
 	}
 	port.Write(FormatCommand("flash_init"))
+	time.Sleep(10 * time.Second)
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Get files
 	fmt.Println("Flash has been initialized, now listing directory")
-	port.SetReadTimeout(15)
+	port.SetReadTimeout(15 * time.Second)
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "dir flash:")
 	}
 	port.Write(FormatCommand("dir flash:"))
 	listing := ReadLines(port, BUFFER_SIZE, 30, debug)
+	time.Sleep(15)
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Determine the files we need to delete
 	fmt.Println("Parsing files to delete...")
-	filesToDelete := ParseFilesToDelete(listing, debug)
+	filesToDelete := ParseFilesToDelete(listing, true)
 
 	// Delete files if necessary
 	if len(filesToDelete) == 0 {
@@ -377,14 +398,14 @@ func SwitchDefaults(SerialPort string, debug bool) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
 			}
-			port.Write(FormatCommand("del flash:" + file))
-			WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
-			if debug {
-				fmt.Printf("DEBUG: Confirming deletion\n")
-			}
-			fmt.Printf("TO DEVICE: %s\n", "y")
-			port.Write(FormatCommand("y"))
-			ReadLines(port, BUFFER_SIZE, 2, debug)
+			//port.Write(FormatCommand("del flash:" + file))
+			//WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
+			//if debug {
+			//	fmt.Printf("DEBUG: Confirming deletion\n")
+			//}
+			//fmt.Printf("TO DEVICE: %s\n", "y")
+			//port.Write(FormatCommand("y"))
+			//ReadLines(port, BUFFER_SIZE, 2, debug)
 		}
 		fmt.Println("Switch has been reset")
 	}
@@ -432,7 +453,7 @@ func TrailOutput(SerialPort string) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(10)
+	port.SetReadTimeout(10 * time.Second)
 
 	for {
 		scanner := bufio.NewScanner(os.Stdin)
