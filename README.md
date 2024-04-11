@@ -31,7 +31,7 @@ After using the first version of this, I discovered that the lab that I work in 
 While it is possible to compile Python scripts to a single executable, to me it made more sense to rewrite it in Go as that was a language that I was trying to learn.
 
 ## To-Do
-- [ ] Ensure Cisco 4221 is properly reset
+- [x] ~~Ensure Cisco 4221 is properly reset~~ Confirmed 4/11/2024
 - [ ] Ensure Cisco 2960 series is properly reset
 - [ ] Test Windows 7 compatibility
 - [ ] Test Linux compatibility (Baseline: Ubuntu 16.04)
