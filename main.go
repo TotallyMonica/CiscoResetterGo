@@ -21,11 +21,9 @@ func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 }
 
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
-	noDataCount := 0
-	lineCount := 0
-	output := make([][]byte, 1, maxLines)
+	output := make([][]byte, maxLines)
 	for i := 0; i < maxLines; i++ {
-		output[i] = make([]byte, 1, buffSize)
+		output[i] = make([]byte, buffSize)
 		for {
 			// Reads up to buffSize bytes
 			n, err := port.Read(output[i])
@@ -33,15 +31,10 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 				log.Fatal(err)
 			}
 			if n == 0 {
-				noDataCount += 1
-			} else {
-				noDataCount = 0
+				break
 			}
 			fmt.Printf("%s", output[i][:n])
 			if n == '\n' {
-				lineCount++
-			}
-			if noDataCount >= 300 || lineCount >= maxLines {
 				break
 			}
 		}
@@ -194,6 +187,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	const RECOVERY_REGISTER = "0x2142"
 	const NORMAL_REGISTER = "0x2102"
 	const SAVE_PROMPT = "[yes/no]: "
+	const SHELL_CUE = "press return to get started!"
 
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -247,31 +241,19 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	for idx, cmd := range commands {
 		WaitForPrefix(port, ROMMON_PROMPT+" "+strconv.Itoa(idx+1), debug)
-		if debug {
-			fmt.Printf("TO DEVICE: %s\n", cmd)
-		}
+		fmt.Printf("TO DEVICE: %s\n", cmd)
 		port.Write(FormatCommand(cmd))
 		output = ReadLine(port, BUFFER_SIZE, debug)
-		fmt.Printf("FROM DEVICE: %s", output)
-	}
-	for strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-		if debug {
-			fmt.Printf("TO DEVICE: %s\n", "\\n")
-		}
-		port.Write(FormatCommand(""))
-		if debug {
-			fmt.Printf("FROM DEVICE: %s\n", output)
-		}
-		time.Sleep(1 * time.Second)
+		fmt.Printf("DEBUG: Sent %s to device", cmd)
 	}
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
 	port.SetReadTimeout(15)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
-	for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-		fmt.Printf("FROM DEVICE: %x\n", output[:80]) // We don't really need all 32k bytes
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
 		output = ReadLine(port, BUFFER_SIZE, debug)
+		fmt.Printf("FROM DEVICE: %x\n", output[:80]) // We don't really need all 32k bytes
 		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
 		fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
 		if IsEmpty(output) {
@@ -285,6 +267,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	fmt.Println("Setting the registers back to regular")
 	port.SetReadTimeout(1)
+	WaitForPrefix(port, SHELL_PROMPT, debug)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
 	for _, cmd := range commands {
