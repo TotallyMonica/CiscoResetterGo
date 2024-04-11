@@ -146,18 +146,22 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	if debug {
 		for _, file := range files {
 			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
-			for _, prefix := range commonPrefixes {
-				if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
-					filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+			if len(cleanLine) > 1 {
+				for _, prefix := range commonPrefixes {
+					if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
+						filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+					}
 				}
 			}
 		}
 	} else {
 		for _, file := range files {
 			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
-			for _, prefix := range commonPrefixes {
-				if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
-					filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+			if len(cleanLine) > 1 {
+				for _, prefix := range commonPrefixes {
+					if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
+						filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+					}
 				}
 			}
 		}
@@ -331,7 +335,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 }
 
 func SwitchDefaults(SerialPort string, debug bool) {
-	const BUFFER_SIZE = 4096
+	const BUFFER_SIZE = 32768
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
 	const STARTUP_HINT = "xmodem file system is available."
@@ -349,7 +353,7 @@ func SwitchDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(1)
 
 	fmt.Println("Trigger password recovery by following these steps: ")
 	fmt.Println("1. Unplug the switch")
@@ -365,12 +369,13 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Initialize Flash
+	port.SetReadTimeout(1 * time.Second)
 	fmt.Println("Entered recovery console, now initializing flash")
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "flash_init")
 	}
 	port.Write(FormatCommand("flash_init"))
-	time.Sleep(10 * time.Second)
+	ReadLines(port, 32768, 20, debug)
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Get files
@@ -381,7 +386,6 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	}
 	port.Write(FormatCommand("dir flash:"))
 	listing := ReadLines(port, BUFFER_SIZE, 30, debug)
-	time.Sleep(15)
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Determine the files we need to delete
@@ -432,6 +436,7 @@ func SwitchDefaults(SerialPort string, debug bool) {
 func PrintOutput(port serial.Port) {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
+	readOps := 0
 
 	go func() {
 		<-c
@@ -440,6 +445,8 @@ func PrintOutput(port serial.Port) {
 	}()
 	for true {
 		ReadLine(port, 32768, false)
+		readOps++
+		fmt.Println(readOps)
 	}
 }
 
