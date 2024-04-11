@@ -307,7 +307,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	}
 	WaitForSubstring(port, SAVE_PROMPT, debug)
 
-	fmt.Println("Successfully reset! Will continue trailing the output, but ^C at any point to exit.")
+	fmt.Println("Successfully reset!")
 	PrintOutput(port)
 }
 
@@ -418,7 +418,7 @@ func PrintOutput(port serial.Port) {
 		return
 	}()
 	for true {
-		ReadLine(port, 32768, true)
+		ReadLine(port, 32768, false)
 	}
 }
 
