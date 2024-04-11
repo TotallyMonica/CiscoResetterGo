@@ -33,7 +33,9 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			if n == 0 {
 				break
 			}
-			fmt.Printf("%s", output[i][:n])
+			if debug {
+				fmt.Printf("%s", output[i][:n])
+			}
 			if n == '\n' {
 				break
 			}
@@ -56,7 +58,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
-			fmt.Printf("FROM DEVICE: %s", RemoveNonPrintable(output))
+			fmt.Printf("FROM DEVICE: %s", output[:80])
 			time.Sleep(1 * time.Second)
 		}
 		fmt.Println(output)
@@ -77,7 +79,7 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected substring: %s\n", prompt)
-			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(RemoveNonPrintable(output))))
+			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
 			output = ReadLine(port, 32768, debug)
@@ -364,23 +366,22 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	fmt.Scanln()
 
 	// Wait for switch to startup
-	WaitForSubstring(port, STARTUP_HINT, false)
+	WaitForSubstring(port, STARTUP_HINT, debug)
 	fmt.Println("Release the MODE button now")
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Initialize Flash
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(2 * time.Second)
 	fmt.Println("Entered recovery console, now initializing flash")
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "flash_init")
 	}
 	port.Write(FormatCommand("flash_init"))
-	ReadLines(port, 32768, 20, debug)
-	WaitForPrefix(port, RECOVERY_PROMPT, debug)
+	ReadLines(port, BUFFER_SIZE, 10, debug)
 
 	// Get files
 	fmt.Println("Flash has been initialized, now listing directory")
-	port.SetReadTimeout(15 * time.Second)
+	port.SetReadTimeout(2 * time.Second)
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "dir flash:")
 	}
@@ -389,8 +390,9 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	WaitForPrefix(port, RECOVERY_PROMPT, debug)
 
 	// Determine the files we need to delete
+	// TODO: Debug this section
 	fmt.Println("Parsing files to delete...")
-	filesToDelete := ParseFilesToDelete(listing, true)
+	filesToDelete := ParseFilesToDelete(listing, debug)
 
 	// Delete files if necessary
 	if len(filesToDelete) == 0 {
@@ -444,7 +446,7 @@ func PrintOutput(port serial.Port) {
 		return
 	}()
 	for true {
-		ReadLine(port, 32768, false)
+		fmt.Printf("%s\n", ReadLine(port, 32768, false)[:80])
 		readOps++
 		fmt.Println(readOps)
 	}
@@ -470,7 +472,7 @@ func TrailOutput(SerialPort string) {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("TO DEVICE: %s\n", userInput)
+		fmt.Printf("TO DEVICE: %s\n", userInput[:80])
 		_, err = port.Write(FormatCommand(userInput))
 		if err != nil {
 			log.Fatal(err)
@@ -481,12 +483,12 @@ func TrailOutput(SerialPort string) {
 }
 
 func main() {
-	var terminalIO bool
+	var debug bool
 	var resetRouter bool
 	var resetSwitch bool
 	var serialDevice string
 
-	flag.BoolVar(&terminalIO, "terminal-io", false, "Show debugging messages")
+	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.Parse()
@@ -500,9 +502,9 @@ func main() {
 	}
 
 	if resetRouter {
-		RouterDefaults(serialDevice, terminalIO)
+		RouterDefaults(serialDevice, debug)
 	}
 	if resetSwitch {
-		SwitchDefaults(serialDevice, terminalIO)
+		SwitchDefaults(serialDevice, debug)
 	}
 }
