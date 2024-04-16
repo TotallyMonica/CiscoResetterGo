@@ -279,6 +279,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	fmt.Println("We've entered ROMMON, setting the register to 0x2142.")
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
+	// TODO: Ensure we're actually at the prompt instead of just assuming
 	for _, cmd := range commands {
 		fmt.Printf("TO DEVICE: %s\n", cmd)
 		port.Write(FormatCommand(cmd))
@@ -288,24 +289,24 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(2 * time.Second)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
-		output = ReadLine(port, BUFFER_SIZE, debug)
-		fmt.Printf("FROM DEVICE: %x\n", output[:80]) // We don't really need all 32k bytes
+		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
 		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
 		fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
 		if IsEmpty(output) {
 			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
+				fmt.Printf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n")
+				port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+				time.Sleep(500 * time.Millisecond)
 			}
-			port.Write([]byte("\r\n"))
 		}
+		output = TrimNull(ReadLine(port, BUFFER_SIZE*2, debug))
 	}
 
 	fmt.Println("Setting the registers back to regular")
 	port.SetReadTimeout(1 * time.Second)
-	WaitForPrefix(port, SHELL_PROMPT, debug)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
 	for _, cmd := range commands {
@@ -314,9 +315,6 @@ func RouterDefaults(SerialPort string, debug bool) {
 		}
 		port.Write(FormatCommand(cmd))
 		ReadLines(port, BUFFER_SIZE, 2, debug)
-
-		// In case commands want to give some flavor text, just disregard those
-		WaitForPrefix(port, SHELL_PROMPT, debug)
 	}
 
 	// Now reset config and restart
