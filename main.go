@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -57,11 +56,11 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected prefix: %s\n", prompt)
+			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
-			output = ReadLine(port, 32768, debug)
-			fmt.Printf("FROM DEVICE: %s", output[:80])
-			time.Sleep(1 * time.Second)
+			output = TrimNull(ReadLine(port, 4096, debug))
+
 		}
 		fmt.Println(output)
 	} else {
@@ -69,8 +68,8 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected prefix: %s\n", prompt)
 			port.Write(FormatCommand(""))
-			output = ReadLine(port, 32768, debug)
-			time.Sleep(1 * time.Second)
+			output = TrimNull(ReadLine(port, 4096, debug))
+
 		}
 	}
 }
@@ -84,8 +83,9 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
 			fmt.Printf("TO DEVICE: %s\n", "\\n")
 			port.Write(FormatCommand(""))
-			output = ReadLine(port, 32768, debug)
+			output = TrimNull(ReadLine(port, 4096, debug))
 			time.Sleep(1 * time.Second)
+
 		}
 		fmt.Println(output)
 	} else {
@@ -93,8 +93,9 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected substring: %s\n", prompt)
 			port.Write(FormatCommand(""))
-			output = ReadLine(port, 32768, debug)
+			output = TrimNull(ReadLine(port, 4096, debug))
 			time.Sleep(1 * time.Second)
+
 		}
 	}
 }
@@ -243,7 +244,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(1 * time.Second)
 
 	fmt.Println("Trigger the recovery sequence by following these steps: ")
 	fmt.Println("1. Turn off the router")
@@ -259,8 +260,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
-			output = ReadLine(port, BUFFER_SIZE, debug)
-			time.Sleep(1 * time.Second)
+			output = TrimNull(ReadLine(port, BUFFER_SIZE, debug))
 			fmt.Printf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:]))))
 			fmt.Printf("TO DEVICE: %s\n", "^c")
 			port.Write([]byte("\x03"))
@@ -271,8 +271,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
 			port.Write([]byte("\x03"))
-			output = ReadLine(port, BUFFER_SIZE, debug)
-			time.Sleep(1 * time.Second)
+			output = TrimNull(ReadLine(port, BUFFER_SIZE, debug))
 		}
 	}
 
@@ -280,8 +279,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	fmt.Println("We've entered ROMMON, setting the register to 0x2142.")
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
-	for idx, cmd := range commands {
-		WaitForPrefix(port, ROMMON_PROMPT+" "+strconv.Itoa(idx+1), debug)
+	for _, cmd := range commands {
 		fmt.Printf("TO DEVICE: %s\n", cmd)
 		port.Write(FormatCommand(cmd))
 		output = ReadLine(port, BUFFER_SIZE, debug)
@@ -290,7 +288,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
-	port.SetReadTimeout(15)
+	port.SetReadTimeout(1 * time.Second)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
 		output = ReadLine(port, BUFFER_SIZE, debug)
@@ -303,11 +301,10 @@ func RouterDefaults(SerialPort string, debug bool) {
 			}
 			port.Write([]byte("\r\n"))
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	fmt.Println("Setting the registers back to regular")
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(1 * time.Second)
 	WaitForPrefix(port, SHELL_PROMPT, debug)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
