@@ -243,7 +243,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(1)
 
 	fmt.Println("Trigger the recovery sequence by following these steps: ")
 	fmt.Println("1. Turn off the router")
@@ -256,7 +256,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// Get to ROMMON
 	if debug {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
 			output = ReadLine(port, BUFFER_SIZE, debug)
@@ -290,7 +290,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
-	port.SetReadTimeout(15 * time.Second)
+	port.SetReadTimeout(15)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
 		output = ReadLine(port, BUFFER_SIZE, debug)
@@ -307,7 +307,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	}
 
 	fmt.Println("Setting the registers back to regular")
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(1)
 	WaitForPrefix(port, SHELL_PROMPT, debug)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
