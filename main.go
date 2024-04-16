@@ -174,7 +174,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 		}
 	} else {
 		for _, file := range files {
-			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
+			cleanLine := strings.Split(strings.TrimSpace(string(TrimNull(file))), " ")
 			if len(cleanLine) > 1 {
 				for _, prefix := range commonPrefixes {
 					if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
