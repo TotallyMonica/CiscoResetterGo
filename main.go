@@ -298,9 +298,9 @@ func RouterDefaults(SerialPort string, debug bool) {
 		if IsEmpty(output) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n")
-				port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
-				time.Sleep(500 * time.Millisecond)
 			}
+			port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+			time.Sleep(500 * time.Millisecond)
 		}
 		output = TrimNull(ReadLine(port, BUFFER_SIZE*2, debug))
 	}
