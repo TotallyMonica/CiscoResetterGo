@@ -22,6 +22,7 @@ func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
 	output := make([][]byte, maxLines)
+
 	for i := 0; i < maxLines; i++ {
 		output[i] = make([]byte, buffSize)
 		for {
@@ -41,11 +42,12 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			}
 		}
 	}
-	if debug {
-		for _, line := range output {
-			fmt.Printf("FROM DEVICE: %s", string(line))
-		}
-	}
+	//if debug {
+	//	for _, line := range output {
+	//		fmt.Printf("FROM DEVICE: %s", string(line))
+	//	}
+	//}
+
 	return output
 }
 
@@ -107,15 +109,25 @@ func IsEmpty(output []byte) bool {
 }
 
 func TrimNull(bytes []byte) []byte {
-	var noNullBytes []byte
-
-	for _, unknownByte := range bytes {
-		if unknownByte != 0 {
-			noNullBytes = append(noNullBytes, unknownByte)
+	friendlyLine := make([]byte, 0)
+	if !IsEmpty(bytes) {
+		for _, val := range bytes {
+			if val != 0x00 {
+				friendlyLine = append(friendlyLine, val)
+			}
 		}
 	}
+	return friendlyLine
+}
 
-	return noNullBytes
+func TrimNewLines(unparsed string) string {
+	friendlyLine := ""
+	for _, val := range unparsed {
+		if string(val) != "\r" && string(val) != "\n" {
+			friendlyLine = friendlyLine + string(val)
+		}
+	}
+	return friendlyLine
 }
 
 func RemoveNonPrintable(output []byte) []byte {
@@ -143,15 +155,19 @@ func FormatCommand(cmd string) []byte {
 
 func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	commonPrefixes := []string{"config", "vlan"}
-	filesToDelete := make([]string, len(files))
+	filesToDelete := make([]string, 0)
 
 	if debug {
 		for _, file := range files {
-			cleanLine := strings.Split(strings.TrimSpace(string(file)), " ")
+			cleanLine := strings.Split(strings.TrimSpace(string(TrimNull(file))), " ")
 			if len(cleanLine) > 1 {
 				for _, prefix := range commonPrefixes {
-					if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
-						filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+					for i := 0; i < len(cleanLine); i++ {
+						if len(cleanLine[i]) > 0 && strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[i])), prefix) {
+							delimitedCleanLine := strings.Split(cleanLine[i], "\n")
+							filesToDelete = append(filesToDelete, delimitedCleanLine[0])
+							fmt.Printf("DEBUG: File %s needs to be deleted (contains substring %s)\n", cleanLine[i], prefix)
+						}
 					}
 				}
 			}
@@ -337,10 +353,10 @@ func RouterDefaults(SerialPort string, debug bool) {
 }
 
 func SwitchDefaults(SerialPort string, debug bool) {
-	const BUFFER_SIZE = 32768
+	const BUFFER_SIZE = 100
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
-	const STARTUP_HINT = "xmodem file system is available."
+	const STARTUP_HINT = "xmodem"
 
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -355,39 +371,87 @@ func SwitchDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1)
+	port.SetReadTimeout(5 * time.Second)
 
 	fmt.Println("Trigger password recovery by following these steps: ")
 	fmt.Println("1. Unplug the switch")
 	fmt.Println("2. Hold the MODE button on the switch.")
 	fmt.Println("3. Plug the switch in while holding the button")
 	fmt.Println("4. When you are told, release the MODE button")
-	fmt.Println("Press Enter here when you have plugged the switch back in")
-	fmt.Scanln()
 
 	// Wait for switch to startup
-	WaitForSubstring(port, STARTUP_HINT, debug)
-	fmt.Println("Release the MODE button now")
-	WaitForPrefix(port, RECOVERY_PROMPT, debug)
+	var output []byte
+	var parsedOutput string
+	if debug {
+		for !(strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+			parsedOutput = strings.ToLower(strings.TrimSpace(string(TrimNull(ReadLine(port, 500, debug)))))
+			fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
+			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT))
+			fmt.Printf("Expected substrings: %s OR %s\n", STARTUP_HINT, RECOVERY_PROMPT)
+			port.Write(FormatCommand(""))
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Printf("DEBUG: %s\n", parsedOutput)
+	} else {
+		for !(strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+			parsedOutput = strings.ToLower(strings.TrimSpace(string(TrimNull(ReadLine(port, 500, debug)))))
+			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT))
+			fmt.Printf("Expected substrings: %s OR %s\n", STARTUP_HINT, RECOVERY_PROMPT)
+			port.Write(FormatCommand(""))
+			time.Sleep(1 * time.Second)
+		}
+	}
+	fmt.Println("Release the MODE button and press Enter.")
+	fmt.Scanln()
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+		if debug {
+			fmt.Printf("DEBUG: %s\n", output)
+		}
+		output = ReadLine(port, 500, debug)
+	}
+	if debug {
+		fmt.Printf("DEBUG: %s\n", TrimNull(output))
+	}
 
 	// Initialize Flash
-	port.SetReadTimeout(2 * time.Second)
 	fmt.Println("Entered recovery console, now initializing flash")
-	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "flash_init")
-	}
 	port.Write(FormatCommand("flash_init"))
-	ReadLines(port, BUFFER_SIZE, 10, debug)
+	output = ReadLine(port, 500, debug)
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+		if debug {
+			fmt.Printf("DEBUG: %s\n", TrimNull(output))
+		}
+		port.Write(FormatCommand(""))
+		time.Sleep(1 * time.Second)
+		output = ReadLine(port, 500, debug)
+	}
+	if debug {
+		fmt.Printf("DEBUG: %s\n", TrimNull(output))
+	}
 
 	// Get files
 	fmt.Println("Flash has been initialized, now listing directory")
-	port.SetReadTimeout(2 * time.Second)
+	port.SetReadTimeout(15 * time.Second)
+	listing := make([][]byte, 1)
+	port.Write(FormatCommand("dir flash:"))
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "dir flash:")
 	}
-	port.Write(FormatCommand("dir flash:"))
-	listing := ReadLines(port, BUFFER_SIZE, 30, debug)
-	WaitForPrefix(port, RECOVERY_PROMPT, debug)
+	time.Sleep(5 * time.Second)
+	line := ReadLine(port, 16384, debug)
+	listing = append(listing, line)
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(line)))), RECOVERY_PROMPT) {
+		line = ReadLine(port, 16384, debug)
+		listing = append(listing, line)
+		if debug {
+			fmt.Printf("DEBUG: %s\n", TrimNull(line))
+		}
+		port.Write(FormatCommand(""))
+		time.Sleep(1 * time.Second)
+	}
+	if debug {
+		fmt.Printf("DEBUG: %s\n", TrimNull(line))
+	}
 
 	// Determine the files we need to delete
 	// TODO: Debug this section
@@ -398,32 +462,41 @@ func SwitchDefaults(SerialPort string, debug bool) {
 	if len(filesToDelete) == 0 {
 		fmt.Println("Switch has been reset already.")
 	} else {
+		port.SetReadTimeout(1 * time.Second)
 		fmt.Println("Deleting files")
 		for _, file := range filesToDelete {
 			fmt.Println("Deleting " + file)
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
 			}
-			//port.Write(FormatCommand("del flash:" + file))
-			//WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
-			//if debug {
-			//	fmt.Printf("DEBUG: Confirming deletion\n")
-			//}
-			//fmt.Printf("TO DEVICE: %s\n", "y")
-			//port.Write(FormatCommand("y"))
-			//ReadLines(port, BUFFER_SIZE, 2, debug)
+			port.Write(FormatCommand("del flash:" + file))
+			ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("DEBUG: Confirming deletion\n")
+			}
+			fmt.Printf("TO DEVICE: %s\n", "y")
+			port.Write(FormatCommand("y"))
+			ReadLine(port, 500, debug)
 		}
 		fmt.Println("Switch has been reset")
 	}
 
 	fmt.Println("Restarting the switch")
-	WaitForPrefix(port, RECOVERY_PROMPT, debug)
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+		if debug {
+			fmt.Printf("DEBUG: %s\n", output)
+		}
+		output = ReadLine(port, 500, debug)
+	}
+	if debug {
+		fmt.Printf("DEBUG: %s\n", TrimNull(output))
+	}
 
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "reset")
 	}
 	port.Write(FormatCommand("reset"))
-	WaitForSubstring(port, CONFIRMATION_PROMPT, debug)
+	ReadLine(port, 500, debug)
 
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "y")
