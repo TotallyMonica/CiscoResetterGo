@@ -32,7 +32,7 @@ While it is possible to compile Python scripts to a single executable, to me it 
 
 ## To-Do
 - [x] ~~Ensure Cisco 4221 is properly reset~~ Confirmed 4/11/2024
-- [ ] Ensure Cisco 2960 series is properly reset
+- [x] ~~Ensure Cisco 2960 series is properly reset~~ Confirmed 4/16/2024
 - [ ] Test Windows 7 compatibility
 - [ ] Test Linux compatibility (Baseline: Ubuntu 16.04)
 - [ ] Set custom defaults via JSON
