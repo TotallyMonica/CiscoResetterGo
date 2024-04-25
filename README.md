@@ -30,10 +30,16 @@ After using the first version of this, I discovered that the lab that I work in 
 
 While it is possible to compile Python scripts to a single executable, to me it made more sense to rewrite it in Go as that was a language that I was trying to learn.
 
+## Tested with:
+- Cisco 4221
+- Cisco 2960G Series
+- Cisco 2960 Plus Series
+- 
+
 ## To-Do
 - [x] ~~Ensure Cisco 4221 is properly reset~~ Confirmed 4/11/2024
 - [x] ~~Ensure Cisco 2960 series is properly reset~~ Confirmed 4/16/2024
-- [ ] Test Windows 7 compatibility
+- [x] ~~Test Windows 7 compatibility~~ Confirmed 4/25/2024
 - [ ] Test Linux compatibility (Baseline: Ubuntu 16.04)
 - [ ] Set custom defaults via JSON
 - [ ] Flags for identifying what to configure
