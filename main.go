@@ -244,7 +244,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(5 * time.Second)
 
 	fmt.Println("Trigger the recovery sequence by following these steps: ")
 	fmt.Println("1. Turn off the router")
@@ -262,16 +262,18 @@ func RouterDefaults(SerialPort string, debug bool) {
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
 			output = TrimNull(ReadLine(port, BUFFER_SIZE, debug))
 			fmt.Printf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:]))))
-			fmt.Printf("TO DEVICE: %s\n", "^c")
-			port.Write([]byte("\x03"))
+			fmt.Printf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c")
+			port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
+			time.Sleep(1 * time.Second)
 		}
 		fmt.Println(output)
 	} else {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
 			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
 			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
-			port.Write([]byte("\x03"))
+			port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			output = TrimNull(ReadLine(port, BUFFER_SIZE, debug))
+			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -289,7 +291,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 
 	// We've made it out of ROMMON
 	// Set timeout (does this do anything? idk)
-	port.SetReadTimeout(2 * time.Second)
+	port.SetReadTimeout(10 * time.Second)
 	fmt.Println("We've finished with ROMMON, going back into the regular console")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
 		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
@@ -300,13 +302,13 @@ func RouterDefaults(SerialPort string, debug bool) {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n")
 			}
 			port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
-			time.Sleep(500 * time.Millisecond)
 		}
+		time.Sleep(1 * time.Second)
 		output = TrimNull(ReadLine(port, BUFFER_SIZE*2, debug))
 	}
 
 	fmt.Println("Setting the registers back to regular")
-	port.SetReadTimeout(1 * time.Second)
+	port.SetReadTimeout(5 * time.Second)
 	// We can safely assume we're at the prompt, begin running reset commands
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
 	for _, cmd := range commands {
