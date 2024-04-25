@@ -244,7 +244,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(5 * time.Second)
+	port.SetReadTimeout(2 * time.Second)
 
 	fmt.Println("Trigger the recovery sequence by following these steps: ")
 	fmt.Println("1. Turn off the router")
@@ -332,18 +332,24 @@ func RouterDefaults(SerialPort string, debug bool) {
 	port.Write(FormatCommand(""))
 	ReadLines(port, BUFFER_SIZE, 2, debug)
 
-	WaitForPrefix(port, SHELL_PROMPT, debug)
 	fmt.Println("Reloading the router")
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "reload")
 	}
 	port.Write(FormatCommand("reload"))
-	WaitForSubstring(port, SAVE_PROMPT, debug)
+	ReadLines(port, BUFFER_SIZE, 2, debug)
+
 	port.Write(FormatCommand("yes"))
 	if debug {
 		fmt.Printf("TO DEVICE: %s\n", "yes")
 	}
-	WaitForSubstring(port, SAVE_PROMPT, debug)
+	ReadLines(port, BUFFER_SIZE, 2, debug)
+
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", "\\n")
+	}
+	port.Write(FormatCommand(""))
+	ReadLines(port, BUFFER_SIZE, 2, debug)
 
 	fmt.Println("Successfully reset!")
 	PrintOutput(port)
