@@ -189,7 +189,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	return filesToDelete
 }
 
-func SetupSerial() string {
+func SetupSerial() (string, serial.Mode) {
 	var userInput string
 	isValid := false
 	for !isValid {
@@ -218,10 +218,96 @@ func SetupSerial() string {
 			}
 		}
 	}
-	return userInput
+
+	fmt.Println("Default settings are 9600 8N1. Would you like to change these? (y/N)")
+	fmt.Scanln(&userInput)
+
+	settings := &serial.Mode{
+		BaudRate: 9600,
+		Parity:   serial.NoParity,
+		DataBits: 8,
+		StopBits: serial.OneStopBit,
+	}
+
+	if strings.ToLower(userInput) == "y" {
+		var baudRate int
+		var dataBits int
+		var parityBitInput int
+		var stopBitsInput float64
+		stopBits := serial.OneStopBit
+		parityBit := serial.NoParity
+
+		fmt.Println("Default baud rate is 9600.")
+		fmt.Printf("Enter the desired baud rate (Empty for defaults): ")
+		fmt.Scanf("%d", &baudRate)
+		if baudRate == 0 {
+			baudRate = 9600
+		}
+
+		fmt.Println("Default data bits is 8.")
+		fmt.Printf("Enter the desired data bits (Empty for defaults): ")
+		fmt.Scanf("%d", &dataBits)
+		if dataBits == 0 {
+			dataBits = 8
+		}
+
+		fmt.Println("Default setting for parity bits is none.")
+		fmt.Println("Valid options are (1) None, (2) Even, (3) Odd, (4) Mark, or (5) Space.")
+		fmt.Printf("Enter the desired parity bits (Empty for defaults): ")
+		fmt.Scanf("%d", &parityBitInput)
+		switch parityBitInput {
+		case 1:
+		case 0:
+			parityBit = serial.NoParity
+			break
+		case 2:
+			parityBit = serial.EvenParity
+			break
+		case 3:
+			parityBit = serial.OddParity
+			break
+		case 4:
+			parityBit = serial.MarkParity
+			break
+		case 5:
+			parityBit = serial.SpaceParity
+			break
+		default:
+			log.Fatal("Invalid parity bit value provided")
+		}
+
+		fmt.Println("Default value for stop bits is 1")
+		fmt.Println("Valid values for stop bits are 1, 1.5, or 2 stop bits.")
+		fmt.Printf("Enter the desired stop bits (Empty for defaults): ")
+		fmt.Scanf("%f", &stopBitsInput)
+
+		switch stopBitsInput {
+		case 0.0:
+		case 1.0:
+			stopBits = serial.OneStopBit
+			break
+		case 1.5:
+			stopBits = serial.OnePointFiveStopBits
+			break
+		case 2.0:
+			stopBits = serial.TwoStopBits
+			break
+		default:
+			log.Fatal("Invalid stop bits value provided")
+		}
+
+		settings = &serial.Mode{
+			BaudRate: baudRate,
+			DataBits: dataBits,
+			Parity:   parityBit,
+			StopBits: stopBits,
+		}
+	}
+
+	return userInput, *settings
 }
 
-func RouterDefaults(SerialPort string, debug bool) {
+func RouterDefaults(SerialPort string, PortSettings serial.Mode, debug bool) {
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
@@ -231,14 +317,7 @@ func RouterDefaults(SerialPort string, debug bool) {
 	const SAVE_PROMPT = "[yes/no]: "
 	const SHELL_CUE = "press return to get started!"
 
-	mode := &serial.Mode{
-		BaudRate: 9600,
-		Parity:   serial.NoParity,
-		DataBits: 8,
-		StopBits: serial.OneStopBit,
-	}
-
-	port, err := serial.Open(SerialPort, mode)
+	port, err := serial.Open(SerialPort, &PortSettings)
 
 	if err != nil {
 		log.Fatal(err)
@@ -355,20 +434,13 @@ func RouterDefaults(SerialPort string, debug bool) {
 	PrintOutput(port)
 }
 
-func SwitchDefaults(SerialPort string, debug bool) {
+func SwitchDefaults(SerialPort string, PortSettings serial.Mode, debug bool) {
 	const BUFFER_SIZE = 100
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
 	const STARTUP_HINT = "xmodem"
 
-	mode := &serial.Mode{
-		BaudRate: 9600,
-		Parity:   serial.NoParity,
-		DataBits: 8,
-		StopBits: serial.OneStopBit,
-	}
-
-	port, err := serial.Open(SerialPort, mode)
+	port, err := serial.Open(SerialPort, &PortSettings)
 
 	if err != nil {
 		log.Fatal(err)
@@ -563,6 +635,7 @@ func main() {
 	var resetRouter bool
 	var resetSwitch bool
 	var serialDevice string
+	var portSettings serial.Mode
 
 	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
@@ -572,15 +645,15 @@ func main() {
 	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
 
 	if resetRouter || resetSwitch {
-		serialDevice = SetupSerial()
+		serialDevice, portSettings = SetupSerial()
 	} else {
 		log.Fatal("Neither router or switch reset flags provided. Run program with -router and/or -switch")
 	}
 
 	if resetRouter {
-		RouterDefaults(serialDevice, debug)
+		RouterDefaults(serialDevice, portSettings, debug)
 	}
 	if resetSwitch {
-		SwitchDefaults(serialDevice, debug)
+		SwitchDefaults(serialDevice, portSettings, debug)
 	}
 }

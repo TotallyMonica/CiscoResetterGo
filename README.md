@@ -46,4 +46,4 @@ While it is possible to compile Python scripts to a single executable, to me it 
 - [ ] Handle password recovery being disabled
 - [ ] Back up configs prior to reset
 - [ ] Configure serial port via switches
-- [ ] Allow changing of serial port settings (Currently only allowing 9600 8N1)
+- [x] ~~Allow changing of serial port settings (Currently only allowing 9600 8N1)~~ Written 4/25/2024
