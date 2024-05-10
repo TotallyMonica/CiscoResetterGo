@@ -191,6 +191,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 
 func SetupSerial() (string, serial.Mode) {
 	var userInput string
+	var chosenPort string
 	isValid := false
 	for !isValid {
 		ports, err := enumerator.GetDetailedPortsList()
@@ -215,6 +216,7 @@ func SetupSerial() (string, serial.Mode) {
 		for _, port := range ports {
 			if strings.ToUpper(userInput) == strings.ToUpper(port.Name) {
 				isValid = true
+				chosenPort = userInput
 			}
 		}
 	}
@@ -239,14 +241,14 @@ func SetupSerial() (string, serial.Mode) {
 
 		fmt.Println("Default baud rate is 9600.")
 		fmt.Printf("Enter the desired baud rate (Empty for defaults): ")
-		fmt.Scanf("%d", &baudRate)
+		fmt.Scanf("%d\n", &baudRate)
 		if baudRate == 0 {
 			baudRate = 9600
 		}
 
 		fmt.Println("Default data bits is 8.")
 		fmt.Printf("Enter the desired data bits (Empty for defaults): ")
-		fmt.Scanf("%d", &dataBits)
+		fmt.Scanf("%d\n", &dataBits)
 		if dataBits == 0 {
 			dataBits = 8
 		}
@@ -254,7 +256,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Println("Default setting for parity bits is none.")
 		fmt.Println("Valid options are (1) None, (2) Even, (3) Odd, (4) Mark, or (5) Space.")
 		fmt.Printf("Enter the desired parity bits (Empty for defaults): ")
-		fmt.Scanf("%d", &parityBitInput)
+		fmt.Scanf("%d\n", &parityBitInput)
 		switch parityBitInput {
 		case 1:
 		case 0:
@@ -279,7 +281,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Println("Default value for stop bits is 1")
 		fmt.Println("Valid values for stop bits are 1, 1.5, or 2 stop bits.")
 		fmt.Printf("Enter the desired stop bits (Empty for defaults): ")
-		fmt.Scanf("%f", &stopBitsInput)
+		fmt.Scanf("%f\n", &stopBitsInput)
 
 		switch stopBitsInput {
 		case 0.0:
@@ -304,7 +306,7 @@ func SetupSerial() (string, serial.Mode) {
 		}
 	}
 
-	return userInput, *settings
+	return chosenPort, *settings
 }
 
 func RouterDefaults(SerialPort string, PortSettings serial.Mode, debug bool) {
@@ -438,7 +440,11 @@ func SwitchDefaults(SerialPort string, PortSettings serial.Mode, debug bool) {
 	const BUFFER_SIZE = 100
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
-	const STARTUP_HINT = "xmodem"
+	const PASSWORD_RECOVERY = "password-recovery"
+	const PASSWORD_RECOVERY_DISABLED = "password-recovery mechanism is disabled"
+	const PASSWORD_RECOVERY_TRIGGERED = "password-recovery mechanism has been triggered"
+	const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
+	const YES_NO_PROMPT = "(y/n)?"
 
 	port, err := serial.Open(SerialPort, &PortSettings)
 
@@ -458,126 +464,176 @@ func SwitchDefaults(SerialPort string, PortSettings serial.Mode, debug bool) {
 	var output []byte
 	var parsedOutput string
 	if debug {
-		for !(strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY)) {
 			parsedOutput = strings.ToLower(strings.TrimSpace(string(TrimNull(ReadLine(port, 500, debug)))))
 			fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
-			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT))
-			fmt.Printf("Expected substrings: %s OR %s\n", STARTUP_HINT, RECOVERY_PROMPT)
+			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
+				strings.Contains(parsedOutput, RECOVERY_PROMPT))
+			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
 			port.Write(FormatCommand(""))
 			time.Sleep(1 * time.Second)
 		}
 		fmt.Printf("DEBUG: %s\n", parsedOutput)
 	} else {
-		for !(strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY)) {
 			parsedOutput = strings.ToLower(strings.TrimSpace(string(TrimNull(ReadLine(port, 500, debug)))))
-			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, STARTUP_HINT) || strings.Contains(parsedOutput, RECOVERY_PROMPT))
-			fmt.Printf("Expected substrings: %s OR %s\n", STARTUP_HINT, RECOVERY_PROMPT)
+			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
+				strings.Contains(parsedOutput, RECOVERY_PROMPT))
+			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
 			port.Write(FormatCommand(""))
 			time.Sleep(1 * time.Second)
 		}
 	}
 	fmt.Println("Release the MODE button and press Enter.")
 	fmt.Scanln()
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
-		if debug {
-			fmt.Printf("DEBUG: %s\n", output)
-		}
-		output = ReadLine(port, 500, debug)
-	}
-	if debug {
-		fmt.Printf("DEBUG: %s\n", TrimNull(output))
+
+	// Ensure we have one of the test cases in the buffer
+	if !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
+		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+		port.Write(FormatCommand(""))
+		port.Write(FormatCommand(""))
+		port.Write(FormatCommand(""))
+		port.Write(FormatCommand(""))
+		port.Write(FormatCommand(""))
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(TrimNull(ReadLine(port, 500, debug)))))
+
 	}
 
-	// Initialize Flash
-	fmt.Println("Entered recovery console, now initializing flash")
-	port.Write(FormatCommand("flash_init"))
-	output = ReadLine(port, 500, debug)
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+	// Test to see what we triggered on.
+	// Password recovery was disabled
+	if strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) {
+		fmt.Println("Password recovery was disabled")
+		for !(strings.Contains(parsedOutput, YES_NO_PROMPT)) {
+			if debug {
+				fmt.Printf("DEBUG: %s\n", output)
+			}
+			port.Write(FormatCommand(""))
+			output = ReadLine(port, 500, debug)
+		}
+
+		port.Write(FormatCommand("y"))
+
+		for !(strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT)) {
+			if debug {
+				fmt.Printf("DEBUG: %s\n", output)
+			}
+			port.Write(FormatCommand(""))
+			time.Sleep(1 * time.Second)
+			output = ReadLine(port, 500, debug)
+		}
+
+		port.Write(FormatCommand("boot"))
+		ReadLines(port, BUFFER_SIZE, 10, debug)
+
+		// Password recovery was enabled
+	} else if strings.Contains(parsedOutput, RECOVERY_PROMPT) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) {
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+			if debug {
+				fmt.Printf("DEBUG: %s\n", output)
+			}
+			output = ReadLine(port, 500, debug)
+		}
 		if debug {
 			fmt.Printf("DEBUG: %s\n", TrimNull(output))
 		}
-		port.Write(FormatCommand(""))
-		time.Sleep(1 * time.Second)
-		output = ReadLine(port, 500, debug)
-	}
-	if debug {
-		fmt.Printf("DEBUG: %s\n", TrimNull(output))
-	}
 
-	// Get files
-	fmt.Println("Flash has been initialized, now listing directory")
-	port.SetReadTimeout(15 * time.Second)
-	listing := make([][]byte, 1)
-	port.Write(FormatCommand("dir flash:"))
-	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "dir flash:")
-	}
-	time.Sleep(5 * time.Second)
-	line := ReadLine(port, 16384, debug)
-	listing = append(listing, line)
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(line)))), RECOVERY_PROMPT) {
-		line = ReadLine(port, 16384, debug)
+		// Initialize Flash
+		fmt.Println("Entered recovery console, now initializing flash")
+		port.Write(FormatCommand("flash_init"))
+		output = ReadLine(port, 500, debug)
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+			if debug {
+				fmt.Printf("DEBUG: %s\n", TrimNull(output))
+			}
+			port.Write(FormatCommand(""))
+			time.Sleep(1 * time.Second)
+			output = ReadLine(port, 500, debug)
+		}
+		if debug {
+			fmt.Printf("DEBUG: %s\n", TrimNull(output))
+		}
+
+		// Get files
+		fmt.Println("Flash has been initialized, now listing directory")
+		port.SetReadTimeout(15 * time.Second)
+		listing := make([][]byte, 1)
+		port.Write(FormatCommand("dir flash:"))
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", "dir flash:")
+		}
+		time.Sleep(5 * time.Second)
+		line := ReadLine(port, 16384, debug)
 		listing = append(listing, line)
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(line)))), RECOVERY_PROMPT) {
+			line = ReadLine(port, 16384, debug)
+			listing = append(listing, line)
+			if debug {
+				fmt.Printf("DEBUG: %s\n", TrimNull(line))
+			}
+			port.Write(FormatCommand(""))
+			time.Sleep(1 * time.Second)
+		}
 		if debug {
 			fmt.Printf("DEBUG: %s\n", TrimNull(line))
 		}
-		port.Write(FormatCommand(""))
-		time.Sleep(1 * time.Second)
-	}
-	if debug {
-		fmt.Printf("DEBUG: %s\n", TrimNull(line))
-	}
 
-	// Determine the files we need to delete
-	// TODO: Debug this section
-	fmt.Println("Parsing files to delete...")
-	filesToDelete := ParseFilesToDelete(listing, debug)
+		// Determine the files we need to delete
+		// TODO: Debug this section
+		fmt.Println("Parsing files to delete...")
+		filesToDelete := ParseFilesToDelete(listing, debug)
 
-	// Delete files if necessary
-	if len(filesToDelete) == 0 {
-		fmt.Println("Switch has been reset already.")
-	} else {
-		port.SetReadTimeout(1 * time.Second)
-		fmt.Println("Deleting files")
-		for _, file := range filesToDelete {
-			fmt.Println("Deleting " + file)
-			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
+		// Delete files if necessary
+		if len(filesToDelete) == 0 {
+			fmt.Println("Switch has been reset already.")
+		} else {
+			port.SetReadTimeout(1 * time.Second)
+			fmt.Println("Deleting files")
+			for _, file := range filesToDelete {
+				fmt.Println("Deleting " + file)
+				if debug {
+					fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
+				}
+				port.Write(FormatCommand("del flash:" + file))
+				ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("DEBUG: Confirming deletion\n")
+				}
+				fmt.Printf("TO DEVICE: %s\n", "y")
+				port.Write(FormatCommand("y"))
+				ReadLine(port, 500, debug)
 			}
-			port.Write(FormatCommand("del flash:" + file))
-			ReadLine(port, 500, debug)
-			if debug {
-				fmt.Printf("DEBUG: Confirming deletion\n")
-			}
-			fmt.Printf("TO DEVICE: %s\n", "y")
-			port.Write(FormatCommand("y"))
-			ReadLine(port, 500, debug)
+			fmt.Println("Switch has been reset")
 		}
-		fmt.Println("Switch has been reset")
-	}
 
-	fmt.Println("Restarting the switch")
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+		fmt.Println("Restarting the switch")
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output)))), RECOVERY_PROMPT) {
+			if debug {
+				fmt.Printf("DEBUG: %s\n", output)
+			}
+			output = ReadLine(port, 500, debug)
+		}
 		if debug {
-			fmt.Printf("DEBUG: %s\n", output)
+			fmt.Printf("DEBUG: %s\n", TrimNull(output))
 		}
-		output = ReadLine(port, 500, debug)
-	}
-	if debug {
-		fmt.Printf("DEBUG: %s\n", TrimNull(output))
-	}
 
-	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "reset")
-	}
-	port.Write(FormatCommand("reset"))
-	ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", "reset")
+		}
+		port.Write(FormatCommand("reset"))
+		ReadLine(port, 500, debug)
 
-	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "y")
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", "y")
+		}
+		port.Write(FormatCommand("y"))
+		ReadLines(port, BUFFER_SIZE, 10, debug)
 	}
-	port.Write(FormatCommand("y"))
-	ReadLines(port, BUFFER_SIZE, 10, debug)
 
 	fmt.Println("Successfully reset! Will continue trailing the output, but ^C at any point to exit.")
 	PrintOutput(port)
