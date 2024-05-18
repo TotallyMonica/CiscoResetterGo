@@ -5,9 +5,44 @@ import (
 	"go.bug.st/serial"
 	"log"
 	"main/common"
+	"strconv"
 	"strings"
 	"time"
 )
+
+type SwitchPortConfig struct {
+	Port           string
+	SwitchportMode string
+	Vlan           int
+	Shutdown       bool
+}
+
+type VlanConfig struct {
+	Vlan       int
+	Shutdown   bool
+	IpAddress  string
+	SubnetMask string
+}
+
+type SshConfig struct {
+	enable   bool
+	username string
+	password string
+	bits     int
+}
+
+type SwitchConfig struct {
+	Version         float64
+	Vlans           []VlanConfig
+	Ports           []SwitchPortConfig
+	EnablePassword  string
+	ConsolePassword string
+	Ssh             SshConfig
+	Banner          string
+	Hostname        string
+	DomainName      string
+	DefaultGateway  string
+}
 
 func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	commonPrefixes := []string{"config", "vlan"}
@@ -110,7 +145,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		port.Write(common.FormatCommand(""))
 		port.Write(common.FormatCommand(""))
 		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
-
 	}
 
 	// Test to see what we triggered on.
@@ -244,4 +278,125 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	}
 
 	fmt.Println("Successfully reset!")
+}
+
+func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, debug bool) {
+	hostname := "Switch"
+	prompt := hostname + ">"
+
+	port, err := serial.Open(SerialPort, &PortSettings)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	port.SetReadTimeout(1 * time.Second)
+
+	common.WaitForSubstring(port, prompt, debug)
+	port.Write(common.FormatCommand(""))
+	line := common.ReadLine(port, 500, debug)
+	if debug {
+		fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+	}
+	port.Write(common.FormatCommand("enable"))
+	prompt = hostname + "#"
+
+	port.Write(common.FormatCommand("conf t"))
+	prompt = hostname + "(config)#"
+
+	if len(config.Vlans) > 0 {
+		for _, vlan := range config.Vlans {
+			fmt.Printf("Configuring vlan %d\n", vlan.Vlan)
+			port.Write(common.FormatCommand("inter vlan " + strconv.Itoa(vlan.Vlan)))
+			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
+				port.Write(common.FormatCommand("ip addr " + vlan.IpAddress + " " + vlan.SubnetMask))
+			}
+			if vlan.Shutdown {
+				port.Write(common.FormatCommand("shutdown"))
+			} else {
+				port.Write(common.FormatCommand("no shutdown"))
+			}
+			port.Write(common.FormatCommand("exit"))
+		}
+	}
+
+	if len(config.Ports) != 0 {
+		for _, switchPort := range config.Ports {
+			fmt.Printf("Configuring port %s\n", switchPort.Port)
+			port.Write(common.FormatCommand("inter " + switchPort.Port))
+			if switchPort.SwitchportMode != "" {
+				port.Write(common.FormatCommand("switchport mode " + switchPort.SwitchportMode))
+			}
+			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
+				if strings.ToLower(switchPort.SwitchportMode) == "access" {
+					port.Write(common.FormatCommand("switchport access vlan " + strconv.Itoa(switchPort.Vlan)))
+				} else if strings.ToLower(switchPort.SwitchportMode) == "trunk" {
+					port.Write(common.FormatCommand("switchport trunk native vlan " + strconv.Itoa(switchPort.Vlan)))
+				} else {
+					fmt.Printf("Switch port mode %s is not supported for static vlan assignment\n", switchPort.SwitchportMode)
+				}
+			}
+			port.Write(common.FormatCommand("exit"))
+		}
+	}
+
+	if config.Banner != "" {
+		port.Write(common.FormatCommand("banner motd " + config.Banner))
+	}
+
+	if config.ConsolePassword != "" {
+		port.Write(common.FormatCommand("line console 0"))
+		port.Write(common.FormatCommand("console password " + config.ConsolePassword))
+		port.Write(common.FormatCommand("exit"))
+	}
+
+	if config.EnablePassword != "" {
+		port.Write(common.FormatCommand("enable secret " + config.EnablePassword))
+	}
+
+	if config.DefaultGateway != "" {
+		port.Write(common.FormatCommand("ip default-gateway " + config.DefaultGateway))
+	}
+
+	if config.Hostname != "" {
+		port.Write(common.FormatCommand("hostname " + config.Hostname))
+		hostname = config.Hostname
+	}
+
+	if config.DomainName != "" {
+		port.Write(common.FormatCommand("ip domain-name " + config.DomainName))
+	}
+
+	if config.Ssh.enable {
+		allowSSH := true
+		if config.Ssh.username == "" {
+			fmt.Println("Warning: SSH username not specified.")
+			allowSSH = false
+		}
+		if config.Ssh.password == "" {
+			fmt.Println("Warning: SSH password not specified.")
+			allowSSH = false
+		}
+		if config.DomainName == "" {
+			fmt.Println("Warning: Domain name not specified.")
+			allowSSH = false
+		}
+		if config.Hostname == "" {
+			fmt.Println("Warning: Hostname not specified.")
+			allowSSH = false
+		}
+
+		if allowSSH {
+			port.Write(common.FormatCommand("username " + config.Ssh.username + " password " + config.Ssh.password))
+			port.Write(common.FormatCommand("crypto key gen rsa"))
+			if config.Ssh.bits > 0 && config.Ssh.bits < 360 {
+				config.Ssh.bits = 360 // User presumably wanted minimum bit setting, 360 is minimum on IOS 12.2
+			} else if config.Ssh.bits <= 0 {
+				config.Ssh.bits = 512 // Accept default bit setting for non-provided values
+			} else if config.Ssh.bits > 2048 {
+				config.Ssh.bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+			}
+			port.Write(common.FormatCommand(strconv.Itoa(config.Ssh.bits)))
+		}
+	}
 }
