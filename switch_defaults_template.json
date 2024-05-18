@@ -1,0 +1,27 @@
+{
+  "Version": 0.01,
+  "Vlans": [{
+      "Vlan": 1,
+      "IpAddress": "",
+      "SubnetMask": "",
+      "Shutdown": false
+  }],
+  "Ports": [{
+    "Port": "",
+    "SwitchportMode": "",
+    "Vlan": 1,
+    "Shutdown": false
+  }],
+  "EnablePassword": "",
+  "ConsolePassword": "",
+  "Ssh": {
+    "Enable": true,
+    "Username": "",
+    "Password": "",
+    "Bits": 2048
+  },
+  "Banner": "",
+  "Hostname": "",
+  "DomainName": "",
+  "DefaultGateway": ""
+}
