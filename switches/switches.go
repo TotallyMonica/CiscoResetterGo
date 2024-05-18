@@ -303,6 +303,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 			port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
 		}
+		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
+			if debug {
+				fmt.Printf("TO DEVICE: %s\n", "no")
+			}
+			port.Write(common.FormatCommand("no"))
+		}
 		time.Sleep(1 * time.Second)
 		output = common.TrimNull(common.ReadLine(port, 500, debug))
 	}
