@@ -25,10 +25,10 @@ type VlanConfig struct {
 }
 
 type SshConfig struct {
-	enable   bool
-	username string
-	password string
-	bits     int
+	Enable   bool
+	Username string
+	Password string
+	Bits     int
 }
 
 type SwitchConfig struct {
@@ -295,108 +295,298 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	common.WaitForSubstring(port, prompt, debug)
 	port.Write(common.FormatCommand(""))
 	line := common.ReadLine(port, 500, debug)
+
 	if debug {
 		fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		fmt.Printf("INPUT: %s", "enable")
 	}
 	port.Write(common.FormatCommand("enable"))
 	prompt = hostname + "#"
+	line = common.ReadLine(port, 500, debug)
 
+	if debug {
+		fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		fmt.Printf("INPUT: %s", "conf t")
+	}
 	port.Write(common.FormatCommand("conf t"))
 	prompt = hostname + "(config)#"
 
 	if len(config.Vlans) > 0 {
 		for _, vlan := range config.Vlans {
 			fmt.Printf("Configuring vlan %d\n", vlan.Vlan)
+
+			if debug {
+				fmt.Printf("INPUT: %s", "inter vlan "+strconv.Itoa(vlan.Vlan))
+			}
 			port.Write(common.FormatCommand("inter vlan " + strconv.Itoa(vlan.Vlan)))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
+				if debug {
+					fmt.Printf("INPUT: %s", "ip addr "+vlan.IpAddress+" "+vlan.SubnetMask)
+				}
 				port.Write(common.FormatCommand("ip addr " + vlan.IpAddress + " " + vlan.SubnetMask))
+				line = common.ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				}
 			}
 			if vlan.Shutdown {
+				if debug {
+					fmt.Printf("INPUT: %s", "shutdown")
+				}
 				port.Write(common.FormatCommand("shutdown"))
 			} else {
+				if debug {
+					fmt.Printf("INPUT: %s", "no shutdown")
+				}
 				port.Write(common.FormatCommand("no shutdown"))
 			}
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+
+			if debug {
+				fmt.Printf("INPUT: %s", "exit")
+			}
 			port.Write(common.FormatCommand("exit"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
 		}
 	}
 
 	if len(config.Ports) != 0 {
 		for _, switchPort := range config.Ports {
 			fmt.Printf("Configuring port %s\n", switchPort.Port)
-			port.Write(common.FormatCommand("inter " + switchPort.Port))
-			if switchPort.SwitchportMode != "" {
-				port.Write(common.FormatCommand("switchport mode " + switchPort.SwitchportMode))
+
+			if debug {
+				fmt.Printf("INPUT: %s", "inter "+switchPort.Port)
 			}
+			port.Write(common.FormatCommand("inter " + switchPort.Port))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+
+			if switchPort.SwitchportMode != "" {
+				if debug {
+					fmt.Printf("INPUT: %s", "switchport mode "+switchPort.SwitchportMode)
+				}
+				port.Write(common.FormatCommand("switchport mode " + switchPort.SwitchportMode))
+				line = common.ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				}
+			}
+
 			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
 				if strings.ToLower(switchPort.SwitchportMode) == "access" {
+					if debug {
+						fmt.Printf("INPUT: %s", "switchport access vlan "+strconv.Itoa(switchPort.Vlan))
+					}
 					port.Write(common.FormatCommand("switchport access vlan " + strconv.Itoa(switchPort.Vlan)))
+					line = common.ReadLine(port, 500, debug)
+					if debug {
+						fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+					}
 				} else if strings.ToLower(switchPort.SwitchportMode) == "trunk" {
+					if debug {
+						fmt.Printf("INPUT: %s", "switchport trunk native vlan "+strconv.Itoa(switchPort.Vlan))
+					}
 					port.Write(common.FormatCommand("switchport trunk native vlan " + strconv.Itoa(switchPort.Vlan)))
+					line = common.ReadLine(port, 500, debug)
+					if debug {
+						fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+					}
 				} else {
 					fmt.Printf("Switch port mode %s is not supported for static vlan assignment\n", switchPort.SwitchportMode)
 				}
 			}
+
+			if switchPort.Shutdown {
+				if debug {
+					fmt.Printf("INPUT: %s", "shutdown")
+				}
+				port.Write(common.FormatCommand("shutdown"))
+				line = common.ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				}
+			} else {
+				if debug {
+					fmt.Printf("INPUT: %s", "no shutdown")
+				}
+				port.Write(common.FormatCommand("no shutdown"))
+				line = common.ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				}
+			}
+
+			if debug {
+				fmt.Printf("INPUT: %s", "exit")
+			}
 			port.Write(common.FormatCommand("exit"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
 		}
 	}
 
 	if config.Banner != "" {
+		fmt.Printf("Setting the banner to %s\n", config.Banner)
+		if debug {
+			fmt.Printf("INPUT: %s", "banner motd "+config.Banner)
+		}
 		port.Write(common.FormatCommand("banner motd " + config.Banner))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 	}
 
 	if config.ConsolePassword != "" {
+		if debug {
+			fmt.Printf("INPUT: %s", "banner motd "+config.Banner)
+		}
 		port.Write(common.FormatCommand("line console 0"))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
+		if debug {
+			fmt.Printf("INPUT: %s", "console password "+config.ConsolePassword)
+		}
 		port.Write(common.FormatCommand("console password " + config.ConsolePassword))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
+		if debug {
+			fmt.Printf("INPUT: %s", "exit")
+		}
 		port.Write(common.FormatCommand("exit"))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 	}
 
 	if config.EnablePassword != "" {
+		if debug {
+			fmt.Printf("INPUT: %s", "enable secret "+config.EnablePassword)
+		}
 		port.Write(common.FormatCommand("enable secret " + config.EnablePassword))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 	}
 
 	if config.DefaultGateway != "" {
+		if debug {
+			fmt.Printf("INPUT: %s", "ip default-gateway "+config.DefaultGateway)
+		}
 		port.Write(common.FormatCommand("ip default-gateway " + config.DefaultGateway))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 	}
 
 	if config.Hostname != "" {
+		if debug {
+			fmt.Printf("INPUT: %s", "hostname "+config.Hostname)
+		}
 		port.Write(common.FormatCommand("hostname " + config.Hostname))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 		hostname = config.Hostname
 	}
 
 	if config.DomainName != "" {
+		if debug {
+			fmt.Printf("INPUT: %s", "ip domain-name "+config.DomainName)
+		}
 		port.Write(common.FormatCommand("ip domain-name " + config.DomainName))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
 	}
 
-	if config.Ssh.enable {
+	if config.Ssh.Enable {
 		allowSSH := true
-		if config.Ssh.username == "" {
-			fmt.Println("Warning: SSH username not specified.")
+		if config.Ssh.Username == "" {
+			fmt.Println("WARNING: SSH username not specified.")
 			allowSSH = false
 		}
-		if config.Ssh.password == "" {
-			fmt.Println("Warning: SSH password not specified.")
+		if config.Ssh.Password == "" {
+			fmt.Println("WARNING: SSH password not specified.")
 			allowSSH = false
 		}
 		if config.DomainName == "" {
-			fmt.Println("Warning: Domain name not specified.")
+			fmt.Println("WARNING: Domain name not specified.")
 			allowSSH = false
 		}
 		if config.Hostname == "" {
-			fmt.Println("Warning: Hostname not specified.")
+			fmt.Println("WARNING: Hostname not specified.")
 			allowSSH = false
 		}
 
 		if allowSSH {
-			port.Write(common.FormatCommand("username " + config.Ssh.username + " password " + config.Ssh.password))
-			port.Write(common.FormatCommand("crypto key gen rsa"))
-			if config.Ssh.bits > 0 && config.Ssh.bits < 360 {
-				config.Ssh.bits = 360 // User presumably wanted minimum bit setting, 360 is minimum on IOS 12.2
-			} else if config.Ssh.bits <= 0 {
-				config.Ssh.bits = 512 // Accept default bit setting for non-provided values
-			} else if config.Ssh.bits > 2048 {
-				config.Ssh.bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+			if debug {
+				fmt.Printf("INPUT: %s", "username "+config.Ssh.Username+" password "+config.Ssh.Password)
 			}
-			port.Write(common.FormatCommand(strconv.Itoa(config.Ssh.bits)))
+			port.Write(common.FormatCommand("username " + config.Ssh.Username + " password " + config.Ssh.Password))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+
+			if debug {
+				fmt.Printf("INPUT: %s", "crypto key gen rsa")
+			}
+			port.Write(common.FormatCommand("crypto key gen rsa"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+
+			if config.Ssh.Bits > 0 && config.Ssh.Bits < 360 {
+				if debug {
+					fmt.Printf("DEBUG: Requested bit setting of %d is too low, defaulting to 360\n", config.Ssh.Bits)
+				}
+				config.Ssh.Bits = 360 // User presumably wanted minimum bit setting, 360 is minimum on IOS 12.2
+			} else if config.Ssh.Bits <= 0 {
+				if debug {
+					fmt.Printf("DEBUG: Bit setting not provided, defaulting to 512\n")
+				}
+				config.Ssh.Bits = 512 // Accept default bit setting for non-provided values
+			} else if config.Ssh.Bits > 2048 {
+				if debug {
+					fmt.Printf("DEBUG: Requested bit setting of %d is too low, defaulting to 2048\n", config.Ssh.Bits)
+				}
+				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+			}
+
+			if debug {
+				fmt.Printf("INPUT: %s", strconv.Itoa(config.Ssh.Bits))
+			}
+			port.Write(common.FormatCommand(strconv.Itoa(config.Ssh.Bits)))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
 		}
 	}
 }

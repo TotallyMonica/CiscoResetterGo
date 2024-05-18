@@ -240,25 +240,84 @@ func main() {
 	var resetRouter bool
 	var resetSwitch bool
 	var serialDevice string
+	var setDefaults bool
+	var skipReset bool
 	var portSettings serial.Mode
 
 	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
+	flag.BoolVar(&setDefaults, "defaults", false, "Set devices back to defaults")
+	flag.BoolVar(&skipReset, "skip-reset", false, "Skip resetting devices")
 	flag.Parse()
 
 	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
 
-	if resetRouter || resetSwitch {
+	if resetRouter || resetSwitch || setDefaults {
 		serialDevice, portSettings = SetupSerial()
 	} else {
 		log.Fatal("Neither router or switch reset flags provided. Run program with -router and/or -switch")
 	}
 
-	if resetRouter {
+	if resetRouter && !skipReset {
 		routers.Reset(serialDevice, portSettings, debug)
 	}
-	if resetSwitch {
+	if resetSwitch && !skipReset {
 		switches.Reset(serialDevice, portSettings, debug)
+	}
+
+	//if resetRouter && setDefaults {
+	//	routers.Defaults(serialDevice, portSettings, debug)
+	//}
+
+	if resetSwitch && setDefaults {
+		// Create debug switch defaults
+		var debugSwitchDefaults switches.SwitchConfig
+		debugSwitchDefaults.DefaultGateway = "192.168.1.1"
+		debugSwitchDefaults.Banner = "Debug banner"
+		debugSwitchDefaults.ConsolePassword = "testing"
+		debugSwitchDefaults.EnablePassword = "testing"
+		debugSwitchDefaults.Hostname = "bench-switch"
+		debugSwitchDefaults.DomainName = "bench-switch.localdomain"
+
+		// Create debug access switch port
+		var debugAccessSwitchPort switches.SwitchPortConfig
+		debugAccessSwitchPort.Port = "f0/1"
+		debugAccessSwitchPort.Vlan = 10
+		debugAccessSwitchPort.SwitchportMode = "access"
+		debugAccessSwitchPort.Shutdown = false
+
+		// Create debug trunk switch port
+		var debugTrunkSwitchPort switches.SwitchPortConfig
+		debugTrunkSwitchPort.Port = "g0/1"
+		debugTrunkSwitchPort.Vlan = 99
+		debugTrunkSwitchPort.SwitchportMode = "trunk"
+		debugTrunkSwitchPort.Shutdown = false
+
+		// Add switch ports to debug switch default config
+		debugSwitchportConfig := []switches.SwitchPortConfig{debugAccessSwitchPort, debugTrunkSwitchPort}
+		debugSwitchDefaults.Ports = debugSwitchportConfig
+
+		// Create access vlan for debugging
+		var debugAccessVlan switches.VlanConfig
+		debugAccessVlan.Vlan = 10
+		debugAccessVlan.IpAddress = "192.168.1.1"
+		debugAccessVlan.SubnetMask = "255.255.255.0"
+		debugAccessVlan.Shutdown = false
+
+		// Add access vlan to default config
+		debugSwitchDefaults.Vlans = []switches.VlanConfig{debugAccessVlan}
+
+		// Set SSH settings
+		var debugSSHConfig switches.SshConfig
+		debugSSHConfig.Enable = true
+		debugSSHConfig.Username = "admin"
+		debugSSHConfig.Password = "admin"
+		debugSSHConfig.Bits = 2048
+
+		// Add SSH settings to default config
+		debugSwitchDefaults.Ssh = debugSSHConfig
+
+		switches.Defaults(serialDevice, portSettings, debugSwitchDefaults, debug)
 	}
 }
