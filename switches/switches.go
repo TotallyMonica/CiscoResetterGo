@@ -481,9 +481,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
 		if debug {
-			fmt.Printf("INPUT: %s\n", "console password "+config.ConsolePassword)
+			fmt.Printf("INPUT: %s\n", "password "+config.ConsolePassword)
 		}
-		port.Write(common.FormatCommand("console password " + config.ConsolePassword))
+		port.Write(common.FormatCommand("password " + config.ConsolePassword))
 		line = common.ReadLine(port, 500, debug)
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
