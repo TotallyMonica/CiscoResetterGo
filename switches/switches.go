@@ -292,7 +292,20 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	port.SetReadTimeout(1 * time.Second)
 
-	common.WaitForSubstring(port, prompt, debug)
+	output := common.TrimNull(common.ReadLine(port, 500, debug))
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
+		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
+		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
+		fmt.Printf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output))
+		if common.IsEmpty(output) {
+			if debug {
+				fmt.Printf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n")
+			}
+			port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+		}
+		time.Sleep(1 * time.Second)
+		output = common.TrimNull(common.ReadLine(port, 500, debug))
+	}
 	port.Write(common.FormatCommand(""))
 	line := common.ReadLine(port, 500, debug)
 
