@@ -269,8 +269,8 @@ func main() {
 	var portSettings serial.Mode
 
 	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
-	flag.BoolVar(&resetRouter, "routers", false, "Reset a routers")
-	flag.BoolVar(&resetSwitch, "switches", false, "Reset a switches")
+	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
+	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.Parse()
 
 	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
@@ -278,7 +278,7 @@ func main() {
 	if resetRouter || resetSwitch {
 		serialDevice, portSettings = SetupSerial()
 	} else {
-		log.Fatal("Neither routers or switches reset flags provided. Run program with -routers and/or -switches")
+		log.Fatal("Neither router or switch reset flags provided. Run program with -router and/or -switch")
 	}
 
 	if resetRouter {
