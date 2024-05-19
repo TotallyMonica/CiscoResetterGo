@@ -719,6 +719,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					}
 				}
 			}
+			if debug {
+				fmt.Printf("INPUT: %s\n", "exit")
+			}
+			port.Write(common.FormatCommand("exit"))
+			output = common.ReadLine(port, 500, debug)
+			if debug {
+				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			}
 		}
 	}
 }
