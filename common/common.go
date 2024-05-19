@@ -11,19 +11,21 @@ import (
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 	var output []byte
 	if debug {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected substring: %s\n", prompt)
 			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
-			fmt.Printf("TO DEVICE: %s\n", "\\n")
-			port.Write(FormatCommand(""))
+			fmt.Printf("TO DEVICE: %s\n", "\\n\\n\\n\\n\\n")
+			for i := 0; i < 5; i++ {
+				port.Write(FormatCommand(""))
+			}
 			output = TrimNull(ReadLine(port, 500, debug))
 			time.Sleep(1 * time.Second)
 
 		}
 		fmt.Println(output)
 	} else {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output[:])))), prompt) {
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output[:])))), strings.ToLower(prompt)) {
 			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
 			fmt.Printf("Expected substring: %s\n", prompt)
 			port.Write(FormatCommand(""))
