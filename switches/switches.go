@@ -92,7 +92,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 
 func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	const BUFFER_SIZE = 100
-	const RECOVERY_PROMPT = "switches:"
+	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
 	const PASSWORD_RECOVERY = "password-recovery"
 	const PASSWORD_RECOVERY_DISABLED = "password-recovery mechanism is disabled"
@@ -106,19 +106,21 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		log.Fatal(err)
 	}
 
+	defer port.Close()
+
 	port.SetReadTimeout(5 * time.Second)
 
 	fmt.Println("Trigger password recovery by following these steps: ")
-	fmt.Println("1. Unplug the switches")
-	fmt.Println("2. Hold the MODE button on the switches.")
-	fmt.Println("3. Plug the switches in while holding the button")
+	fmt.Println("1. Unplug the switch")
+	fmt.Println("2. Hold the MODE button on the switch.")
+	fmt.Println("3. Plug the switch in while holding the button")
 	fmt.Println("4. When you are told, release the MODE button")
 
-	// Wait for switches to startup
+	// Wait for switch to startup
 	var output []byte
 	var parsedOutput string
 	if debug {
-		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY)) {
+		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
 			parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
 			fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
 			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
@@ -186,6 +188,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 
 		// Password recovery was enabled
 	} else if strings.Contains(parsedOutput, RECOVERY_PROMPT) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) {
+		fmt.Println("Password recovery was enabled")
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				fmt.Printf("DEBUG: %s\n", output)
@@ -264,7 +267,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 			fmt.Println("Switch has been reset")
 		}
 
-		fmt.Println("Restarting the switches")
+		fmt.Println("Restarting the switch")
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				fmt.Printf("DEBUG: %s\n", output)
@@ -300,6 +303,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer port.Close()
 
 	port.SetReadTimeout(1 * time.Second)
 
