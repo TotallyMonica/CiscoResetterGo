@@ -28,7 +28,17 @@ type SshConfig struct {
 	Enable   bool
 	Username string
 	Password string
+	Login    string
 	Bits     int
+}
+
+type LineConfig struct {
+	Type      string
+	StartLine int
+	EndLine   int
+	Login     string
+	Transport string
+	Password  string
 }
 
 type SwitchConfig struct {
@@ -42,6 +52,7 @@ type SwitchConfig struct {
 	Hostname        string
 	DomainName      string
 	DefaultGateway  string
+	Lines           []LineConfig
 }
 
 func ParseFilesToDelete(files [][]byte, debug bool) []string {
@@ -471,7 +482,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}
 
-	if config.ConsolePassword != "" {
+	if config.Version < 0.02 && config.ConsolePassword != "" {
 		if debug {
 			fmt.Printf("INPUT: %s\n", "banner motd "+config.Banner)
 		}
@@ -484,6 +495,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			fmt.Printf("INPUT: %s\n", "password "+config.ConsolePassword)
 		}
 		port.Write(common.FormatCommand("password " + config.ConsolePassword))
+		line = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+		}
+
+		if debug {
+			fmt.Printf("INPUT: %s\n", "login ")
+		}
+		port.Write(common.FormatCommand("login"))
 		line = common.ReadLine(port, 500, debug)
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
@@ -605,6 +625,79 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			line = common.ReadLine(port, 500, debug)
 			if debug {
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+			}
+		}
+	}
+
+	if len(config.Lines) != 0 {
+		for _, line := range config.Lines {
+			if line.Type != "" {
+				// Ensure both lines are <= 15
+				if line.StartLine > 15 {
+					fmt.Printf("Starting line of %d is invalid, defaulting back to 15\n", line.StartLine)
+					line.StartLine = 15
+				}
+				if line.EndLine > 15 {
+					fmt.Printf("Ending line of %d is invalid, defaulting back to 15\n", line.EndLine)
+					line.EndLine = 15
+				}
+
+				// Figure out line ranges
+				command := ""
+				if line.StartLine == line.EndLine { // Check if start line = end line
+					command = "line " + line.Type + " " + strconv.Itoa(line.StartLine)
+				} else if line.StartLine < line.EndLine { // Make sure starting line < end line
+					command = "line " + line.Type + " " + strconv.Itoa(line.StartLine) + " " + strconv.Itoa(line.EndLine)
+				} else { // Check if invalid ranges were given
+					log.Fatalln("Start line is greater than end line.")
+				}
+				if debug {
+					fmt.Printf("INPUT: %s\n", command)
+				}
+				port.Write(common.FormatCommand(command))
+				output = common.ReadLine(port, 500, debug)
+				if debug {
+					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+				}
+
+				// Set the line password
+				if line.Password != "" {
+					if debug {
+						fmt.Printf("INPUT: %s\n", "password "+line.Password)
+					}
+					port.Write(common.FormatCommand("password " + line.Password))
+					if debug {
+						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					}
+
+					// In case login type wasn't provided, set that.
+					if line.Login != "" && line.Type == "vty" {
+						line.Login = "local"
+					}
+				}
+
+				// Set login method (empty string is valid for line console 0)
+				if line.Login != "" || (line.Type == "console" && line.Password != "") {
+					if debug {
+						fmt.Printf("INPUT: %s\n", "login "+line.Login)
+					}
+					port.Write(common.FormatCommand("login " + line.Login))
+					output = common.ReadLine(port, 500, debug)
+					if debug {
+						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					}
+				}
+
+				if line.Transport != "" && line.Type == "vty" { // console 0 can't use telnet or ssh
+					if debug {
+						fmt.Printf("INPUT: %s\n", "transport input "+line.Transport)
+					}
+					port.Write(common.FormatCommand("transport input " + line.Transport))
+					output = common.ReadLine(port, 500, debug)
+					if debug {
+						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					}
+				}
 			}
 		}
 	}

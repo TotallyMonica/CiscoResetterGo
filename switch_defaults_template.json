@@ -1,19 +1,26 @@
 {
-  "Version": 0.01,
+  "Version": 0.02,
   "Vlans": [{
       "Vlan": 1,
       "IpAddress": "",
       "SubnetMask": "",
       "Shutdown": false
   }],
+  "Lines": [{
+      "Type": "",
+      "StartLine": 0,
+      "EndLine": 0,
+      "Login": "",
+      "Transport": "",
+      "Password": ""
+    }],
   "Ports": [{
-    "Port": "",
-    "SwitchportMode": "",
-    "Vlan": 1,
-    "Shutdown": false
+      "Port": "",
+      "SwitchportMode": "",
+      "Vlan": 1,
+      "Shutdown": false
   }],
   "EnablePassword": "",
-  "ConsolePassword": "",
   "Ssh": {
     "Enable": true,
     "Username": "",
