@@ -560,6 +560,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
 		hostname = config.Hostname
+		prompt = hostname + "(config)"
 	}
 
 	if config.DomainName != "" {
