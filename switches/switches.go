@@ -354,6 +354,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
 
+			prompt = hostname + "(config-if)#"
+
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
 				if debug {
 					fmt.Printf("INPUT: %s\n", "ip addr "+vlan.IpAddress+" "+vlan.SubnetMask)
@@ -388,6 +390,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
+
+			prompt = hostname + "(config)#"
 		}
 	}
 
@@ -403,6 +407,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
+			prompt = hostname + "(config-if)#"
 
 			if switchPort.SwitchportMode != "" {
 				if debug {
@@ -467,6 +472,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
+
+			prompt = hostname + "(config)#"
 		}
 	}
 
@@ -484,13 +491,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	if config.Version < 0.02 && config.ConsolePassword != "" {
 		if debug {
-			fmt.Printf("INPUT: %s\n", "banner motd "+config.Banner)
+			fmt.Printf("INPUT: %s\n", "line console 0")
 		}
 		port.Write(common.FormatCommand("line console 0"))
 		line = common.ReadLine(port, 500, debug)
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
+		prompt = hostname + "(config-line)#"
+
 		if debug {
 			fmt.Printf("INPUT: %s\n", "password "+config.ConsolePassword)
 		}
@@ -516,6 +525,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
+		prompt = hostname + "(config)#"
 	}
 
 	if config.EnablePassword != "" {
@@ -626,6 +636,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
+
+			// Previous command can take a while, so wait for the prompt
+			port.SetReadTimeout(10 * time.Second)
+			common.WaitForSubstring(port, prompt, debug)
 		}
 	}
 
