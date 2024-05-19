@@ -9,30 +9,19 @@ import (
 )
 
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
-	var output []byte
-	if debug {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
-			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected substring: %s\n", prompt)
-			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
-			fmt.Printf("TO DEVICE: %s\n", "\\n\\n\\n\\n\\n")
-			for i := 0; i < 5; i++ {
-				port.Write(FormatCommand(""))
+	output := TrimNull(ReadLine(port, 500, debug))
+	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
+		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
+		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
+		fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
+		if IsEmpty(output) {
+			if debug {
+				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
 			}
-			output = TrimNull(ReadLine(port, 500, debug))
-			time.Sleep(1 * time.Second)
-
+			port.Write([]byte("\r\n"))
 		}
-		fmt.Println(output)
-	} else {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(TrimNull(output[:])))), strings.ToLower(prompt)) {
-			fmt.Printf("Has prefix: %t\n", strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected substring: %s\n", prompt)
-			port.Write(FormatCommand(""))
-			output = TrimNull(ReadLine(port, 500, debug))
-			time.Sleep(1 * time.Second)
-
-		}
+		time.Sleep(1 * time.Second)
+		output = TrimNull(ReadLine(port, 500, debug))
 	}
 }
 
