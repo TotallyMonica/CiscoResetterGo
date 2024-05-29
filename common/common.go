@@ -61,6 +61,16 @@ func FormatCommand(cmd string) []byte {
 	return formattedString
 }
 
+func WriteLine(port serial.Port, line string, debug bool) {
+	_, err := port.Write(FormatCommand(line))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if debug {
+		fmt.Printf("TO DEVICE: %s\n", line)
+	}
+}
+
 func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 	line := ReadLines(port, buffSize, 1, debug)
 	return line[0]
@@ -87,6 +97,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 				break
 			}
 		}
+		fmt.Printf("DEBUG: %s", output[i])
 	}
 
 	return output
