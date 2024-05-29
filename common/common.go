@@ -97,7 +97,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 				break
 			}
 		}
-		fmt.Printf("DEBUG: %s", output[i])
+		fmt.Printf("DEBUG: %s", TrimNull(output[i]))
 	}
 
 	return output
