@@ -1,5 +1,3 @@
-github.com/TotallyMonica/CiscoResetterGo/common v0.0.0-20240529172733-6175e92bcb07 h1:2sy3lylIXXj3t4IcATDpIUAbSFb1DaLgpTt6YJ5Q0Kc=
-github.com/TotallyMonica/CiscoResetterGo/common v0.0.0-20240529172733-6175e92bcb07/go.mod h1:/szI9VlXJ96+2J5ZjgEvHtpBUHiwcr63bCxf4EstKQ8=
 github.com/creack/goselect v0.1.2 h1:2DNy14+JPjRBgPzAd1thbQp4BSIihxcBf0IXhQXDRa0=
 github.com/creack/goselect v0.1.2/go.mod h1:a/NhLweNvqIYMuxcMOuWY516Cimucms3DglDzQP3hKY=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

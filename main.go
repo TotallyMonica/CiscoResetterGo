@@ -1,73 +1,18 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"log"
-	"main/common"
 	"main/routers"
 	"main/switches"
 	"os"
-	"os/signal"
 	"runtime"
 	"strings"
-	"time"
 )
-
-func WaitForPrefix(port serial.Port, prompt string, debug bool) {
-	var output []byte
-	if debug {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
-			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
-			fmt.Printf("TO DEVICE: %s\n", "\\n")
-			port.Write(common.FormatCommand(""))
-			output = common.TrimNull(common.ReadLine(port, 4096, debug))
-
-		}
-		fmt.Println(output)
-	} else {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
-			port.Write(common.FormatCommand(""))
-			output = common.TrimNull(common.ReadLine(port, 4096, debug))
-		}
-	}
-}
-
-func TrimNewLines(unparsed string) string {
-	friendlyLine := ""
-	for _, val := range unparsed {
-		if string(val) != "\r" && string(val) != "\n" {
-			friendlyLine = friendlyLine + string(val)
-		}
-	}
-	return friendlyLine
-}
-
-func RemoveNonPrintable(output []byte) []byte {
-	printable := [255 - 32]byte{}
-	for i := 0; i < len(printable); i++ {
-		printable[i] = byte(32 + i)
-	}
-	printableOutput := make([]byte, 0, len(output))
-	for _, outputByte := range output {
-		for _, printableByte := range printable {
-			if outputByte == printableByte {
-				printableOutput[len(printable)-1] = outputByte
-				break
-			}
-		}
-	}
-
-	return printableOutput
-}
 
 func SetupSerial() (string, serial.Mode) {
 	var userInput string
@@ -187,53 +132,6 @@ func SetupSerial() (string, serial.Mode) {
 	}
 
 	return chosenPort, *settings
-}
-
-func PrintOutput(port serial.Port) {
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt)
-	readOps := 0
-
-	go func() {
-		<-c
-		port.Close()
-		return
-	}()
-	for true {
-		fmt.Printf("%s\n", common.ReadLine(port, 32768, false)[:80])
-		readOps++
-		fmt.Println(readOps)
-	}
-}
-
-func TrailOutput(SerialPort string) {
-	mode := &serial.Mode{
-		BaudRate: 9600,
-	}
-
-	port, err := serial.Open(SerialPort, mode)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	port.SetReadTimeout(10 * time.Second)
-
-	for {
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		userInput := scanner.Text()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("TO DEVICE: %s\n", userInput[:80])
-		_, err = port.Write(common.FormatCommand(userInput))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		common.ReadLines(port, 32768, 2, true)
-	}
 }
 
 func main() {

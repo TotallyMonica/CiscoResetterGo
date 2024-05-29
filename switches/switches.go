@@ -2,9 +2,9 @@ package switches
 
 import (
 	"fmt"
+	"github.com/TotallyMonica/CiscoResetterGo/common"
 	"go.bug.st/serial"
 	"log"
-	"main/common"
 	"strconv"
 	"strings"
 	"time"
