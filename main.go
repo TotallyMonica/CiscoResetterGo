@@ -36,7 +36,10 @@ func SetupSerial() (string, serial.Mode) {
 		}
 
 		fmt.Printf("Select a serial port ")
-		fmt.Scanln(&userInput)
+		_, err = fmt.Scanln(&userInput)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		for _, port := range ports {
 			if strings.ToUpper(userInput) == strings.ToUpper(port.Name) {
@@ -47,7 +50,10 @@ func SetupSerial() (string, serial.Mode) {
 	}
 
 	fmt.Println("Default settings are 9600 8N1. Would you like to change these? (y/N)")
-	fmt.Scanln(&userInput)
+	_, err := fmt.Scanln(&userInput)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	settings := &serial.Mode{
 		BaudRate: 9600,
@@ -66,14 +72,20 @@ func SetupSerial() (string, serial.Mode) {
 
 		fmt.Println("Default baud rate is 9600.")
 		fmt.Printf("Enter the desired baud rate (Empty for defaults): ")
-		fmt.Scanf("%d\n", &baudRate)
+		_, err = fmt.Scanf("%d\n", &baudRate)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if baudRate == 0 {
 			baudRate = 9600
 		}
 
 		fmt.Println("Default data bits is 8.")
 		fmt.Printf("Enter the desired data bits (Empty for defaults): ")
-		fmt.Scanf("%d\n", &dataBits)
+		_, err = fmt.Scanf("%d\n", &dataBits)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if dataBits == 0 {
 			dataBits = 8
 		}
@@ -81,7 +93,10 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Println("Default setting for parity bits is none.")
 		fmt.Println("Valid options are (1) None, (2) Even, (3) Odd, (4) Mark, or (5) Space.")
 		fmt.Printf("Enter the desired parity bits (Empty for defaults): ")
-		fmt.Scanf("%d\n", &parityBitInput)
+		_, err = fmt.Scanf("%d\n", &parityBitInput)
+		if err != nil {
+			log.Fatal(err)
+		}
 		switch parityBitInput {
 		case 1:
 		case 0:
@@ -106,7 +121,10 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Println("Default value for stop bits is 1")
 		fmt.Println("Valid values for stop bits are 1, 1.5, or 2 stop bits.")
 		fmt.Printf("Enter the desired stop bits (Empty for defaults): ")
-		fmt.Scanf("%f\n", &stopBitsInput)
+		_, err = fmt.Scanf("%f\n", &stopBitsInput)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		switch stopBitsInput {
 		case 0.0:
