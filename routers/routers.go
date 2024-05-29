@@ -62,7 +62,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		log.Fatal(err)
 	}
 
-	port.SetReadTimeout(2 * time.Second)
+	err = port.SetReadTimeout(2 * time.Second)
+	if err != nil {
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,7 +74,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	fmt.Println("1. Turn off the router")
 	fmt.Println("2. After waiting for the lights to shut off, turn the router back on")
 	fmt.Println("3. Press enter here once this has been completed")
-	fmt.Scanln()
+	_, err = fmt.Scanln()
+	if err != nil {
+		return
+	}
 
 	fmt.Println("Sending ^C until we get into ROMMON...")
 	var output []byte
