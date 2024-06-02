@@ -133,13 +133,15 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	var parsedOutput string
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
 		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
-		fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
-		fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
-			strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
-			strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
-			strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
-			strings.Contains(parsedOutput, RECOVERY_PROMPT))
-		fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
+		if debug {
+			fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
+			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
+				strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
+				strings.Contains(parsedOutput, RECOVERY_PROMPT))
+			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
+		}
 		common.WriteLine(port, "", debug)
 		time.Sleep(1 * time.Second)
 	}
