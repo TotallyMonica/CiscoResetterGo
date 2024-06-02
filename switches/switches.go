@@ -303,6 +303,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "no")
 			}
+			fmt.Println("Getting out of initial configuration dialog")
 			_, err = port.Write(common.FormatCommand("no"))
 			if err != nil {
 				log.Fatal(err)
@@ -311,6 +312,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		time.Sleep(1 * time.Second)
 		output = common.TrimNull(common.ReadLine(port, 500, debug))
 	}
+	fmt.Println("We have booted up now")
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
 		log.Fatal(err)
@@ -321,6 +323,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		fmt.Printf("INPUT: %s\n", "enable")
 	}
+	fmt.Println("Entering privileged exec.")
 	_, err = port.Write(common.FormatCommand("enable"))
 	if err != nil {
 		log.Fatal(err)
@@ -332,6 +335,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		fmt.Printf("INPUT: %s\n", "conf t")
 	}
+	fmt.Println("Entering global configuration mode for the switch")
 	_, err = port.Write(common.FormatCommand("conf t"))
 	if err != nil {
 		log.Fatal(err)
@@ -357,6 +361,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			prompt = hostname + "(config-if)#"
 
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
+				fmt.Printf("Assigning IP address %s with subnet mask %s to vlan %d\n", vlan.IpAddress, vlan.SubnetMask, vlan.Vlan)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "ip addr "+vlan.IpAddress+" "+vlan.SubnetMask)
 				}
@@ -370,6 +375,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 			if vlan.Shutdown {
+				fmt.Printf("Shutting down vlan %d\n", vlan.Vlan)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "shutdown")
 				}
@@ -378,6 +384,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					log.Fatal(err)
 				}
 			} else {
+				fmt.Printf("Bringing up vlan %d\n", vlan.Vlan)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "no shutdown")
 				}
@@ -391,6 +398,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
 
+			fmt.Printf("Finished configuring vlan %d\n", vlan.Vlan)
 			if debug {
 				fmt.Printf("INPUT: %s\n", "exit")
 			}
@@ -405,6 +413,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config)#"
 		}
+		fmt.Println("Finished configuring vlans")
 	}
 
 	if len(config.Ports) != 0 {
@@ -425,6 +434,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			prompt = hostname + "(config-if)#"
 
 			if switchPort.SwitchportMode != "" {
+				fmt.Printf("Setting the switchport mode on port %s to %s\n", switchPort.Port, switchPort.SwitchportMode)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "switchport mode "+switchPort.SwitchportMode)
 				}
@@ -440,6 +450,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
 				if strings.ToLower(switchPort.SwitchportMode) == "access" {
+					fmt.Printf("Setting port %s to be an access port on vlan %d\n", switchPort.Port, switchPort.Vlan)
 					if debug {
 						fmt.Printf("INPUT: %s\n", "switchport access vlan "+strconv.Itoa(switchPort.Vlan))
 					}
@@ -452,6 +463,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 					}
 				} else if strings.ToLower(switchPort.SwitchportMode) == "trunk" {
+					fmt.Printf("Setting port %s to be a trunk port with native vlan %d\n", switchPort.Port, switchPort.Vlan)
 					if debug {
 						fmt.Printf("INPUT: %s\n", "switchport trunk native vlan "+strconv.Itoa(switchPort.Vlan))
 					}
@@ -469,6 +481,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 
 			if switchPort.Shutdown {
+				fmt.Printf("Shutting down port %s\n", switchPort.Port)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "shutdown")
 				}
@@ -481,6 +494,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 				}
 			} else {
+				fmt.Printf("Bringing up port %s\n", switchPort.Port)
 				if debug {
 					fmt.Printf("INPUT: %s\n", "no shutdown")
 				}
@@ -494,6 +508,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 
+			fmt.Printf("Finished configuring port %s\n", switchPort.Port)
 			if debug {
 				fmt.Printf("INPUT: %s\n", "exit")
 			}
@@ -508,6 +523,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config)#"
 		}
+		fmt.Println("Finished configuring ports")
 	}
 
 	if config.Banner != "" {
@@ -526,6 +542,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	}
 
 	if config.Version < 0.02 && config.ConsolePassword != "" {
+		fmt.Printf("Setting the console password to %s\n", config.ConsolePassword)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "line console 0")
 		}
@@ -551,6 +568,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
 
+		fmt.Println("Enabling login on the console port")
 		if debug {
 			fmt.Printf("INPUT: %s\n", "login ")
 		}
@@ -574,9 +592,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
 		prompt = hostname + "(config)#"
+
+		fmt.Println("Finished configuring the console port")
 	}
 
 	if config.EnablePassword != "" {
+		fmt.Printf("Setting the privileged exec password to %s\n", config.EnablePassword)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "enable secret "+config.EnablePassword)
 		}
@@ -588,9 +609,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
+		fmt.Println("Finished setting the privileged exec password")
 	}
 
 	if config.DefaultGateway != "" {
+		fmt.Print("Setting the default gateway to %s\n", config.DefaultGateway)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "ip default-gateway "+config.DefaultGateway)
 		}
@@ -602,9 +625,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
+		fmt.Println("Finished setting the default gateway")
 	}
 
 	if config.Hostname != "" {
+		fmt.Printf("Setting the hostname to %s\n", config.Hostname)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "hostname "+config.Hostname)
 		}
@@ -618,9 +643,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 		hostname = config.Hostname
 		prompt = hostname + "(config)"
+
+		fmt.Println("Finished setting the hostname.")
 	}
 
 	if config.DomainName != "" {
+		fmt.Printf("Setting the domain name of the switch to %s\n", config.DomainName)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "ip domain-name "+config.DomainName)
 		}
@@ -632,6 +660,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if debug {
 			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		}
+		fmt.Println("Finished setting the domain name.")
 	}
 
 	if config.Ssh.Enable {
@@ -654,6 +683,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 
 		if allowSSH {
+			fmt.Printf("Enabling SSH with username %s and password %s\n", config.Ssh.Username, config.Ssh.Password)
 			if debug {
 				fmt.Printf("INPUT: %s\n", "username "+config.Ssh.Username+" password "+config.Ssh.Password)
 			}
@@ -695,6 +725,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
 			}
 
+			fmt.Printf("Generating an SSH key with %d bits big\n")
 			if debug {
 				fmt.Printf("INPUT: %s\n", strconv.Itoa(config.Ssh.Bits))
 			}
@@ -713,12 +744,18 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				log.Fatal(err)
 			}
 			common.WaitForSubstring(port, prompt, debug)
+			err = port.SetReadTimeout(1 * time.Second)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("Finished generating the SSH key.")
 		}
 	}
 
 	if len(config.Lines) != 0 {
 		for _, line := range config.Lines {
 			if line.Type != "" {
+				fmt.Printf("Configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 				// Ensure both lines are <= 15
 				if line.StartLine > 15 {
 					fmt.Printf("Starting line of %d is invalid, defaulting back to 15\n", line.StartLine)
@@ -752,6 +789,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 				// Set the line password
 				if line.Password != "" {
+					fmt.Printf("Setting the %s lines %d to %d password to %s\n", line.Type, line.StartLine, line.EndLine, line.Password)
 					if debug {
 						fmt.Printf("INPUT: %s\n", "password "+line.Password)
 					}
@@ -771,6 +809,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 				// Set login method (empty string is valid for line console 0)
 				if line.Login != "" || (line.Type == "console" && line.Password != "") {
+					fmt.Printf("Enabling login for %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 					if debug {
 						fmt.Printf("INPUT: %s\n", "login "+line.Login)
 					}
@@ -785,6 +824,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 
 				if line.Transport != "" && line.Type == "vty" { // console 0 can't use telnet or ssh
+					fmt.Printf("Setting transport input for %s lines %d to %d to %s\n", line.Type, line.StartLine, line.EndLine, line.Transport)
 					if debug {
 						fmt.Printf("INPUT: %s\n", "transport input "+line.Transport)
 					}
@@ -798,6 +838,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					}
 				}
 			}
+
+			fmt.Printf("Finished configuring %s lines %d to %d", line.Type, line.StartLine, line.EndLine)
+
 			if debug {
 				fmt.Printf("INPUT: %s\n", "exit")
 			}
@@ -810,5 +853,6 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
 			}
 		}
+		fmt.Println("Finished configuring console lines.")
 	}
 }
