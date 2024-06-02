@@ -621,7 +621,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	}
 
 	if config.DefaultGateway != "" {
-		fmt.Print("Setting the default gateway to %s\n", config.DefaultGateway)
+		fmt.Printf("Setting the default gateway to %s\n", config.DefaultGateway)
 		if debug {
 			fmt.Printf("INPUT: %s\n", "ip default-gateway "+config.DefaultGateway)
 		}
@@ -733,7 +733,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
 			}
 
-			fmt.Printf("Generating an SSH key with %d bits big\n")
+			fmt.Printf("Generating an SSH key with %d bits big\n", config.Ssh.Bits)
 			if debug {
 				fmt.Printf("INPUT: %s\n", strconv.Itoa(config.Ssh.Bits))
 			}
@@ -847,7 +847,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 
-			fmt.Printf("Finished configuring %s lines %d to %d", line.Type, line.StartLine, line.EndLine)
+			fmt.Printf("Finished configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 
 			if debug {
 				fmt.Printf("INPUT: %s\n", "exit")
