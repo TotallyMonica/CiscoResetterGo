@@ -67,7 +67,7 @@ func WriteLine(port serial.Port, line string, debug bool) {
 		log.Fatal(err)
 	}
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", line)
+		fmt.Printf("TO DEVICE: %s\n", line+"\\n")
 	}
 }
 
@@ -97,7 +97,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 				break
 			}
 		}
-		fmt.Printf("DEBUG: %s", TrimNull(output[i]))
+		fmt.Printf("\n======================================\nDEBUG: %s", TrimNull(output[i]))
 	}
 
 	return output

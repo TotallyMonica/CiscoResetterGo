@@ -2,9 +2,9 @@ package switches
 
 import (
 	"fmt"
-	"github.com/TotallyMonica/CiscoResetterGo/common"
 	"go.bug.st/serial"
 	"log"
+	"main/common"
 	"strconv"
 	"strings"
 	"time"
@@ -91,7 +91,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
-	const BUFFER_SIZE = 100
+	const BUFFER_SIZE = 500
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
 	const PASSWORD_RECOVERY = "password-recovery"
@@ -127,38 +127,17 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	// Wait for switch to startup
 	var output []byte
 	var parsedOutput string
-	if debug {
-		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
-			parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
-			fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
-			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
-				strings.Contains(parsedOutput, RECOVERY_PROMPT))
-			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
-			time.Sleep(1 * time.Second)
-		}
-		fmt.Printf("DEBUG: %s\n", parsedOutput)
-	} else {
-		for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY)) {
-			parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
-			fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
-				strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
-				strings.Contains(parsedOutput, RECOVERY_PROMPT))
-			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
-			time.Sleep(1 * time.Second)
-		}
+	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
+		fmt.Printf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput)
+		fmt.Printf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
+			strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
+			strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
+			strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) ||
+			strings.Contains(parsedOutput, RECOVERY_PROMPT))
+		fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
+		common.WriteLine(port, "", debug)
+		time.Sleep(1 * time.Second)
 	}
 	fmt.Println("Release the MODE button and press Enter.")
 	_, err = fmt.Scanln()
@@ -169,25 +148,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	// Ensure we have one of the test cases in the buffer
 	if !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
 		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
-		_, err = port.Write(common.FormatCommand(""))
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = port.Write(common.FormatCommand(""))
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = port.Write(common.FormatCommand(""))
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = port.Write(common.FormatCommand(""))
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = port.Write(common.FormatCommand(""))
-		if err != nil {
-			log.Fatal(err)
+		for i := 0; i < 5; i++ {
+			common.WriteLine(port, "", debug)
 		}
 		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
 	}
@@ -197,37 +159,19 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	if strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) {
 		fmt.Println("Password recovery was disabled")
 		for !(strings.Contains(parsedOutput, YES_NO_PROMPT)) {
-			if debug {
-				fmt.Printf("DEBUG: %s\n", output)
-			}
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
-			output = common.ReadLine(port, 500, debug)
+			common.WriteLine(port, "", debug)
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
 
-		_, err = port.Write(common.FormatCommand("y"))
-		if err != nil {
-			log.Fatal(err)
-		}
+		common.WriteLine(port, "", debug)
 
 		for !(strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT)) {
-			if debug {
-				fmt.Printf("DEBUG: %s\n", output)
-			}
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
+			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
-			output = common.ReadLine(port, 500, debug)
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
 
-		_, err = port.Write(common.FormatCommand("boot"))
-		if err != nil {
-			log.Fatal(err)
-		}
+		common.WriteLine(port, "boot", debug)
 		common.ReadLines(port, BUFFER_SIZE, 10, debug)
 
 		// Password recovery was enabled
@@ -237,7 +181,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 			if debug {
 				fmt.Printf("DEBUG: %s\n", output)
 			}
-			output = common.ReadLine(port, 500, debug)
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
 		if debug {
 			fmt.Printf("DEBUG: %s\n", common.TrimNull(output))
@@ -252,17 +196,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		output = common.ReadLine(port, 500, debug)
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
-				fmt.Printf("DEBUG: %s\n", common.TrimNull(output))
+				fmt.Printf("DEBUG: %s\n")
 			}
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
+			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
-			output = common.ReadLine(port, 500, debug)
-		}
-		if debug {
-			fmt.Printf("DEBUG: %s\n", common.TrimNull(output))
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
 
 		// Get files
@@ -272,30 +210,15 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 			log.Fatal(err)
 		}
 		listing := make([][]byte, 1)
-		_, err = port.Write(common.FormatCommand("dir flash:"))
-		if err != nil {
-			log.Fatal(err)
-		}
-		if debug {
-			fmt.Printf("TO DEVICE: %s\n", "dir flash:")
-		}
+		common.WriteLine(port, "dir flash:", debug)
 		time.Sleep(5 * time.Second)
-		line := common.ReadLine(port, 16384, debug)
+		line := common.ReadLine(port, BUFFER_SIZE*5, debug)
 		listing = append(listing, line)
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
-			line = common.ReadLine(port, 16384, debug)
+			line = common.ReadLine(port, BUFFER_SIZE*5, debug)
 			listing = append(listing, line)
-			if debug {
-				fmt.Printf("DEBUG: %s\n", common.TrimNull(line))
-			}
-			_, err = port.Write(common.FormatCommand(""))
-			if err != nil {
-				log.Fatal(err)
-			}
+			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
-		}
-		if debug {
-			fmt.Printf("DEBUG: %s\n", common.TrimNull(line))
 		}
 
 		// Determine the files we need to delete
@@ -314,54 +237,26 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 			fmt.Println("Deleting files")
 			for _, file := range filesToDelete {
 				fmt.Println("Deleting " + file)
-				if debug {
-					fmt.Printf("TO DEVICE: %s\n", "del flash:"+file)
-				}
-				_, err = port.Write(common.FormatCommand("del flash:" + file))
-				if err != nil {
-					log.Fatal(err)
-				}
-				common.ReadLine(port, 500, debug)
+				common.WriteLine(port, "del flash:"+file, debug)
+				common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					fmt.Printf("DEBUG: Confirming deletion\n")
 				}
-				fmt.Printf("TO DEVICE: %s\n", "y")
-				_, err = port.Write(common.FormatCommand("y"))
-				if err != nil {
-					log.Fatal(err)
-				}
-				common.ReadLine(port, 500, debug)
+				common.WriteLine(port, "y", debug)
+				common.ReadLine(port, BUFFER_SIZE, debug)
 			}
 			fmt.Println("Switch has been reset")
 		}
 
 		fmt.Println("Restarting the switch")
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
-			if debug {
-				fmt.Printf("DEBUG: %s\n", output)
-			}
-			output = common.ReadLine(port, 500, debug)
-		}
-		if debug {
-			fmt.Printf("DEBUG: %s\n", common.TrimNull(output))
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
 
-		if debug {
-			fmt.Printf("TO DEVICE: %s\n", "reset")
-		}
-		_, err = port.Write(common.FormatCommand("reset"))
-		if err != nil {
-			log.Fatal(err)
-		}
-		common.ReadLine(port, 500, debug)
+		common.WriteLine(port, "reset", debug)
+		common.ReadLine(port, BUFFER_SIZE, debug)
 
-		if debug {
-			fmt.Printf("TO DEVICE: %s\n", "y")
-		}
-		_, err = port.Write(common.FormatCommand("y"))
-		if err != nil {
-			log.Fatal(err)
-		}
+		common.WriteLine(port, "y", debug)
 		common.ReadLines(port, BUFFER_SIZE, 10, debug)
 	}
 
