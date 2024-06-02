@@ -25,8 +25,6 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 		fmt.Println(output)
 	} else {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
 			_, err := port.Write(FormatCommand(""))
 			if err != nil {
 				log.Fatal(err)
@@ -39,9 +37,11 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 	output := TrimNull(ReadLine(port, 500, debug))
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
-		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
-		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
-		fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
+		if debug {
+			fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
+			fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
+			fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
+		}
 		if IsEmpty(output) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
