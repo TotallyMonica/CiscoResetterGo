@@ -78,7 +78,9 @@ func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
 	output := make([][]byte, maxLines)
-	fmt.Printf("\n======================================\nDEBUG: ")
+	if debug {
+		fmt.Printf("\n======================================\nDEBUG: ")
+	}
 	for i := 0; i < maxLines; i++ {
 		output[i] = make([]byte, buffSize)
 		for {
@@ -97,7 +99,10 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 				break
 			}
 		}
-		fmt.Printf("DEBUG: parsed %s", TrimNull(output[i]))
+
+		if debug {
+			fmt.Printf("DEBUG: parsed %s", TrimNull(output[i]))
+		}
 	}
 
 	return output
