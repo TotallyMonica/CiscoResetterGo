@@ -79,8 +79,12 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 			cleanLine := strings.Split(strings.TrimSpace(string(common.TrimNull(file))), " ")
 			if len(cleanLine) > 1 {
 				for _, prefix := range commonPrefixes {
-					if strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[len(cleanLine)-1])), prefix) {
-						filesToDelete[len(filesToDelete)] = cleanLine[len(cleanLine)-1]
+					for i := 0; i < len(cleanLine); i++ {
+						if len(cleanLine[i]) > 0 && strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[i])), prefix) {
+							delimitedCleanLine := strings.Split(cleanLine[i], "\n")
+							filesToDelete = append(filesToDelete, delimitedCleanLine[0])
+							fmt.Printf("DEBUG: File %s needs to be deleted (contains substring %s)\n", cleanLine[i], prefix)
+						}
 					}
 				}
 			}
