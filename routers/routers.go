@@ -603,4 +603,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			common.WaitForSubstring(port, prompt, debug)
 		}
 	}
+
+	fmt.Println("Settings applied!")
+	fmt.Println("Note: Settings have not been made persistent and will be lost upon reboot.")
+	fmt.Println("To fix this, run `wr` on the target device.")
 }
