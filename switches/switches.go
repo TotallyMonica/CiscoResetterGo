@@ -142,7 +142,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 				strings.Contains(parsedOutput, RECOVERY_PROMPT))
 			fmt.Printf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED)
 		}
-		common.WriteLine(port, "", debug)
+		common.WriteLine(port, "\r", debug)
 		time.Sleep(1 * time.Second)
 	}
 	fmt.Println("Release the MODE button and press Enter.")
@@ -155,7 +155,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	if !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
 		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
 		for i := 0; i < 5; i++ {
-			common.WriteLine(port, "", debug)
+			common.WriteLine(port, "\r", debug)
 		}
 		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
 	}
@@ -862,5 +862,17 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 		}
 		fmt.Println("Finished configuring console lines.")
+		_, err = port.Write(common.FormatCommand("end"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		output = common.ReadLine(port, 500, debug)
+		if debug {
+			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+		}
 	}
+
+	fmt.Println("Settings applied!")
+	fmt.Println("Note: Settings have not been made persistent and will be lost upon reboot.")
+	fmt.Println("To fix this, run `wr` on the target device.")
 }
