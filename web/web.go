@@ -41,12 +41,36 @@ type SerialConfiguration struct {
 
 var jobs []Job
 
+func portConfig(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate := filepath.Join("templates", "layout.html")
+	pathTemplate := filepath.Join("templates", "port.html")
+	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	fmt.Printf("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	data, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		// Log the detailed error
+		log.Print(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
+	err = tmpl.ExecuteTemplate(w, "layout", data)
+	if err != nil {
+		log.Print(err.Error())
+		http.Error(w, http.StatusText(500), 500)
+	}
+}
+
 func jobHandler(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate := filepath.Join("templates", "layout.html")
-	endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
 	pathTemplate := filepath.Join("templates", "job.html")
+	fmt.Printf("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	reqJob, err := strconv.Atoi(endpoint[1])
+	reqJob, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		fmt.Printf("jobHandler: Requested job %s is invalid\n", r.PathValue("job"))
 		http.Error(w, "Invalid job given", http.StatusBadRequest)
@@ -55,9 +79,7 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 	var job Job
 
-	localJobs := jobs
-
-	for _, job = range localJobs {
+	for _, job = range jobs {
 		if job.Number == reqJob {
 			break
 		}
@@ -79,10 +101,43 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deviceConfig(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate := filepath.Join("templates", "layout.html")
+	pathTemplate := filepath.Join("templates", "device.html")
+	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
+	var serialConf SerialConfiguration
+	serialConf.Port = r.PostFormValue("device")
+	serialConf.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
+	serialConf.DataBits, _ = strconv.Atoi(r.PostFormValue("data"))
+	serialConf.Parity = r.PostFormValue("parity")
+	switch r.PostFormValue("stop") {
+	case "one":
+		serialConf.StopBits = 1
+	case "opf":
+		serialConf.StopBits = 1.5
+	case "two":
+		serialConf.StopBits = 2
+	}
+
+	fmt.Printf("POST Data: %+v\n", serialConf)
+	err := tmpl.ExecuteTemplate(w, "layout", serialConf)
+	if err != nil {
+		// Log the detailed error
+		log.Print(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+}
+
 func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate := filepath.Join("templates", "layout.html")
 	pathTemplate := filepath.Join("templates", filepath.Clean(r.URL.Path)+".html")
 	endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	fmt.Printf("serveTemplate: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	// We want to do nothing with jobs here
 	if endpoint[0] == "jobs" {
@@ -93,7 +148,8 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	if endpoint[0] == "" {
 		_, err := os.Stat(filepath.Join("templates", "index.html"))
 		if err != nil {
-			http.Redirect(w, r, "/port", http.StatusPermanentRedirect)
+			http.Redirect(w, r, "/port", http.StatusTemporaryRedirect)
+			return
 		} else {
 			pathTemplate = filepath.Join("templates", "index.html")
 		}
@@ -119,19 +175,6 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 
 	switch {
-	// Handle port-specific functionality
-	case endpoint[0] == "port":
-		data, err := enumerator.GetDetailedPortsList()
-		if err != nil {
-			// Log the detailed error
-			log.Print(err.Error())
-			// Return a generic "Internal Server Error" message
-			http.Error(w, http.StatusText(500), 500)
-			return
-		}
-
-		err = tmpl.ExecuteTemplate(w, "layout", data)
-
 	// Render reset-specific functionality
 	case endpoint[0] == "reset":
 		var rules RunParams
@@ -176,43 +219,26 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("POST Data: %+v\n", newJob)
 		err = tmpl.ExecuteTemplate(w, "layout", newJob)
 
-	// Render device-specific configuration
-	case endpoint[0] == "device":
-		var serialConf SerialConfiguration
-		serialConf.Port = r.PostFormValue("device")
-		serialConf.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
-		serialConf.DataBits, _ = strconv.Atoi(r.PostFormValue("data"))
-		serialConf.Parity = r.PostFormValue("parity")
-		switch r.PostFormValue("stop") {
-		case "one":
-			serialConf.StopBits = 1
-		case "opf":
-			serialConf.StopBits = 1.5
-		case "two":
-			serialConf.StopBits = 2
-		}
-
-		fmt.Printf("POST Data: %+v\n", serialConf)
-		err = tmpl.ExecuteTemplate(w, "layout", serialConf)
-
-	// We want all jobs to be handled by the jobs handler
-	case endpoint[0] == "jobs":
-		return
-
-	// Default behavior for endpoints
-	default:
 		err = tmpl.ExecuteTemplate(w, "layout", nil)
-	}
-	if err != nil {
-		log.Print(err.Error())
-		http.Error(w, http.StatusText(500), 500)
+		if err != nil {
+			log.Print(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
 	}
 }
 
 func ServeWeb() {
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	http.HandleFunc("GET /jobs/{id}/", jobHandler)
-	http.HandleFunc("/", serveTemplate)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	//fs := http.FileServer(http.Dir("./static"))
+	//http.Handle("/static/", http.StripPrefix("/static/", fs))
+	muxer := http.NewServeMux()
+	muxer.HandleFunc("/", serveTemplate)
+	muxer.HandleFunc("/port", portConfig)
+	muxer.HandleFunc("/device", deviceConfig)
+	//http.HandleFunc("/device", deviceConfig)
+	muxer.HandleFunc("/device/{port}", deviceConfig)
+	muxer.HandleFunc("/device/{port}/{baud}", deviceConfig)
+	muxer.HandleFunc("/device/{port}/{baud}/{data}/{parity}/{stop}", deviceConfig)
+	muxer.HandleFunc("/jobs/{id}", jobHandler)
+	fmt.Printf("Listening on port %d\n", 8080)
+	log.Fatal(http.ListenAndServe(":8080", muxer))
 }
