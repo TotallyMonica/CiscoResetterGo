@@ -107,6 +107,20 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
 	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
+	port := r.PathValue("port")
+	if port != "" {
+		fmt.Printf("%s requested port %s\n", r.RemoteAddr, port)
+	}
+	baud, err := strconv.Atoi(r.PathValue("baud"))
+	if err != nil {
+		log.Print(err.Error())
+		http.Error(w, fmt.Sprintf("Invalid baud %s\n", r.PathValue("baud")), http.StatusBadRequest)
+		return
+	}
+	if port != "" {
+		fmt.Printf("%s requested baud %d\n", r.RemoteAddr, baud)
+	}
+
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 	var serialConf SerialConfiguration
 	serialConf.Port = r.PostFormValue("device")
@@ -123,7 +137,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("POST Data: %+v\n", serialConf)
-	err := tmpl.ExecuteTemplate(w, "layout", serialConf)
+	err = tmpl.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
 		// Log the detailed error
 		log.Print(err.Error())
@@ -231,14 +245,14 @@ func ServeWeb() {
 	//fs := http.FileServer(http.Dir("./static"))
 	//http.Handle("/static/", http.StripPrefix("/static/", fs))
 	muxer := http.NewServeMux()
-	muxer.HandleFunc("/", serveTemplate)
-	muxer.HandleFunc("/port", portConfig)
-	muxer.HandleFunc("/device", deviceConfig)
-	//http.HandleFunc("/device", deviceConfig)
-	muxer.HandleFunc("/device/{port}", deviceConfig)
-	muxer.HandleFunc("/device/{port}/{baud}", deviceConfig)
-	muxer.HandleFunc("/device/{port}/{baud}/{data}/{parity}/{stop}", deviceConfig)
-	muxer.HandleFunc("/jobs/{id}", jobHandler)
+	muxer.HandleFunc("GET /{$}", serveTemplate)
+	muxer.HandleFunc("GET /port", portConfig)
+	muxer.HandleFunc("GET /device", deviceConfig)
+	muxer.HandleFunc("POST /device", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}/{baud}", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}", deviceConfig)
+	muxer.HandleFunc("GET /jobs/{id}", jobHandler)
 	fmt.Printf("Listening on port %d\n", 8080)
 	log.Fatal(http.ListenAndServe(":8080", muxer))
 }
