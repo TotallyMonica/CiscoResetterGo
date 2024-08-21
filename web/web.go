@@ -107,19 +107,21 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
 	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	port := r.PathValue("port")
-	if port != "" {
-		fmt.Printf("%s requested port %s\n", r.RemoteAddr, port)
-	}
-	baud, err := strconv.Atoi(r.PathValue("baud"))
-	if err != nil {
-		log.Print(err.Error())
-		http.Error(w, fmt.Sprintf("Invalid baud %s\n", r.PathValue("baud")), http.StatusBadRequest)
-		return
-	}
-	if port != "" {
-		fmt.Printf("%s requested baud %d\n", r.RemoteAddr, baud)
-	}
+	//port := r.PathValue("port")
+	//if port != "" {
+	//	fmt.Printf("%s requested port %s\n", r.RemoteAddr, port)
+	//}
+	//if r.PathValue("baud") != "" {
+	//	baud, err := strconv.Atoi(r.PathValue("baud"))
+	//	if err != nil {
+	//		log.Print(err.Error())
+	//		http.Error(w, fmt.Sprintf("Invalid baud %s\n", r.PathValue("baud")), http.StatusBadRequest)
+	//		return
+	//	}
+	//	if port != "" {
+	//		fmt.Printf("%s requested baud %d\n", r.RemoteAddr, baud)
+	//	}
+	//}
 
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 	var serialConf SerialConfiguration
@@ -134,10 +136,72 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 		serialConf.StopBits = 1.5
 	case "two":
 		serialConf.StopBits = 2
+	default:
+		serialConf.StopBits = -1
 	}
 
 	fmt.Printf("POST Data: %+v\n", serialConf)
-	err = tmpl.ExecuteTemplate(w, "layout", serialConf)
+	err := tmpl.ExecuteTemplate(w, "layout", serialConf)
+	if err != nil {
+		log.Print(err.Error())
+		http.Error(w, http.StatusText(500), 500)
+	}
+}
+
+func resetDevice(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate := filepath.Join("templates", "layout.html")
+	pathTemplate := filepath.Join("templates", "reset.html")
+	// endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	fmt.Printf("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
+
+	var rules RunParams
+	rules.PortConfig.Port = r.PostFormValue("port")
+	rules.PortConfig.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
+	rules.PortConfig.DataBits, _ = strconv.Atoi(r.PostFormValue("data"))
+	rules.PortConfig.Parity = r.PostFormValue("parity")
+	stopBits := r.PostFormValue("stop")
+	switch stopBits {
+	case "one":
+		rules.PortConfig.StopBits = 1
+	case "opf":
+		rules.PortConfig.StopBits = 1.5
+	case "two":
+		rules.PortConfig.StopBits = 2
+	default:
+		rules.PortConfig.StopBits = -1
+	}
+
+	rules.DeviceType = r.PostFormValue("device")
+	rules.Verbose = r.PostFormValue("verbose") == "verbose"
+	rules.Reset = r.PostFormValue("reset") == "reset"
+	rules.Defaults = r.PostFormValue("defaults") == "defaults"
+	file, header, err := r.FormFile("defaultsFile")
+	if err != nil {
+		return
+	} else {
+		// Parse file name
+		rules.DefaultsFile = header.Filename
+
+		// Parse file contents
+		var buf bytes.Buffer
+		io.Copy(&buf, file)
+		rules.DefaultsContents = buf.String()
+		buf.Reset()
+	}
+
+	newJob := Job{
+		Number: len(jobs) + 1,
+		Output: "",
+		Exists: true,
+		Params: rules,
+	}
+
+	jobs = append(jobs, newJob)
+
+	fmt.Printf("POST Data: %+v\n", newJob)
+	err = tmpl.ExecuteTemplate(w, "layout", newJob)
 	if err != nil {
 		// Log the detailed error
 		log.Print(err.Error())
@@ -187,72 +251,27 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-
-	switch {
-	// Render reset-specific functionality
-	case endpoint[0] == "reset":
-		var rules RunParams
-		rules.PortConfig.Port = r.PostFormValue("port")
-		rules.PortConfig.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
-		rules.PortConfig.DataBits, _ = strconv.Atoi(r.PostFormValue("data"))
-		rules.PortConfig.Parity = r.PostFormValue("parity")
-		stopBits64, err := strconv.ParseFloat(r.PostFormValue("stop"), 32)
-		if err != nil {
-			http.Error(w, http.StatusText(500), 500)
-			return
-		}
-		rules.PortConfig.StopBits = float32(stopBits64)
-
-		rules.DeviceType = r.PostFormValue("device")
-		rules.Verbose = r.PostFormValue("verbose") == "verbose"
-		rules.Reset = r.PostFormValue("reset") == "reset"
-		rules.Defaults = r.PostFormValue("defaults") == "defaults"
-		file, header, err := r.FormFile("defaultsFile")
-		if err != nil {
-			return
-		} else {
-			// Parse file name
-			rules.DefaultsFile = header.Filename
-
-			// Parse file contents
-			var buf bytes.Buffer
-			io.Copy(&buf, file)
-			rules.DefaultsContents = buf.String()
-			buf.Reset()
-		}
-
-		newJob := Job{
-			Number: len(jobs) + 1,
-			Output: "",
-			Exists: true,
-			Params: rules,
-		}
-
-		jobs = append(jobs, newJob)
-
-		fmt.Printf("POST Data: %+v\n", newJob)
-		err = tmpl.ExecuteTemplate(w, "layout", newJob)
-
-		err = tmpl.ExecuteTemplate(w, "layout", nil)
-		if err != nil {
-			log.Print(err.Error())
-			http.Error(w, http.StatusText(500), 500)
-		}
+	err = tmpl.ExecuteTemplate(w, "layout", nil)
+	if err != nil {
+		// Log the detailed error
+		log.Print(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
 	}
 }
 
 func ServeWeb() {
-	//fs := http.FileServer(http.Dir("./static"))
-	//http.Handle("/static/", http.StripPrefix("/static/", fs))
 	muxer := http.NewServeMux()
 	muxer.HandleFunc("GET /{$}", serveTemplate)
-	muxer.HandleFunc("GET /port", portConfig)
-	muxer.HandleFunc("GET /device", deviceConfig)
-	muxer.HandleFunc("POST /device", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}/{baud}", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}", deviceConfig)
-	muxer.HandleFunc("GET /jobs/{id}", jobHandler)
+	muxer.HandleFunc("GET /port/{$}", portConfig)
+	muxer.HandleFunc("GET /device/{$}", deviceConfig)
+	muxer.HandleFunc("POST /device/{$}", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}/{$}", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}/{baud}/{$}", deviceConfig)
+	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}/{$}", deviceConfig)
+	muxer.HandleFunc("POST /reset/{$}", resetDevice)
+	muxer.HandleFunc("GET /jobs/{id}/{$}", jobHandler)
 	fmt.Printf("Listening on port %d\n", 8080)
 	log.Fatal(http.ListenAndServe(":8080", muxer))
 }
