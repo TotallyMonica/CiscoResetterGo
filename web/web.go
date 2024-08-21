@@ -3,10 +3,12 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
 	"log"
+	"main/switches"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -199,6 +201,39 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jobs = append(jobs, newJob)
+
+	mode := &serial.Mode{
+		BaudRate: rules.PortConfig.BaudRate,
+		DataBits: rules.PortConfig.DataBits,
+	}
+
+	switch rules.PortConfig.Parity {
+	case "no":
+		mode.Parity = serial.NoParity
+	case "even":
+		mode.Parity = serial.EvenParity
+	case "odd":
+		mode.Parity = serial.OddParity
+	case "space":
+		mode.Parity = serial.SpaceParity
+	case "mark":
+		mode.Parity = serial.MarkParity
+	}
+
+	switch rules.PortConfig.StopBits {
+	case 1:
+		mode.StopBits = serial.OneStopBit
+	case 2:
+		mode.StopBits = serial.TwoStopBits
+	case 1.5:
+		mode.StopBits = serial.OnePointFiveStopBits
+	}
+
+	if rules.DeviceType == "switch" {
+		if rules.Reset {
+			switches.Reset(rules.PortConfig.Port, mode, rules.Verbose, nil)
+		}
+	}
 
 	fmt.Printf("POST Data: %+v\n", newJob)
 	err = tmpl.ExecuteTemplate(w, "layout", newJob)
