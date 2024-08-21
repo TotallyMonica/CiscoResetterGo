@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+type Progress struct {
+	CurrentStep int
+	TotalSteps  int
+}
+
 func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 	var output []byte
 	if debug {
