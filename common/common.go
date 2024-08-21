@@ -62,6 +62,9 @@ func FormatCommand(cmd string) []byte {
 }
 
 func WriteLine(port serial.Port, line string, debug bool) {
+	if len(line) == 0 {
+		line = "\r"
+	}
 	_, err := port.Write(FormatCommand(line))
 	if err != nil {
 		log.Fatal(err)

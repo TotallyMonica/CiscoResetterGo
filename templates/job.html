@@ -1,0 +1,12 @@
+{{ define "title" }}
+Job {{ .Number }}
+{{ end }}
+
+{{ define "body" }}
+<p>Serial port: {{ .Params.PortConfig.Port }}</p>
+<br>
+<p>Output:</p>
+<pre>
+    {{ .Output }}
+</pre>
+{{ end }}

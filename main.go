@@ -9,6 +9,7 @@ import (
 	"log"
 	"main/routers"
 	"main/switches"
+	"main/web"
 	"os"
 	"runtime"
 	"strings"
@@ -159,6 +160,7 @@ func main() {
 	var serialDevice string
 	var switchDefaults string
 	var skipReset bool
+	var webServer bool
 	var portSettings serial.Mode
 
 	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
@@ -166,9 +168,14 @@ func main() {
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.StringVar(&switchDefaults, "switch-defaults", "", "Set default settings on a switch")
 	flag.BoolVar(&skipReset, "skip-reset", false, "Skip resetting devices")
+	flag.BoolVar(&webServer, "web-server", false, "Use the web server")
 	flag.Parse()
 
 	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
+
+	if webServer {
+		web.ServeWeb()
+	}
 
 	if resetRouter || resetSwitch {
 		serialDevice, portSettings = SetupSerial()
@@ -180,7 +187,7 @@ func main() {
 		routers.Reset(serialDevice, portSettings, debug)
 	}
 	if resetSwitch && !skipReset {
-		switches.Reset(serialDevice, portSettings, debug)
+		switches.Reset(serialDevice, portSettings, debug, nil)
 	}
 
 	//if resetRouter && setDefaults {
@@ -200,7 +207,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		switches.Defaults(serialDevice, portSettings, defaults, debug)
+		switches.Defaults(serialDevice, portSettings, defaults, debug, nil)
 	} else {
 		fmt.Println("File path not provided, not setting defaults on switch")
 	}

@@ -1,0 +1,17 @@
+{{define "title"}}Chosen reset parameters{{end}}
+{{define "body"}}
+<p>Job number {{ .Number }} queued with the following settings:</p>
+<ul>
+    <li>Serial port: {{ .Params.PortConfig.Port }}</li>
+    <li>Baud rate: {{ .Params.PortConfig.BaudRate }}</li>
+    <li>Data bits: {{ .Params.PortConfig.DataBits }}</li>
+    <li>Parity: {{ .Params.PortConfig.Parity }}</li>
+    <li>Stop bits: {{ .Params.PortConfig.StopBits }}</li>
+    <li>Device type: {{ .Params.DeviceType }} </li>
+    {{ if .Params.Verbose }}<li>Have verbose output</li>{{ end }}
+    {{ if .Params.Reset }}<li>Reset device</li>{{ end }}
+    {{ if .Params.Defaults }}<li>Apply default settings</li>{{ end }}
+    {{ if .Params.DefaultsFile}}<li>Defaults file: {{ .Params.DefaultsFile }}</li>{{ end }}
+    {{ if .Params.DefaultsContents}}<li>Defaults file contents: {{ .Params.DefaultsContents}}</li>{{ end }}
+</ul>
+{{end}}
