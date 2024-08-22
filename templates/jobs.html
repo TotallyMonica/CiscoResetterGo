@@ -3,8 +3,8 @@ Jobs status
 {{end}}
 {{define "body"}}
 {{ $jobs := . | len -}}
-{{ if ne $jobs 0 }}
 <h3>Jobs running: {{ . | len -}}</h3>
+{{ if ne $jobs 0 }}
 <table class="table table-hover">
     <tr>
         <th>Job Number</th>
@@ -37,7 +37,5 @@ Jobs status
     </tr>
     {{ end }}
 </table>
-{{ else }}
-<h3>No jobs currently running</h3>
 {{ end }}
 {{ end }}

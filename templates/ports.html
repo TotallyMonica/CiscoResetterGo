@@ -3,8 +3,8 @@ Serial ports list
 {{end}}
 {{define "body"}}
 {{$serial := . | len -}}
-{{if ne $serial 0}}
 <h3>Serial ports present: {{ . | len -}}</h3>
+{{if ne $serial 0}}
 <table class="table table-hover">
     <tr>
         <th>Port</th>
@@ -23,7 +23,5 @@ Serial ports list
     </tr>
     {{ end }}
 </table>
-{{ else }}
-<h3>No serial ports found on host</h3>
 {{ end }}
 {{end}}
