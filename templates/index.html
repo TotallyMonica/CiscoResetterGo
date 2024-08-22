@@ -1,0 +1,70 @@
+{{define "title"}}
+Cisco Resetter Go Homepage
+{{end}}
+
+{{define "body"}}
+<br>
+{{$jobs := .Jobs | len -}}
+{{ if ne $jobs 0 }}
+<h3>Jobs running: {{ .Jobs | len -}}</h3>
+<table class="table table-hover">
+    <tr>
+        <th>Job Number</th>
+        <th>Port</th>
+        <th>Baud Rate</th>
+        <th>Data Bits</th>
+        <th>Parity</th>
+        <th>Stop bits</th>
+        <th>Device type</th>
+        <th>Verbose output</th>
+        <th>Reset Device</th>
+        <th>Apply Defaults</th>
+        <th>Defaults file</th>
+        <th>Initiator</th>
+    </tr>
+    {{ range .Jobs }}
+    <tr>
+        <td><a href="/jobs/{{ .Number }}">{{ .Number }}</a></td>
+        <td>{{ .Params.PortConfig.Port }}</td>
+        <td>{{ .Params.PortConfig.BaudRate }}</td>
+        <td>{{ .Params.PortConfig.DataBits }}</td>
+        <td>{{ .Params.PortConfig.Parity }}</td>
+        <td>{{ .Params.PortConfig.StopBits }}</td>
+        <td>{{ .Params.DeviceType }}</td>
+        <td>{{ if .Params.Verbose }}Yes{{ else }}No{{end}}</td>
+        <td>{{ if .Params.Reset }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .Params.Defaults }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .Params.DefaultsFile }}{{ .Params.DefaultsFile }}{{ else }}N/A{{ end }}</td>
+    <td>{{ .Initiator }}</td>
+    </tr>
+    {{ end }}
+</table>
+{{ else }}
+<h3>No jobs currently running</h3>
+{{ end }}
+<br>
+{{$serial := .SerialPorts | len -}}
+{{if ne $serial 0}}
+<h3>Serial ports present: {{ .SerialPorts | len -}}</h3>
+<table class="table table-hover">
+    <tr>
+        <th>Port</th>
+        <th>Description</th>
+        <th>USB?</th>
+        <th>PID:VID</th>
+        <th>Serial</th>
+    </tr>
+    {{ range .SerialPorts }}
+    <tr>
+        <td>{{ .Name }}</td>
+        <td>{{ .Product }}</td>
+        <td>{{ if .IsUSB }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .IsUSB }}{{ .PID }}:{{ .VID }}{{ end}}</td>
+        <td>{{ if .IsUSB }}{{ .SerialNumber }}{{ end }}</td>
+    </tr>
+    {{ end }}
+</table>
+{{ else }}
+<h3>No serial ports found on host</h3>
+{{ end }}
+{{end}}
