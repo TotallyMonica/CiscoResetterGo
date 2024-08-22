@@ -17,10 +17,16 @@ import (
 )
 
 type Job struct {
-	Number int
-	Output string
-	Exists bool
-	Params RunParams
+	Number    int
+	Output    string
+	Exists    bool
+	Initiator string
+	Params    RunParams
+}
+
+type IndexHelper struct {
+	SerialPorts []*enumerator.PortDetails
+	Jobs        []Job
 }
 
 type RunParams struct {
@@ -42,6 +48,20 @@ type SerialConfiguration struct {
 }
 
 var jobs []Job
+var output = make(chan string)
+
+func snitchOutput(c chan string, job int) {
+	serialOutput := <-c
+	for serialOutput != "EOF" {
+		jobs[job].Output += serialOutput
+		delimited := strings.Split(jobs[job].Output, "\n")
+		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
+		if len(delimited) > 30 {
+			jobs[job].Output = strings.Join(delimited[len(delimited)-30:], "\n")
+		}
+		serialOutput = <-c
+	}
+}
 
 func portConfig(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate := filepath.Join("templates", "layout.html")
@@ -165,12 +185,24 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	rules.PortConfig.Parity = r.PostFormValue("parity")
 	stopBits := r.PostFormValue("stop")
 	switch stopBits {
+	case "1":
+		rules.PortConfig.StopBits = 1
+		break
 	case "one":
 		rules.PortConfig.StopBits = 1
+		break
+	case "1.5":
+		rules.PortConfig.StopBits = 1.5
+		break
 	case "opf":
 		rules.PortConfig.StopBits = 1.5
+		break
+	case "2":
+		rules.PortConfig.StopBits = 2
+		break
 	case "two":
 		rules.PortConfig.StopBits = 2
+		break
 	default:
 		rules.PortConfig.StopBits = -1
 	}
@@ -194,10 +226,11 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newJob := Job{
-		Number: len(jobs) + 1,
-		Output: "",
-		Exists: true,
-		Params: rules,
+		Number:    len(jobs) + 1,
+		Output:    "",
+		Exists:    true,
+		Params:    rules,
+		Initiator: strings.Join(strings.Split(r.RemoteAddr, ":")[:len(strings.Split(r.RemoteAddr, ":"))-1], ":"),
 	}
 
 	jobs = append(jobs, newJob)
@@ -231,7 +264,8 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 
 	if rules.DeviceType == "switch" {
 		if rules.Reset {
-			switches.Reset(rules.PortConfig.Port, mode, rules.Verbose, nil)
+			go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			go snitchOutput(output, newJob.Number-1)
 		}
 	}
 
@@ -251,12 +285,6 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	pathTemplate := filepath.Join("templates", filepath.Clean(r.URL.Path)+".html")
 	endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
 	fmt.Printf("serveTemplate: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
-
-	// We want to do nothing with jobs here
-	if endpoint[0] == "jobs" {
-		jobHandler(w, r)
-		return
-	}
 
 	if endpoint[0] == "" {
 		_, err := os.Stat(filepath.Join("templates", "index.html"))
@@ -285,8 +313,18 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	serialPorts, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		// Log the detailed error
+		log.Print(err.Error())
+	}
+
+	var indexHelper IndexHelper
+	indexHelper.Jobs = jobs
+	indexHelper.SerialPorts = serialPorts
+
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err = tmpl.ExecuteTemplate(w, "layout", nil)
+	err = tmpl.ExecuteTemplate(w, "layout", indexHelper)
 	if err != nil {
 		// Log the detailed error
 		log.Print(err.Error())
