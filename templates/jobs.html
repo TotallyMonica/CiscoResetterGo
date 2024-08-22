@@ -1,0 +1,43 @@
+{{define "title"}}
+Jobs status
+{{end}}
+{{define "body"}}
+{{ $jobs := . | len -}}
+{{ if ne $jobs 0 }}
+<h3>Jobs running: {{ . | len -}}</h3>
+<table class="table table-hover">
+    <tr>
+        <th>Job Number</th>
+        <th>Port</th>
+        <th>Baud Rate</th>
+        <th>Data Bits</th>
+        <th>Parity</th>
+        <th>Stop bits</th>
+        <th>Device type</th>
+        <th>Verbose output</th>
+        <th>Reset Device</th>
+        <th>Apply Defaults</th>
+        <th>Defaults file</th>
+        <th>Initiator</th>
+    </tr>
+    {{ range . }}
+    <tr>
+        <td><a href="/jobs/{{ .Number }}">{{ .Number }}</a></td>
+        <td>{{ .Params.PortConfig.Port }}</td>
+        <td>{{ .Params.PortConfig.BaudRate }}</td>
+        <td>{{ .Params.PortConfig.DataBits }}</td>
+        <td>{{ .Params.PortConfig.Parity }}</td>
+        <td>{{ .Params.PortConfig.StopBits }}</td>
+        <td>{{ .Params.DeviceType }}</td>
+        <td>{{ if .Params.Verbose }}Yes{{ else }}No{{end}}</td>
+        <td>{{ if .Params.Reset }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .Params.Defaults }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .Params.DefaultsFile }}{{ .Params.DefaultsFile }}{{ else }}N/A{{ end }}</td>
+        <td>{{ .Initiator }}</td>
+    </tr>
+    {{ end }}
+</table>
+{{ else }}
+<h3>No jobs currently running</h3>
+{{ end }}
+{{ end }}

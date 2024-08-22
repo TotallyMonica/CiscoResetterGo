@@ -86,6 +86,22 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func jobListHandler(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate := filepath.Join("templates", "layout.html")
+	pathTemplate := filepath.Join("templates", "jobs.html")
+	fmt.Printf("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
+	err := tmpl.ExecuteTemplate(w, "layout", jobs)
+	if err != nil {
+		// Log the detailed error
+		log.Print(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+}
+
 func jobHandler(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate := filepath.Join("templates", "layout.html")
 	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
@@ -344,7 +360,8 @@ func ServeWeb() {
 	muxer.HandleFunc("POST /device/{port}/{baud}/{$}", deviceConfig)
 	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}/{$}", deviceConfig)
 	muxer.HandleFunc("POST /reset/{$}", resetDevice)
-	muxer.HandleFunc("GET /jobs/{id}/{$}", jobHandler)
+	muxer.HandleFunc("GET /list/jobs/{$}", jobListHandler)
+	muxer.HandleFunc("GET /list/jobs/{id}/{$}", jobHandler)
 	fmt.Printf("Listening on port %d\n", 8080)
 	log.Fatal(http.ListenAndServe(":8080", muxer))
 }
