@@ -2,12 +2,14 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
 	"log"
+	"main/routers"
 	"main/switches"
 	"net/http"
 	"os"
@@ -299,6 +301,31 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	if rules.DeviceType == "switch" {
 		if rules.Reset {
 			go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			go snitchOutput(output, newJob.Number-1)
+		}
+		if rules.Defaults {
+			var defaults switches.SwitchConfig
+			err = json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			go snitchOutput(output, newJob.Number-1)
+		}
+	} else if rules.DeviceType == "router" {
+		if rules.Reset {
+			go routers.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			go snitchOutput(output, newJob.Number-1)
+		}
+		if rules.Defaults {
+			var defaults routers.RouterDefaults
+			err = json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
 			go snitchOutput(output, newJob.Number-1)
 		}
 	}

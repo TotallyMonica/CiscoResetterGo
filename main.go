@@ -184,7 +184,7 @@ func main() {
 	}
 
 	if resetRouter && !skipReset {
-		routers.Reset(serialDevice, portSettings, debug)
+		routers.Reset(serialDevice, portSettings, debug, nil)
 	}
 	if resetSwitch && !skipReset {
 		switches.Reset(serialDevice, portSettings, debug, nil)
