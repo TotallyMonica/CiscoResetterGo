@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
-	"log"
 	"main/routers"
 	"main/switches"
 	"net/http"
@@ -16,12 +16,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
+
+var log = logging.MustGetLogger("")
 
 type Job struct {
 	Number    int
 	Output    string
-	Exists    bool
+	Status    string
 	Initiator string
 	Params    RunParams
 }
@@ -52,16 +55,123 @@ type SerialConfiguration struct {
 var jobs []Job
 var output = make(chan string)
 
+func findJob(num int) int {
+	for i, job := range jobs {
+		if job.Number == num {
+			return i
+		}
+	}
+	return -1
+}
+
 func snitchOutput(c chan string, job int) {
 	serialOutput := <-c
-	for serialOutput != "EOF" {
-		jobs[job].Output += serialOutput
-		delimited := strings.Split(jobs[job].Output, "\n")
+	jobIdx := findJob(job)
+	if jobIdx == -1 {
+		log.Fatalf("snitchOutput: Could not find job %d\n", job)
+	}
+	for serialOutput != "---EOF---" {
+		jobs[jobIdx].Output += serialOutput
+		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
 		if len(delimited) > 30 {
-			jobs[job].Output = strings.Join(delimited[len(delimited)-30:], "\n")
+			jobs[jobIdx].Output = strings.Join(delimited[len(delimited)-30:], "\n")
 		}
 		serialOutput = <-c
+	}
+	jobs[jobIdx].Status = "EOF"
+}
+
+func runJob(rules RunParams, jobNum int) {
+	mode := &serial.Mode{
+		BaudRate: rules.PortConfig.BaudRate,
+		DataBits: rules.PortConfig.DataBits,
+	}
+
+	switch rules.PortConfig.Parity {
+	case "no":
+		mode.Parity = serial.NoParity
+	case "even":
+		mode.Parity = serial.EvenParity
+	case "odd":
+		mode.Parity = serial.OddParity
+	case "space":
+		mode.Parity = serial.SpaceParity
+	case "mark":
+		mode.Parity = serial.MarkParity
+	}
+
+	switch rules.PortConfig.StopBits {
+	case 1:
+		mode.StopBits = serial.OneStopBit
+	case 2:
+		mode.StopBits = serial.TwoStopBits
+	case 1.5:
+		mode.StopBits = serial.OnePointFiveStopBits
+	}
+
+	if rules.DeviceType == "switch" {
+		if rules.Reset {
+			go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			jobIdx := findJob(jobNum)
+			if jobIdx == -1 {
+				log.Warningf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
+			} else {
+				jobs[jobIdx].Status = "Resetting"
+				go snitchOutput(output, jobNum)
+				for jobs[jobIdx].Status != "EOF" {
+					time.Sleep(1 * time.Minute)
+				}
+			}
+		}
+		if rules.Defaults {
+			var defaults switches.SwitchConfig
+			err := json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
+			if err != nil {
+				log.Warningf("Job %d failed: %s\n", jobNum, err)
+				return
+			}
+
+			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			jobIdx := findJob(jobNum)
+			jobs[jobIdx].Status = "Applying defaults"
+			go snitchOutput(output, jobNum)
+			for jobs[jobIdx].Status != "EOF" {
+				time.Sleep(1 * time.Minute)
+			}
+		}
+		jobIdx := findJob(jobNum)
+		jobs[jobIdx].Status = "Done"
+	} else if rules.DeviceType == "router" {
+		if rules.Reset {
+			go routers.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			jobIdx := findJob(jobNum)
+			if jobIdx == -1 {
+				log.Warningf("How did we get here? Job number for switch requested: %d\n", jobNum)
+			} else {
+				jobs[jobIdx].Status = "Applying defaults"
+				go snitchOutput(output, jobNum)
+				for jobs[jobIdx].Status != "EOF" {
+					time.Sleep(1 * time.Minute)
+				}
+			}
+		}
+		if rules.Defaults {
+			var defaults routers.RouterDefaults
+			err := json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
+			if err != nil {
+				log.Warningf("Job %d failed: %s\n", jobNum, err)
+				return
+			}
+
+			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			jobIdx := findJob(jobNum)
+			jobs[jobIdx].Status = "Applying defaults"
+			go snitchOutput(output, jobNum)
+			for jobs[jobIdx].Status != "EOF" {
+				time.Sleep(1 * time.Minute)
+			}
+		}
 	}
 }
 
@@ -74,7 +184,7 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 	data, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -83,7 +193,7 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 	err = tmpl.ExecuteTemplate(w, "layout", data)
 	if err != nil {
-		log.Print(err.Error())
+		log.Info(err.Error())
 		http.Error(w, http.StatusText(500), 500)
 	}
 }
@@ -97,7 +207,7 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 	err := tmpl.ExecuteTemplate(w, "layout", jobs)
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -115,7 +225,7 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 	err := tmpl.ExecuteTemplate(w, "layout", ports)
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -137,22 +247,19 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 	var job Job
 
-	for _, job = range jobs {
-		if job.Number == reqJob {
-			break
-		}
-	}
-	if job.Exists == false {
+	jobIdx := findJob(reqJob)
+	if jobIdx == -1 {
 		fmt.Printf("jobHandler: Requested job %d not found\n", reqJob)
 		http.Error(w, fmt.Sprintf("Job %d not found", reqJob), http.StatusTeapot)
 		return
 	}
+	job = jobs[jobIdx]
 
 	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 	err = tmpl.ExecuteTemplate(w, "layout", job)
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -201,7 +308,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("POST Data: %+v\n", serialConf)
 	err := tmpl.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
-		log.Print(err.Error())
+		log.Info(err.Error())
 		http.Error(w, http.StatusText(500), 500)
 	}
 }
@@ -248,93 +355,40 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	rules.Reset = r.PostFormValue("reset") == "reset"
 	rules.Defaults = r.PostFormValue("defaults") == "defaults"
 	file, header, err := r.FormFile("defaultsFile")
-	if err != nil {
-		return
-	} else {
+	if err == nil {
 		// Parse file name
 		rules.DefaultsFile = header.Filename
 
 		// Parse file contents
 		var buf bytes.Buffer
-		io.Copy(&buf, file)
+		_, err = io.Copy(&buf, file)
+		if err != nil {
+			http.Error(w, http.StatusText(500), 500)
+			log.Fatal(err)
+		}
 		rules.DefaultsContents = buf.String()
 		buf.Reset()
 	}
 
+	jobNum := len(jobs) + 1
+
 	newJob := Job{
-		Number:    len(jobs) + 1,
+		Number:    jobNum,
 		Output:    "",
-		Exists:    true,
+		Status:    "Created",
 		Params:    rules,
 		Initiator: strings.Join(strings.Split(r.RemoteAddr, ":")[:len(strings.Split(r.RemoteAddr, ":"))-1], ":"),
 	}
 
 	jobs = append(jobs, newJob)
 
-	mode := &serial.Mode{
-		BaudRate: rules.PortConfig.BaudRate,
-		DataBits: rules.PortConfig.DataBits,
-	}
-
-	switch rules.PortConfig.Parity {
-	case "no":
-		mode.Parity = serial.NoParity
-	case "even":
-		mode.Parity = serial.EvenParity
-	case "odd":
-		mode.Parity = serial.OddParity
-	case "space":
-		mode.Parity = serial.SpaceParity
-	case "mark":
-		mode.Parity = serial.MarkParity
-	}
-
-	switch rules.PortConfig.StopBits {
-	case 1:
-		mode.StopBits = serial.OneStopBit
-	case 2:
-		mode.StopBits = serial.TwoStopBits
-	case 1.5:
-		mode.StopBits = serial.OnePointFiveStopBits
-	}
-
-	if rules.DeviceType == "switch" {
-		if rules.Reset {
-			go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
-			go snitchOutput(output, newJob.Number-1)
-		}
-		if rules.Defaults {
-			var defaults switches.SwitchConfig
-			err = json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
-			go snitchOutput(output, newJob.Number-1)
-		}
-	} else if rules.DeviceType == "router" {
-		if rules.Reset {
-			go routers.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
-			go snitchOutput(output, newJob.Number-1)
-		}
-		if rules.Defaults {
-			var defaults routers.RouterDefaults
-			err = json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
-			go snitchOutput(output, newJob.Number-1)
-		}
-	}
+	go runJob(rules, jobNum)
 
 	fmt.Printf("POST Data: %+v\n", newJob)
 	err = tmpl.ExecuteTemplate(w, "layout", newJob)
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -377,7 +431,7 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	serialPorts, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 	}
 
 	var indexHelper IndexHelper
@@ -388,7 +442,7 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	err = tmpl.ExecuteTemplate(w, "layout", indexHelper)
 	if err != nil {
 		// Log the detailed error
-		log.Print(err.Error())
+		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -407,7 +461,7 @@ func ServeWeb() {
 	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}/{$}", deviceConfig)
 	muxer.HandleFunc("POST /reset/{$}", resetDevice)
 	muxer.HandleFunc("GET /list/jobs/{$}", jobListHandler)
-	muxer.HandleFunc("GET /list/jobs/{id}/{$}", jobHandler)
+	muxer.HandleFunc("GET /jobs/{id}/{$}", jobHandler)
 	fmt.Printf("Listening on port %d\n", 8080)
 	log.Fatal(http.ListenAndServe(":8080", muxer))
 }
