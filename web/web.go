@@ -70,7 +70,7 @@ func snitchOutput(c chan string, job int) {
 	if jobIdx == -1 {
 		log.Fatalf("snitchOutput: Could not find job %d\n", job)
 	}
-	for serialOutput != "---EOF---" {
+	for !strings.HasSuffix(serialOutput, "---EOF---") {
 		jobs[jobIdx].Output += serialOutput
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
@@ -112,16 +112,18 @@ func runJob(rules RunParams, jobNum int) {
 
 	if rules.DeviceType == "switch" {
 		if rules.Reset {
-			go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			if jobIdx == -1 {
 				log.Warningf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
+				jobs[jobIdx].Status = "Errored"
 			} else {
+				go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
 				jobs[jobIdx].Status = "Resetting"
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
+				jobs[jobIdx].Status = "Finished resetting"
 			}
 		}
 		if rules.Defaults {
