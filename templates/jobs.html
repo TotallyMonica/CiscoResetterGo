@@ -19,10 +19,11 @@ Jobs status
         <th>Apply Defaults</th>
         <th>Defaults file</th>
         <th>Initiator</th>
+        <th>Status</th>
     </tr>
     {{ range . }}
     <tr>
-        <td><a href="/jobs/{{ .Number }}">{{ .Number }}</a></td>
+        <td><a href="/jobs/{{ .Number }}/">{{ .Number }}</a></td>
         <td>{{ .Params.PortConfig.Port }}</td>
         <td>{{ .Params.PortConfig.BaudRate }}</td>
         <td>{{ .Params.PortConfig.DataBits }}</td>
@@ -34,6 +35,7 @@ Jobs status
         <td>{{ if .Params.Defaults }}Yes{{ else }}No{{ end }}</td>
         <td>{{ if .Params.DefaultsFile }}{{ .Params.DefaultsFile }}{{ else }}N/A{{ end }}</td>
         <td>{{ .Initiator }}</td>
+        <td>{{ .Status }}</td>
     </tr>
     {{ end }}
 </table>
