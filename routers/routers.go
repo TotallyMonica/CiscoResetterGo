@@ -49,10 +49,13 @@ type RouterDefaults struct {
 var redirectedOutput chan string
 
 func outputInfo(data string) {
-	if redirectedOutput == nil {
-		fmt.Printf(data)
-	} else {
-		redirectedOutput <- data
+	current := time.Now()
+	if redirectedOutput == nil && !strings.HasSuffix(data, "---EOF---") {
+		fmt.Printf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(), current.Day(),
+			current.Hour(), current.Minute(), current.Second(), data)
+	} else if redirectedOutput != nil {
+		redirectedOutput <- fmt.Sprintf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(),
+			current.Day(), current.Hour(), current.Minute(), current.Second(), data)
 	}
 }
 
@@ -69,15 +72,18 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	redirectedOutput = progressDest
 
 	port, err := serial.Open(SerialPort, &PortSettings)
+	defer func(port serial.Port) {
+		err := port.Close()
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while closing port %s: %s\n", SerialPort, err)
+		}
+	}(port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("routers.Reset: Error while opening port %s: %s\n", SerialPort, err)
 	}
 
 	err = port.SetReadTimeout(2 * time.Second)
-	if err != nil {
-		return
-	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,11 +91,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	outputInfo("Trigger the recovery sequence by following these steps: \n")
 	outputInfo("1. Turn off the router\n")
 	outputInfo("2. After waiting for the lights to shut off, turn the router back \n")
-	outputInfo("3. Press enter here once this has been completed\n")
-	_, err = fmt.Scanln()
-	if err != nil {
-		return
-	}
 
 	outputInfo("Sending ^C until we get into ROMMON...\n")
 	var output []byte
@@ -113,11 +114,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT)))
 			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT))
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -128,13 +129,17 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 
 	// TODO: Ensure we're actually at the prompt instead of just assuming
 	for _, cmd := range commands {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		}
 		_, err = port.Write(common.FormatCommand(cmd))
 		if err != nil {
 			log.Fatal(err)
 		}
 		output = common.ReadLine(port, BUFFER_SIZE, debug)
-		outputInfo(fmt.Sprintf("DEBUG: Sent %s to device", cmd))
+		if debug {
+			outputInfo(fmt.Sprintf("DEBUG: Sent %s to device", cmd))
+		}
 	}
 
 	// We've made it out of ROMMON
@@ -145,9 +150,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	}
 	outputInfo("We've finished with ROMMON, going back into the regular console\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
-		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
-		outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
-		outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+		}
 		if common.IsEmpty(output) {
 			if debug {
 				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
@@ -227,18 +234,25 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 
 	outputInfo("Successfully reset!\n")
+	outputInfo("---EOF---")
 }
 
 func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool, progressDest chan string) {
 	redirectedOutput = progressDest
 
-	hostname := "Switch"
+	hostname := "Router"
 	prompt := hostname + ">"
 
 	port, err := serial.Open(SerialPort, &PortSettings)
+	defer func(port serial.Port) {
+		err := port.Close()
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while closing port %s: %s\n", SerialPort, err)
+		}
+	}(port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("routers.Defaults: Error while opening port %s: %s\n", SerialPort, err)
 	}
 
 	err = port.SetReadTimeout(1 * time.Second)
@@ -621,4 +635,5 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	outputInfo("Settings applied!\n")
 	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
 	outputInfo("To fix this, run `wr` on the target device.\n")
+	outputInfo("---EOF---")
 }
