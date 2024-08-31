@@ -259,7 +259,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	}
 
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
-	outputInfo("Waiting for the router to start up")
+	outputInfo("Waiting for the router to start up\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
@@ -293,7 +293,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	}
 	line := common.ReadLine(port, 500, debug)
 
-	outputInfo("Elevating our privileges")
+	outputInfo("Elevating our privileges\n")
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -311,7 +311,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
 	}
 
-	outputInfo("Entering global configuration mode")
+	outputInfo("Entering global configuration mode\n")
 	_, err = port.Write(common.FormatCommand("conf t"))
 	if err != nil {
 		log.Fatal(err)
@@ -320,7 +320,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	// Configure router ports
 	if len(config.Ports) != 0 {
-		outputInfo("Configuring the interface")
+		outputInfo("Configuring the physical interfaces\n")
 		for _, routerPort := range config.Ports {
 			outputInfo(fmt.Sprintf("Configuring interface %s\n", routerPort.Port))
 			if debug {
