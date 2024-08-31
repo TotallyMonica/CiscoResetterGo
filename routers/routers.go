@@ -406,7 +406,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if len(config.Lines) != 0 {
 		outputInfo("Configuring console lines\n")
 		for _, line := range config.Lines {
-			outputInfo(fmt.Sprintf("Configuring line %s %d to %d", line.Type, line.StartLine, line.EndLine))
+			outputInfo(fmt.Sprintf("Configuring line %s %d to %d\n", line.Type, line.StartLine, line.EndLine))
 			if line.Type != "" {
 				// Ensure both lines are <= 4
 				if line.StartLine > 4 {
@@ -441,7 +441,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 				// Set the line password
 				if line.Password != "" {
-					outputInfo(fmt.Sprintf("Applying the password %s to the line", line.Password))
+					outputInfo(fmt.Sprintf("Applying the password %s to the line\n", line.Password))
 					if debug {
 						outputInfo(fmt.Sprintf("INPUT: %s\n", "password "+line.Password))
 					}
