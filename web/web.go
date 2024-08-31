@@ -70,7 +70,7 @@ func snitchOutput(c chan string, job int) {
 	if jobIdx == -1 {
 		log.Fatalf("snitchOutput: Could not find job %d\n", job)
 	}
-	for !strings.HasSuffix(serialOutput, "---EOF---") {
+	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
 		jobs[jobIdx].Output += serialOutput
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
