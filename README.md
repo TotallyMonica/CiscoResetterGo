@@ -17,12 +17,12 @@ go build main
 
 ### Windows
 ```
-./main.exe <-router | -switch> [-debug]
+./main.exe { --web-server | <--router [--router-defaults /path/to/router_defaults.json] | --switch --switch-defaults /path/to/switch_defaults.json]> [--skip-reset] } [--debug]
 ```
 
 ### Linux
 ```
-./main <-router | -switch> [-debug]
+./main { --web-server | <--router [--router-defaults /path/to/router_defaults.json] | --switch --switch-defaults /path/to/switch_defaults.json]> [--skip-reset] } [--debug]
 ```
 
 ## Why this?
