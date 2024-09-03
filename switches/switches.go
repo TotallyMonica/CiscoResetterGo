@@ -289,6 +289,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
+	outputInfo("---EOF---")
 }
 
 func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, debug bool, progressDest chan string) {
@@ -953,4 +954,5 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	outputInfo("Settings applied!\n")
 	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
 	outputInfo("To fix this, run `wr` on the target device.\n")
+	outputInfo("---EOF---")
 }
