@@ -199,7 +199,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 		progress.CurrentStep += 1
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
+				outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 		}
@@ -217,7 +217,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 		output = common.ReadLine(port, 500, debug)
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: %s\n"))
+				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
 			}
 			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
