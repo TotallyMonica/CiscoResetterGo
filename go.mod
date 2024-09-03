@@ -4,7 +4,7 @@ go 1.20
 
 require go.bug.st/serial v1.6.2
 
-require github.com/TotallyMonica/CiscoResetterGo/common v0.0.0-20240529183303-73190f475ecf
+require github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 
 require (
 	github.com/creack/goselect v0.1.2 // indirect

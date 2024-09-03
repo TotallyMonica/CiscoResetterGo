@@ -1,0 +1,46 @@
+{{define "title"}}Configure device resetting parameters{{end}}
+{{define "body"}}
+<form action='/reset/' method='post' enctype='multipart/form-data'>
+    <br>
+    <h6>Choose device type</h6>
+    <div class=form-check>
+        <label class='form-check-label' for='router'>Router</label>
+        <input class='form-check-input' type='radio' name='device' id='router' value='router' required>
+    </div>
+    <div class=form-check>
+        <label class='form-check-label' for='switch'>Switch</label>
+        <input class='form-check-input' type='radio' name='device' id='switch' value='switch' required>
+    </div>
+    <br>
+
+    <h6>Verbosity</h6>
+    <div class=form-check>
+        <label class='form-check-label' for='verbose'>Verbose? </label>
+        <input class='form-check-input' type='checkbox' id='verbose' name='verbose' value='verbose'>
+    </div>
+
+    <br>
+    <h6>Functionality</h6>
+    <div class=form-check>
+        <label class='form-check-label' for='reset'>Reset? </label>
+        <input class='form-check-input' type='checkbox' id='reset' name='reset' value='reset'>
+    </div>
+
+    <div class=form-check>
+        <label class='form-check-label' for='defaults'>Apply defaults? </label>
+        <input class='form-check-input' type='checkbox' id='defaults' name='defaults' value='defaults'>
+    </div>
+    <div class=form-group>
+        <label for='defaultsFile'>Defaults File</label>
+        <input type='file' class='form-control-file' id='defaultsFile' name='defaultsFile'>
+    </div>
+
+    <input type="hidden" id="port" name="port" value="{{ .Port }}">
+    <input type="hidden" id="baud" name="baud" value="{{ .BaudRate }}">
+    <input type="hidden" id="data" name="data" value="{{ .DataBits }}">
+    <input type="hidden" id="parity" name="parity" value="{{ .Parity }}">
+    <input type="hidden" id="stop" name="stop" value="{{ .StopBits }}">
+    <br>
+    <input type="submit" value="Submit" class="btn btn-primary">
+</form>
+{{end}}

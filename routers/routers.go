@@ -46,7 +46,20 @@ type RouterDefaults struct {
 	DefaultRoute   string
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
+var redirectedOutput chan string
+
+func outputInfo(data string) {
+	current := time.Now()
+	if redirectedOutput == nil && !strings.HasSuffix(data, "---EOF---") {
+		fmt.Printf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(), current.Day(),
+			current.Hour(), current.Minute(), current.Second(), data)
+	} else if redirectedOutput != nil {
+		redirectedOutput <- fmt.Sprintf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(),
+			current.Day(), current.Hour(), current.Minute(), current.Second(), data)
+	}
+}
+
+func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest chan string) {
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
@@ -56,73 +69,75 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	const SAVE_PROMPT = "[yes/no]: "
 	const SHELL_CUE = "press return to get started!"
 
+	redirectedOutput = progressDest
+
 	port, err := serial.Open(SerialPort, &PortSettings)
+	defer func(port serial.Port) {
+		err := port.Close()
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while closing port %s: %s\n", SerialPort, err)
+		}
+	}(port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("routers.Reset: Error while opening port %s: %s\n", SerialPort, err)
 	}
 
 	err = port.SetReadTimeout(2 * time.Second)
 	if err != nil {
-		return
-	}
-	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Trigger the recovery sequence by following these steps: ")
-	fmt.Println("1. Turn off the router")
-	fmt.Println("2. After waiting for the lights to shut off, turn the router back on")
-	fmt.Println("3. Press enter here once this has been completed")
-	_, err = fmt.Scanln()
-	if err != nil {
-		return
-	}
+	outputInfo("Trigger the recovery sequence by following these steps: \n")
+	outputInfo("1. Turn off the router\n")
+	outputInfo("2. After waiting for the lights to shut off, turn the router back on\n")
 
-	fmt.Println("Sending ^C until we get into ROMMON...")
+	outputInfo("Sending ^C until we get into ROMMON...\n")
 	var output []byte
 
 	// Get to ROMMON
 	if debug {
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
-			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
+			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT)))
+			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT))
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
-			fmt.Printf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:]))))
-			fmt.Printf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c")
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
+			outputInfo(fmt.Sprintf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c"))
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
 			time.Sleep(1 * time.Second)
 		}
-		fmt.Println(output)
+		outputInfo(fmt.Sprintf("%s\n", output))
 	} else {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT))
-			fmt.Printf("Expected prefix: %s\n", ROMMON_PROMPT)
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			time.Sleep(1 * time.Second)
 		}
 	}
 
 	// In ROMMON
-	fmt.Println("We've entered ROMMON, setting the register to 0x2142.")
+	outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
 	// TODO: Ensure we're actually at the prompt instead of just assuming
 	for _, cmd := range commands {
-		fmt.Printf("TO DEVICE: %s\n", cmd)
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		}
 		_, err = port.Write(common.FormatCommand(cmd))
 		if err != nil {
 			log.Fatal(err)
 		}
 		output = common.ReadLine(port, BUFFER_SIZE, debug)
-		fmt.Printf("DEBUG: Sent %s to device", cmd)
+		if debug {
+			outputInfo(fmt.Sprintf("DEBUG: Sent %s to device", cmd))
+		}
 	}
 
 	// We've made it out of ROMMON
@@ -131,14 +146,16 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("We've finished with ROMMON, going back into the regular console")
+	outputInfo("We've finished with ROMMON, going back into the regular console\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
-		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
-		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
-		fmt.Printf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output))
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+		}
 		if common.IsEmpty(output) {
 			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n")
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
 			}
 			_, err = port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
 			if err != nil {
@@ -149,7 +166,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
 	}
 
-	fmt.Println("Setting the registers back to regular")
+	outputInfo("Setting the registers back to regular\n")
 	err = port.SetReadTimeout(5 * time.Second)
 	if err != nil {
 		log.Fatal(err)
@@ -158,7 +175,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
 	for _, cmd := range commands {
 		if debug {
-			fmt.Printf("TO DEVICE: %s\n", cmd)
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
 		}
 		_, err = port.Write(common.FormatCommand(cmd))
 		if err != nil {
@@ -168,9 +185,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	}
 
 	// Now reset config and restart
-	fmt.Println("Resetting the configuration")
+	outputInfo("Resetting the configuration\n")
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "erase nvram:")
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "erase nvram:"))
 	}
 	_, err = port.Write(common.FormatCommand("erase nvram:"))
 	if err != nil {
@@ -178,7 +195,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	}
 	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "\\n")
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\n"))
 	}
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
@@ -186,9 +203,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	}
 	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 
-	fmt.Println("Reloading the router")
+	outputInfo("Reloading the router\n")
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "reload")
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "reload"))
 	}
 	_, err = port.Write(common.FormatCommand("reload"))
 	if err != nil {
@@ -201,12 +218,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 		log.Fatal(err)
 	}
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "yes")
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
 	}
 	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 
 	if debug {
-		fmt.Printf("TO DEVICE: %s\n", "\\n")
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\n"))
 	}
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
@@ -214,17 +231,26 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool) {
 	}
 	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 
-	fmt.Println("Successfully reset!")
+	outputInfo("Successfully reset!\n")
+	outputInfo("---EOF---")
 }
 
-func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool) {
-	hostname := "Switch"
+func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool, progressDest chan string) {
+	redirectedOutput = progressDest
+
+	hostname := "Router"
 	prompt := hostname + ">"
 
 	port, err := serial.Open(SerialPort, &PortSettings)
+	defer func(port serial.Port) {
+		err := port.Close()
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while closing port %s: %s\n", SerialPort, err)
+		}
+	}(port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("routers.Defaults: Error while opening port %s: %s\n", SerialPort, err)
 	}
 
 	err = port.SetReadTimeout(1 * time.Second)
@@ -233,13 +259,16 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	}
 
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
+	outputInfo("Waiting for the router to start up\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
-		fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
-		fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
-		fmt.Printf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output))
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+		}
 		if common.IsEmpty(output) {
 			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 			}
 			_, err = port.Write([]byte("\r\n"))
 			if err != nil {
@@ -248,7 +277,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
 			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "no")
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
 			}
 			_, err = port.Write(common.FormatCommand("no"))
 			if err != nil {
@@ -264,9 +293,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	}
 	line := common.ReadLine(port, 500, debug)
 
+	outputInfo("Elevating our privileges\n")
+
 	if debug {
-		fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
-		fmt.Printf("INPUT: %s\n", "enable")
+		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
 	}
 	_, err = port.Write(common.FormatCommand("enable"))
 	if err != nil {
@@ -276,9 +307,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	line = common.ReadLine(port, 500, debug)
 
 	if debug {
-		fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
-		fmt.Printf("INPUT: %s\n", "conf t")
+		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
 	}
+
+	outputInfo("Entering global configuration mode\n")
 	_, err = port.Write(common.FormatCommand("conf t"))
 	if err != nil {
 		log.Fatal(err)
@@ -287,9 +320,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	// Configure router ports
 	if len(config.Ports) != 0 {
+		outputInfo("Configuring the physical interfaces\n")
 		for _, routerPort := range config.Ports {
+			outputInfo(fmt.Sprintf("Configuring interface %s\n", routerPort.Port))
 			if debug {
-				fmt.Printf("INPUT: %s\n", "inter "+routerPort.Port)
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "inter "+routerPort.Port))
 			}
 			_, err = port.Write(common.FormatCommand("inter " + routerPort.Port))
 			if err != nil {
@@ -298,13 +333,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			output = common.TrimNull(common.ReadLine(port, 500, debug))
 			prompt = hostname + "(config-if)#"
 			if debug {
-				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
 
 			// Assign an IP address
 			if routerPort.IpAddress != "" && routerPort.SubnetMask != "" {
+				outputInfo(fmt.Sprintf("Assigning IP %s with subnet mask %s\n", routerPort.IpAddress, routerPort.SubnetMask))
 				if debug {
-					fmt.Printf("INPUT: %s\n", "ip addr "+routerPort.IpAddress+" subnet mask "+routerPort.SubnetMask)
+					outputInfo(fmt.Sprintf("INPUT: %s\n", "ip addr "+routerPort.IpAddress+" subnet mask "+routerPort.SubnetMask))
 				}
 				_, err = port.Write(common.FormatCommand("ip addr " + routerPort.IpAddress + " " + routerPort.SubnetMask))
 				if err != nil {
@@ -312,14 +348,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				}
 				output = common.TrimNull(common.ReadLine(port, 500, debug))
 				if debug {
-					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
 			}
 
 			// Decide if the port is up
 			if routerPort.Shutdown {
+				outputInfo(fmt.Sprintf("Shutting down the interface\n"))
 				if debug {
-					fmt.Printf("INPUT: %s\n", "shutdown")
+					outputInfo(fmt.Sprintf("INPUT: %s\n", "shutdown"))
 				}
 				_, err = port.Write(common.FormatCommand("shutdown"))
 				if err != nil {
@@ -327,11 +364,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				}
 				output = common.TrimNull(common.ReadLine(port, 500, debug))
 				if debug {
-					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
 			} else {
+				outputInfo(fmt.Sprintf("Brining up the interface\n"))
 				if debug {
-					fmt.Printf("INPUT: %s\n", "no shutdown")
+					outputInfo(fmt.Sprintf("INPUT: %s\n", "no shutdown"))
 				}
 				_, err = port.Write(common.FormatCommand("no shutdown"))
 				if err != nil {
@@ -339,13 +377,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				}
 				output = common.TrimNull(common.ReadLine(port, 500, debug))
 				if debug {
-					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
 			}
 
 			// Exit out to maintain consistent prompt state
+			outputInfo(fmt.Sprintf("Finished configuring %s\n", routerPort.Port))
 			if debug {
-				fmt.Printf("INPUT: %s\n", "exit")
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "exit"))
 			}
 			_, err = port.Write(common.FormatCommand("exit"))
 			if err != nil {
@@ -353,25 +392,29 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 			output = common.TrimNull(common.ReadLine(port, 500, debug))
 			if debug {
-				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
 
 			prompt = hostname + "(config)#"
 		}
+
+		outputInfo("Finished configuring physical interfaces\n")
 	}
 
 	// Configure console lines
 	// Literally stolen from switches/switches.go
 	if len(config.Lines) != 0 {
+		outputInfo("Configuring console lines\n")
 		for _, line := range config.Lines {
+			outputInfo(fmt.Sprintf("Configuring line %s %d to %d\n", line.Type, line.StartLine, line.EndLine))
 			if line.Type != "" {
 				// Ensure both lines are <= 4
 				if line.StartLine > 4 {
-					fmt.Printf("Starting line of %d is invalid, defaulting back to 4\n", line.StartLine)
+					outputInfo(fmt.Sprintf("Starting line of %d is invalid, defaulting back to 4\n", line.StartLine))
 					line.StartLine = 4
 				}
 				if line.EndLine > 4 {
-					fmt.Printf("Ending line of %d is invalid, defaulting back to 4\n", line.EndLine)
+					outputInfo(fmt.Sprintf("Ending line of %d is invalid, defaulting back to 4\n", line.EndLine))
 					line.EndLine = 4
 				}
 
@@ -385,7 +428,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					log.Fatalln("Start line is greater than end line.")
 				}
 				if debug {
-					fmt.Printf("INPUT: %s\n", command)
+					outputInfo(fmt.Sprintf("INPUT: %s\n", command))
 				}
 				_, err = port.Write(common.FormatCommand(command))
 				if err != nil {
@@ -393,20 +436,21 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				}
 				output = common.ReadLine(port, 500, debug)
 				if debug {
-					fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
 
 				// Set the line password
 				if line.Password != "" {
+					outputInfo(fmt.Sprintf("Applying the password %s to the line\n", line.Password))
 					if debug {
-						fmt.Printf("INPUT: %s\n", "password "+line.Password)
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "password "+line.Password))
 					}
 					_, err = port.Write(common.FormatCommand("password " + line.Password))
 					if err != nil {
 						log.Fatal(err)
 					}
 					if debug {
-						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
 
 					// In case login type wasn't provided, set that.
@@ -417,8 +461,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 				// Set login method (empty string is valid for line console 0)
 				if line.Login != "" || (line.Type == "console" && line.Password != "") {
+					outputInfo("Enforcing credential usage on the line\n")
 					if debug {
-						fmt.Printf("INPUT: %s\n", "login "+line.Login)
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "login "+line.Login))
 					}
 					_, err = port.Write(common.FormatCommand("login " + line.Login))
 					if err != nil {
@@ -426,13 +471,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					}
 					output = common.ReadLine(port, 500, debug)
 					if debug {
-						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
 				}
 
 				if line.Transport != "" && line.Type == "vty" { // console 0 can't use telnet or ssh
+					outputInfo(fmt.Sprintf("Setting the transport type to %s\n", line.Transport))
 					if debug {
-						fmt.Printf("INPUT: %s\n", "transport input "+line.Transport)
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "transport input "+line.Transport))
 					}
 					_, err = port.Write(common.FormatCommand("transport input " + line.Transport))
 					if err != nil {
@@ -440,7 +486,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					}
 					output = common.ReadLine(port, 500, debug)
 					if debug {
-						fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
 				}
 			}
@@ -449,8 +495,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	// Set the default route
 	if config.DefaultRoute != "" {
+		outputInfo(fmt.Sprintf("Setting the default route to %s\n", config.DefaultRoute))
 		if debug {
-			fmt.Printf("INPUT: %s\n", "ip route 0.0.0.0 0.0.0.0 "+config.DefaultRoute)
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "ip route 0.0.0.0 0.0.0.0 "+config.DefaultRoute))
 		}
 		_, err = port.Write(common.FormatCommand("ip route 0.0.0.0 0.0.0.0 " + config.DefaultRoute))
 		if err != nil {
@@ -458,14 +505,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		output = common.ReadLine(port, 500, debug)
 		if debug {
-			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
 	}
 
 	// Set the domain name
 	if config.DomainName != "" {
+		outputInfo(fmt.Sprintf("Setting the domain name to %s\n", config.DomainName))
 		if debug {
-			fmt.Printf("INPUT: %s\n", "ip domain-name "+config.DomainName)
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "ip domain-name "+config.DomainName))
 		}
 		_, err = port.Write(common.FormatCommand("ip domain-name " + config.DomainName))
 		if err != nil {
@@ -473,14 +521,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		output = common.ReadLine(port, 500, debug)
 		if debug {
-			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
 	}
 
 	// Set the enable password
 	if config.EnablePassword != "" {
+		outputInfo(fmt.Sprintf("Setting the enable password to %s\n", config.EnablePassword))
 		if debug {
-			fmt.Printf("INPUT: %s\n", "enable secret "+config.EnablePassword)
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "enable secret "+config.EnablePassword))
 		}
 		_, err = port.Write(common.FormatCommand("enable secret " + config.EnablePassword))
 		if err != nil {
@@ -488,14 +537,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		output = common.ReadLine(port, 500, debug)
 		if debug {
-			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
 	}
 
 	// Set the hostname
 	if config.Hostname != "" {
+		outputInfo(fmt.Sprintf("Setting the hostname to %s\n", config.Hostname))
 		if debug {
-			fmt.Printf("INPUT: %s\n", "hostname "+config.Hostname)
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "hostname "+config.Hostname))
 		}
 		_, err = port.Write(common.FormatCommand("hostname " + config.Hostname))
 		if err != nil {
@@ -505,13 +555,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		prompt = hostname + "(config)"
 		output = common.ReadLine(port, 500, debug)
 		if debug {
-			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
 	}
 
 	if config.Banner != "" {
+		outputInfo(fmt.Sprintf("Setting the banner to %s\n", config.Banner))
 		if debug {
-			fmt.Printf("INPUT: %s\n", "banner motd "+config.Banner)
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "banner motd "+config.Banner))
 		}
 		_, err = port.Write(common.FormatCommand("banner motd " + config.Banner))
 		if err != nil {
@@ -519,31 +570,33 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		output = common.ReadLine(port, 500, debug)
 		if debug {
-			fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
 	}
 	if config.Ssh.Enable {
+		outputInfo("Determing if SSH can be enabled\n")
 		allowSSH := true
 		if config.Ssh.Username == "" {
-			fmt.Println("WARNING: SSH username not specified.")
+			outputInfo("WARNING: SSH username not specified.\n")
 			allowSSH = false
 		}
 		if config.Ssh.Password == "" {
-			fmt.Println("WARNING: SSH password not specified.")
+			outputInfo("WARNING: SSH password not specified.\n")
 			allowSSH = false
 		}
 		if config.DomainName == "" {
-			fmt.Println("WARNING: Domain name not specified.")
+			outputInfo("WARNING: Domain name not specified.\n")
 			allowSSH = false
 		}
 		if config.Hostname == "" {
-			fmt.Println("WARNING: Hostname not specified.")
+			outputInfo("WARNING: Hostname not specified.\n")
 			allowSSH = false
 		}
 
 		if allowSSH {
+			outputInfo(fmt.Sprintf("Setting the username to %s and the password to %s\n", config.Ssh.Username, config.Ssh.Password))
 			if debug {
-				fmt.Printf("INPUT: %s\n", "username "+config.Ssh.Username+" password "+config.Ssh.Password)
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "username "+config.Ssh.Username+" password "+config.Ssh.Password))
 			}
 			_, err = port.Write(common.FormatCommand("username " + config.Ssh.Username + " password " + config.Ssh.Password))
 			if err != nil {
@@ -551,11 +604,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 			line = common.ReadLine(port, 500, debug)
 			if debug {
-				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 
+			outputInfo("Generating the RSA key\n")
 			if debug {
-				fmt.Printf("INPUT: %s\n", "crypto key gen rsa")
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "crypto key gen rsa"))
 			}
 			_, err = port.Write(common.FormatCommand("crypto key gen rsa"))
 			if err != nil {
@@ -563,28 +617,30 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 			line = common.ReadLine(port, 500, debug)
 			if debug {
-				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 
 			if config.Ssh.Bits > 0 && config.Ssh.Bits < 360 {
 				if debug {
-					fmt.Printf("DEBUG: Requested bit setting of %d is too low, defaulting to 360\n", config.Ssh.Bits)
+					outputInfo(fmt.Sprintf("DEBUG: Requested bit setting of %d is too low, defaulting to 360\n", config.Ssh.Bits))
 				}
 				config.Ssh.Bits = 360 // User presumably wanted minimum bit setting, 360 is minimum on IOS 12.2
 			} else if config.Ssh.Bits <= 0 {
 				if debug {
-					fmt.Printf("DEBUG: Bit setting not provided, defaulting to 512\n")
+					outputInfo(fmt.Sprintf("DEBUG: Bit setting not provided, defaulting to 512\n"))
 				}
 				config.Ssh.Bits = 512 // Accept default bit setting for non-provided values
 			} else if config.Ssh.Bits > 2048 {
 				if debug {
-					fmt.Printf("DEBUG: Requested bit setting of %d is too low, defaulting to 2048\n", config.Ssh.Bits)
+					outputInfo(fmt.Sprintf("DEBUG: Requested bit setting of %d is too low, defaulting to 2048\n", config.Ssh.Bits))
 				}
 				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
 			}
 
+			outputInfo(fmt.Sprintf("Generating an RSA key %d bits wide\n", config.Ssh.Bits))
+
 			if debug {
-				fmt.Printf("INPUT: %s\n", strconv.Itoa(config.Ssh.Bits))
+				outputInfo(fmt.Sprintf("INPUT: %s\n", strconv.Itoa(config.Ssh.Bits)))
 			}
 			_, err = port.Write(common.FormatCommand(strconv.Itoa(config.Ssh.Bits)))
 			if err != nil {
@@ -592,7 +648,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 			line = common.ReadLine(port, 500, debug)
 			if debug {
-				fmt.Printf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 
 			// Previous command can take a while, so wait for the prompt
@@ -604,7 +660,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 	}
 
-	fmt.Println("Settings applied!")
-	fmt.Println("Note: Settings have not been made persistent and will be lost upon reboot.")
-	fmt.Println("To fix this, run `wr` on the target device.")
+	outputInfo("Settings applied!\n")
+	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
+	outputInfo("To fix this, run `wr` on the target device.\n")
+	outputInfo("---EOF---")
 }

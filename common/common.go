@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+type Progress struct {
+	CurrentStep int
+	TotalSteps  int
+}
+
 func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 	var output []byte
 	if debug {
@@ -62,6 +67,9 @@ func FormatCommand(cmd string) []byte {
 }
 
 func WriteLine(port serial.Port, line string, debug bool) {
+	if len(line) == 0 {
+		line = "\r"
+	}
 	_, err := port.Write(FormatCommand(line))
 	if err != nil {
 		log.Fatal(err)

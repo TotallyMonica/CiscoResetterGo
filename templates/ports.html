@@ -1,0 +1,27 @@
+{{define "title"}}
+Serial ports list
+{{end}}
+{{define "body"}}
+{{$serial := . | len -}}
+<h3>Serial ports present: {{ . | len -}}</h3>
+{{if ne $serial 0}}
+<table class="table table-hover">
+    <tr>
+        <th>Port</th>
+        <th>Description</th>
+        <th>USB?</th>
+        <th>PID:VID</th>
+        <th>Serial</th>
+    </tr>
+    {{ range . }}
+    <tr>
+        <td>{{ .Name }}</td>
+        <td>{{ .Product }}</td>
+        <td>{{ if .IsUSB }}Yes{{ else }}No{{ end }}</td>
+        <td>{{ if .IsUSB }}{{ .PID }}:{{ .VID }}{{ end}}</td>
+        <td>{{ if .IsUSB }}{{ .SerialNumber }}{{ end }}</td>
+    </tr>
+    {{ end }}
+</table>
+{{ end }}
+{{end}}
