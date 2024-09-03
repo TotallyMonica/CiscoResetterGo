@@ -11,8 +11,8 @@ import (
 	"io"
 	"main/routers"
 	"main/switches"
+	"main/templates"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -178,9 +178,24 @@ func runJob(rules RunParams, jobNum int) {
 }
 
 func portConfig(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", "port.html")
-	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	portTemplate, err := layoutTemplate.Parse(templates.Port)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
 	fmt.Printf("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	data, err := enumerator.GetDetailedPortsList()
@@ -192,8 +207,7 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err = tmpl.ExecuteTemplate(w, "layout", data)
+	err = portTemplate.ExecuteTemplate(w, "layout", data)
 	if err != nil {
 		log.Info(err.Error())
 		http.Error(w, http.StatusText(500), 500)
@@ -201,12 +215,27 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func jobListHandler(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", "jobs.html")
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	jobsTemplate, err := layoutTemplate.Parse(templates.Jobs)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
 	fmt.Printf("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err := tmpl.ExecuteTemplate(w, "layout", jobs)
+	err = jobsTemplate.ExecuteTemplate(w, "layout", jobs)
 	if err != nil {
 		// Log the detailed error
 		log.Info(err.Error())
@@ -217,14 +246,34 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func portListHandler(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", "ports.html")
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+	portsTemplate, err := layoutTemplate.Parse(templates.Ports)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
 	fmt.Printf("port: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	ports, _ := enumerator.GetDetailedPortsList()
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err := tmpl.ExecuteTemplate(w, "layout", ports)
+	err = portsTemplate.ExecuteTemplate(w, "layout", ports)
 	if err != nil {
 		// Log the detailed error
 		log.Info(err.Error())
@@ -235,9 +284,24 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func jobHandler(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
-	pathTemplate := filepath.Join("templates", "job.html")
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	jobTemplate, err := layoutTemplate.Parse(templates.Job)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
 	fmt.Printf("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	reqJob, err := strconv.Atoi(r.PathValue("id"))
@@ -257,8 +321,7 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	job = jobs[jobIdx]
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err = tmpl.ExecuteTemplate(w, "layout", job)
+	err = jobTemplate.ExecuteTemplate(w, "layout", job)
 	if err != nil {
 		// Log the detailed error
 		log.Info(err.Error())
@@ -269,9 +332,24 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deviceConfig(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", "device.html")
-	//endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	layoutTemplate, err := template.New("template").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	deviceTemplate, err := layoutTemplate.Parse(templates.Device)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
 	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	//port := r.PathValue("port")
@@ -290,7 +368,6 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	//	}
 	//}
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 	var serialConf SerialConfiguration
 	serialConf.Port = r.PostFormValue("device")
 	serialConf.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
@@ -308,7 +385,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("POST Data: %+v\n", serialConf)
-	err := tmpl.ExecuteTemplate(w, "layout", serialConf)
+	err = deviceTemplate.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
 		log.Info(err.Error())
 		http.Error(w, http.StatusText(500), 500)
@@ -316,12 +393,23 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetDevice(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", "reset.html")
-	// endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+	resetTemplate, err := layoutTemplate.Parse(templates.Reset)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
 	fmt.Printf("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
-
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
 
 	var rules RunParams
 	rules.PortConfig.Port = r.PostFormValue("port")
@@ -387,7 +475,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	go runJob(rules, jobNum)
 
 	fmt.Printf("POST Data: %+v\n", newJob)
-	err = tmpl.ExecuteTemplate(w, "layout", newJob)
+	err = resetTemplate.ExecuteTemplate(w, "layout", newJob)
 	if err != nil {
 		// Log the detailed error
 		log.Info(err.Error())
@@ -397,38 +485,26 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveTemplate(w http.ResponseWriter, r *http.Request) {
-	layoutTemplate := filepath.Join("templates", "layout.html")
-	pathTemplate := filepath.Join("templates", filepath.Clean(r.URL.Path)+".html")
-	endpoint := strings.Split(strings.TrimSpace(filepath.Clean(r.URL.Path)[1:]), "/")
-	fmt.Printf("serveTemplate: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
-
-	if endpoint[0] == "" {
-		_, err := os.Stat(filepath.Join("templates", "index.html"))
-		if err != nil {
-			http.Redirect(w, r, "/port", http.StatusTemporaryRedirect)
-			return
-		} else {
-			pathTemplate = filepath.Join("templates", "index.html")
-		}
-	}
-
-	// Return a 404 if the template doesn't exist
-	info, err := os.Stat(pathTemplate)
+func serveIndex(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Printf("serveTemplate: Requested page %s does not exist\n", pathTemplate)
-			http.NotFound(w, r)
-			return
-		}
-	}
-
-	// Return a 404 if the request is for a directory
-	if info.IsDir() {
-		fmt.Printf("serveTemplate: Requested page %s is a directory\n", pathTemplate)
-		http.NotFound(w, r)
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
 		return
 	}
+
+	indexTemplate, err := layoutTemplate.Parse(templates.Index)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	fmt.Printf("serveIndex: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	serialPorts, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -440,8 +516,7 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 	indexHelper.Jobs = jobs
 	indexHelper.SerialPorts = serialPorts
 
-	tmpl := template.Must(template.ParseFiles(layoutTemplate, pathTemplate))
-	err = tmpl.ExecuteTemplate(w, "layout", indexHelper)
+	err = indexTemplate.ExecuteTemplate(w, "layout", indexHelper)
 	if err != nil {
 		// Log the detailed error
 		log.Info(err.Error())
@@ -453,7 +528,7 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 
 func ServeWeb() {
 	muxer := http.NewServeMux()
-	muxer.HandleFunc("GET /{$}", serveTemplate)
+	muxer.HandleFunc("GET /{$}", serveIndex)
 	muxer.HandleFunc("GET /port/{$}", portConfig)
 	muxer.HandleFunc("GET /list/ports/{$}", portListHandler)
 	muxer.HandleFunc("GET /device/{$}", deviceConfig)
