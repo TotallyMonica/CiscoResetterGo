@@ -163,6 +163,15 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 		time.Sleep(1 * time.Second)
 	}
 
+	outputInfo("Release the mode button now\n")
+	if progressDest == nil {
+		outputInfo("Press enter once you've released it")
+		_, err := fmt.Scanln()
+		if err != nil {
+			log.Fatalf("Error while processing entered string: %s\n", err)
+		}
+	}
+
 	// Ensure we have one of the test cases in the buffer
 	if !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
 		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
@@ -337,6 +346,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	outputInfo("Waiting for the switch to startup\n")
 
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
