@@ -162,12 +162,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 		common.WriteLine(port, "\r", debug)
 		time.Sleep(1 * time.Second)
 	}
-	outputInfo("Release the MODE button and press Enter.\n")
-	progress.CurrentStep += 1
-	_, err = fmt.Scanln()
-	if err != nil {
-		return
-	}
 
 	// Ensure we have one of the test cases in the buffer
 	if !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
