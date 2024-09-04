@@ -113,7 +113,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	const PASSWORD_RECOVERY_TRIGGERED = "password-recovery mechanism has been triggered"
 	const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
 	const YES_NO_PROMPT = "(y/n)?"
+	const LOW_PRIV_PREFIX = "Switch>"
+	const ELEVATED_PREFIX = "Switch#"
+	const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
 
+	var files []string
 	currentTime := time.Now()
 	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
 		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
@@ -281,10 +285,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo("Parsing files to delete...\n")
 		}
 		progress.CurrentStep += 1
-		filesToDelete := ParseFilesToDelete(listing, debug)
+		files = ParseFilesToDelete(listing, debug)
 
 		// Delete files if necessary
-		if len(filesToDelete) == 0 {
+		if len(files) == 0 {
 			outputInfo("Switch has been reset already.\n")
 			progress.TotalSteps -= 1
 			progress.CurrentStep += 1
@@ -296,7 +300,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if backup.Backup {
 				outputInfo("Moving files\n")
 				progress.CurrentStep += 1
-				for _, file := range filesToDelete {
+				for _, file := range files {
 					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
 					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash%s-%s", file, backup.Prefix, file), debug)
 					common.ReadLine(port, BUFFER_SIZE, debug)
@@ -304,7 +308,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			} else {
 				outputInfo("Deleting files\n")
 				progress.CurrentStep += 1
-				for _, file := range filesToDelete {
+				for _, file := range files {
 					outputInfo(fmt.Sprintf("Deleting %s\n", file))
 					common.WriteLine(port, "del flash:"+file, debug)
 					common.ReadLine(port, BUFFER_SIZE, debug)
@@ -333,6 +337,85 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
+	if backup.Backup {
+		if backup.Destination != "" {
+			err = port.SetReadTimeout(1 * time.Second)
+			if err != nil {
+				log.Fatal(err)
+			}
+			outputInfo("Waiting for switch to start up to back up config\n")
+
+			for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(LOW_PRIV_PREFIX)) {
+				if debug {
+					outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+				}
+				if common.IsEmpty(output) {
+					if debug {
+						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+					}
+					_, err = port.Write([]byte("\r\n"))
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
+					if debug {
+						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
+					}
+					outputInfo("Getting out of initial configuration dialog\n")
+					progress.CurrentStep += 1
+					_, err = port.Write(common.FormatCommand("no"))
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				time.Sleep(1 * time.Second)
+				output = common.TrimNull(common.ReadLine(port, 500, debug))
+			}
+			outputInfo("Getting out of initial configuration dialog\n")
+			outputInfo("We have booted up now\n")
+			progress.CurrentStep += 1
+			_, err = port.Write(common.FormatCommand(""))
+			if err != nil {
+				log.Fatal(err)
+			}
+			line := common.ReadLine(port, 500, debug)
+
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
+			}
+			outputInfo("Entering privileged exec.\n")
+			_, err = port.Write(common.FormatCommand("enable"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			line = common.ReadLine(port, 500, debug)
+
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+
+			// Begin copying files to TFTP server
+			outputInfo(fmt.Sprintf("Copying %d files to %s.\n", len(files), backup.Destination))
+			for _, file := range files {
+				filename := fmt.Sprintf("%s-%s", backup.Prefix, file)
+				outputInfo(fmt.Sprintf("Backing up file %s to %s.\n", filename, backup.Destination))
+				_, err = port.Write(common.FormatCommand(fmt.Sprintf("copy flash:%s tftp://%s/%s", filename, backup.Destination, filename)))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		} else {
+			// Inform the user of the missing information
+			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
+			if backup.Destination == "" {
+				outputInfo("Destination address missing\n")
+			}
+		}
+	}
 	outputInfo("---EOF---")
 }
 
