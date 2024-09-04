@@ -338,7 +338,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
-		if backup.Destination != "" {
+		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "")) {
 			err = port.SetReadTimeout(1 * time.Second)
 			if err != nil {
 				log.Fatal(err)
@@ -398,6 +398,38 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 
+			// Assign IP address
+			outputInfo("Assigning vlan 1 an IP address")
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
+			_, err = port.Write(common.FormatCommand("conf t"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "inter vlan 1"))
+			_, err = port.Write(common.FormatCommand("inter vlan 1"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+			if backup.Source == "" {
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "ip address dhcp"))
+				_, err = port.Write(common.FormatCommand("ip address dhcp"))
+			} else {
+				outputInfo(fmt.Sprintf("INPUT: ip address %s %s\n", backup.Source, backup.SubnetMask))
+				_, err = port.Write(common.FormatCommand(fmt.Sprintf("ip address %s %s", backup.Source, backup.SubnetMask)))
+			}
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "end"))
+			_, err = port.Write(common.FormatCommand("end"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+
 			// Begin copying files to TFTP server
 			outputInfo(fmt.Sprintf("Copying %d files to %s.\n", len(files), backup.Destination))
 			for _, file := range files {
@@ -411,6 +443,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		} else {
 			// Inform the user of the missing information
 			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
+			if backup.Source == "" {
+				outputInfo("Source address missing\n")
+			}
+			if backup.SubnetMask == "" {
+				outputInfo("Subnet mask missing\n")
+			}
 			if backup.Destination == "" {
 				outputInfo("Destination address missing\n")
 			}

@@ -17,6 +17,7 @@ type Backup struct {
 	Backup      bool
 	Prefix      string
 	Source      string
+	SubnetMask  string
 	Destination string
 }
 
