@@ -13,6 +13,13 @@ type Progress struct {
 	TotalSteps  int
 }
 
+type Backup struct {
+	Backup      bool
+	Prefix      string
+	Source      string
+	Destination string
+}
+
 func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 	var output []byte
 	if debug {

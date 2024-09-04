@@ -10,6 +10,7 @@ import (
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
+	"main/common"
 	"main/routers"
 	"main/switches"
 	"main/templates"
@@ -119,7 +120,7 @@ func runJob(rules RunParams, jobNum int) {
 				log.Warningf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
 				jobs[jobIdx].Status = "Errored"
 			} else {
-				go switches.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+				go switches.Reset(rules.PortConfig.Port, *mode, common.Backup{Backup: false}, rules.Verbose, output)
 				jobs[jobIdx].Status = "Resetting"
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
@@ -148,7 +149,7 @@ func runJob(rules RunParams, jobNum int) {
 		jobs[jobIdx].Status = "Done"
 	} else if rules.DeviceType == "router" {
 		if rules.Reset {
-			go routers.Reset(rules.PortConfig.Port, *mode, rules.Verbose, output)
+			go routers.Reset(rules.PortConfig.Port, *mode, common.Backup{Backup: false}, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			if jobIdx == -1 {
 				log.Warningf("How did we get here? Job number for switch requested: %d\n", jobNum)

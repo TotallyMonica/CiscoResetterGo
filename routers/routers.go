@@ -59,7 +59,7 @@ func outputInfo(data string) {
 	}
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest chan string) {
+func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
@@ -70,6 +70,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	const SHELL_CUE = "press return to get started!"
 
 	redirectedOutput = progressDest
+	currentTime := time.Now()
+	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
+		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
 
 	port, err := serial.Open(SerialPort, &PortSettings)
 	defer func(port serial.Port) {

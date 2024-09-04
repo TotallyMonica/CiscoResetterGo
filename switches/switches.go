@@ -104,7 +104,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	return filesToDelete
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest chan string) {
+func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
 	const BUFFER_SIZE = 500
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
@@ -114,6 +114,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
 	const YES_NO_PROMPT = "(y/n)?"
 
+	currentTime := time.Now()
+	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
+		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
 	redirectedOutput = progressDest
 
 	var progress common.Progress
@@ -185,6 +188,24 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	// Password recovery was disabled
 	if strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) {
 		outputInfo("Password recovery was disabled\n")
+		if backup.Backup {
+			outputInfo("Backing up the config is impossible as password recovery is disabled.\n")
+			if progressDest == nil {
+				outputInfo("Would you like to continue? (y/N)\n")
+				var userInput string
+				_, err := fmt.Scanln(&userInput)
+				switch {
+				case err != nil:
+					log.Fatalf("Switch not reset\nError while processing input: %s\n", err)
+				case strings.ToLower(userInput) == "n" || strings.ToLower(userInput) == "no" || userInput == "":
+					outputInfo("Not resetting\n")
+					break
+				case strings.ToLower(userInput) == "y" || strings.ToLower(userInput) == "yes":
+					outputInfo("Continuing with reset.\n")
+					break
+				}
+			}
+		}
 		progress.TotalSteps = 4
 		progress.CurrentStep += 1
 		for !(strings.Contains(parsedOutput, YES_NO_PROMPT)) {
@@ -254,7 +275,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 
 		// Determine the files we need to delete
 		// TODO: Debug this section
-		outputInfo("Parsing files to delete...\n")
+		if backup.Backup {
+			outputInfo("Parsing files to move...\n")
+		} else {
+			outputInfo("Parsing files to delete...\n")
+		}
 		progress.CurrentStep += 1
 		filesToDelete := ParseFilesToDelete(listing, debug)
 
@@ -268,17 +293,27 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 			if err != nil {
 				log.Fatal(err)
 			}
-			outputInfo("Deleting files\n")
-			progress.CurrentStep += 1
-			for _, file := range filesToDelete {
-				outputInfo(fmt.Sprintf("Deleting %s\n", file))
-				common.WriteLine(port, "del flash:"+file, debug)
-				common.ReadLine(port, BUFFER_SIZE, debug)
-				if debug {
-					outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
+			if backup.Backup {
+				outputInfo("Moving files\n")
+				progress.CurrentStep += 1
+				for _, file := range filesToDelete {
+					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
+					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash%s-%s", file, backup.Prefix, file), debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
 				}
-				common.WriteLine(port, "y", debug)
-				common.ReadLine(port, BUFFER_SIZE, debug)
+			} else {
+				outputInfo("Deleting files\n")
+				progress.CurrentStep += 1
+				for _, file := range filesToDelete {
+					outputInfo(fmt.Sprintf("Deleting %s\n", file))
+					common.WriteLine(port, "del flash:"+file, debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
+					if debug {
+						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
+					}
+					common.WriteLine(port, "y", debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
+				}
 			}
 			outputInfo("Switch has been reset\n")
 			progress.CurrentStep += 1

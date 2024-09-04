@@ -7,6 +7,7 @@ import (
 	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
+	"main/common"
 	"main/routers"
 	"main/switches"
 	"main/web"
@@ -188,10 +189,10 @@ func main() {
 	}
 
 	if resetRouter && !skipReset {
-		routers.Reset(serialDevice, portSettings, debug, nil)
+		routers.Reset(serialDevice, portSettings, common.Backup{Backup: false}, debug, nil)
 	}
 	if resetSwitch && !skipReset {
-		switches.Reset(serialDevice, portSettings, debug, nil)
+		switches.Reset(serialDevice, portSettings, common.Backup{Backup: false}, debug, nil)
 	}
 
 	if resetRouter && routerDefaults != "" {
