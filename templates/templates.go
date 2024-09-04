@@ -61,10 +61,7 @@ Cisco Resetter Go Homepage
     <tr>
         <th>Job Number</th>
         <th>Port</th>
-        <th>Baud Rate</th>
-        <th>Data Bits</th>
-        <th>Parity</th>
-        <th>Stop bits</th>
+        <th>Port configuration</th>
         <th>Device type</th>
         <th>Verbose output</th>
         <th>Reset Device</th>
@@ -76,10 +73,7 @@ Cisco Resetter Go Homepage
     <tr>
         <td><a href="/jobs/{{ .Number }}">{{ .Number }}</a></td>
         <td>{{ .Params.PortConfig.Port }}</td>
-        <td>{{ .Params.PortConfig.BaudRate }}</td>
-        <td>{{ .Params.PortConfig.DataBits }}</td>
-        <td>{{ .Params.PortConfig.Parity }}</td>
-        <td>{{ .Params.PortConfig.StopBits }}</td>
+        <td>{{ .Params.PortConfig.ShortHand }}</td>
         <td>{{ .Params.DeviceType }}</td>
         <td>{{ if .Params.Verbose }}Yes{{ else }}No{{end}}</td>
         <td>{{ if .Params.Reset }}Yes{{ else }}No{{ end }}</td>
@@ -138,10 +132,7 @@ Jobs status
     <tr>
         <th>Job Number</th>
         <th>Port</th>
-        <th>Baud Rate</th>
-        <th>Data Bits</th>
-        <th>Parity</th>
-        <th>Stop bits</th>
+        <th>Port configuration</th>
         <th>Device type</th>
         <th>Verbose output</th>
         <th>Reset Device</th>
@@ -154,10 +145,7 @@ Jobs status
     <tr>
         <td><a href="/jobs/{{ .Number }}/">{{ .Number }}</a></td>
         <td>{{ .Params.PortConfig.Port }}</td>
-        <td>{{ .Params.PortConfig.BaudRate }}</td>
-        <td>{{ .Params.PortConfig.DataBits }}</td>
-        <td>{{ .Params.PortConfig.Parity }}</td>
-        <td>{{ .Params.PortConfig.StopBits }}</td>
+        <td>{{ .Params.PortConfig.ShortHand }}</td>
         <td>{{ .Params.DeviceType }}</td>
         <td>{{ if .Params.Verbose }}Yes{{ else }}No{{end}}</td>
         <td>{{ if .Params.Reset }}Yes{{ else }}No{{ end }}</td>

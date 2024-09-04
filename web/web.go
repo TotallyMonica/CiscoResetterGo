@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
@@ -45,11 +46,12 @@ type RunParams struct {
 }
 
 type SerialConfiguration struct {
-	Port     string
-	BaudRate int
-	DataBits int
-	Parity   string
-	StopBits float32
+	Port      string
+	BaudRate  int
+	DataBits  int
+	Parity    string
+	StopBits  float32
+	ShortHand string
 }
 
 var jobs []Job
@@ -304,7 +306,9 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	reqJob, err := strconv.Atoi(r.PathValue("id"))
+	vars := mux.Vars(r)
+
+	reqJob, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		fmt.Printf("jobHandler: Requested job %s is invalid\n", r.PathValue("job"))
 		http.Error(w, "Invalid job given", http.StatusBadRequest)
@@ -384,6 +388,9 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 		serialConf.StopBits = -1
 	}
 
+	serialConf.ShortHand = fmt.Sprintf("%d %d%c%f", serialConf.BaudRate, serialConf.DataBits, serialConf.Parity[0], serialConf.StopBits)
+	fmt.Printf("Serial shorthand: %s\n", serialConf.ShortHand)
+
 	fmt.Printf("POST Data: %+v\n", serialConf)
 	err = deviceTemplate.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
@@ -439,6 +446,12 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	default:
 		rules.PortConfig.StopBits = -1
 	}
+
+	truncated := fmt.Sprintf("%.1f", rules.PortConfig.StopBits)
+	if strings.HasSuffix(truncated, ".0") {
+		truncated = truncated[:len(truncated)-2]
+	}
+	rules.PortConfig.ShortHand = fmt.Sprintf("%d %d%c%s", rules.PortConfig.BaudRate, rules.PortConfig.DataBits, rules.PortConfig.Parity[0], truncated)
 
 	rules.DeviceType = r.PostFormValue("device")
 	rules.Verbose = r.PostFormValue("verbose") == "verbose"
@@ -527,18 +540,25 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServeWeb() {
-	muxer := http.NewServeMux()
-	muxer.HandleFunc("GET /{$}", serveIndex)
-	muxer.HandleFunc("GET /port/{$}", portConfig)
-	muxer.HandleFunc("GET /list/ports/{$}", portListHandler)
-	muxer.HandleFunc("GET /device/{$}", deviceConfig)
-	muxer.HandleFunc("POST /device/{$}", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}/{$}", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}/{baud}/{$}", deviceConfig)
-	muxer.HandleFunc("POST /device/{port}/{baud}/{data}/{parity}/{stop}/{$}", deviceConfig)
-	muxer.HandleFunc("POST /reset/{$}", resetDevice)
-	muxer.HandleFunc("GET /list/jobs/{$}", jobListHandler)
-	muxer.HandleFunc("GET /jobs/{id}/{$}", jobHandler)
+	muxer := mux.NewRouter()
+	muxer.HandleFunc("/", serveIndex).Methods("GET")
+	muxer.HandleFunc("/port/", portConfig).Methods("GET")
+	muxer.HandleFunc("/list/ports/", portListHandler).Methods("GET")
+	muxer.HandleFunc("/device/", deviceConfig).Methods("GET")
+	muxer.HandleFunc("/device/", deviceConfig).Methods("POST")
+	muxer.HandleFunc("/device/{port}/", deviceConfig).Methods("POST")
+	muxer.HandleFunc("/device/{port}/{baud}/", deviceConfig).Methods("POST")
+	muxer.HandleFunc("/device/{port}/{baud}/{data}/{parity}/{stop}/", deviceConfig).Methods("POST")
+	muxer.HandleFunc("/reset/", resetDevice).Methods("POST")
+	muxer.HandleFunc("/list/jobs/", jobListHandler).Methods("GET")
+	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
+
+	server := &http.Server{
+		Handler:      muxer,
+		Addr:         "0.0.0.0:8080",
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
+	}
 	fmt.Printf("Listening on port %d\n", 8080)
-	log.Fatal(http.ListenAndServe(":8080", muxer))
+	log.Fatal(server.ListenAndServe())
 }
