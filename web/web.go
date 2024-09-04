@@ -310,7 +310,7 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 	reqJob, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		fmt.Printf("jobHandler: Requested job %s is invalid\n", r.PathValue("job"))
+		fmt.Printf("jobHandler: Requested job %s is invalid\n", vars["id"])
 		http.Error(w, "Invalid job given", http.StatusBadRequest)
 		return
 	}
