@@ -178,15 +178,20 @@ func main() {
 
 	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
 
+	if !(resetRouter || resetSwitch || webServer) {
+		_, err := fmt.Fprintf(os.Stderr, "Usage of %s\n", os.Args[0])
+		if err != nil {
+			log.Fatalf("Error while printing error message to Stderr: %s\n", err)
+		}
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
 	if webServer {
 		web.ServeWeb()
 	}
 
-	if resetRouter || resetSwitch {
-		serialDevice, portSettings = SetupSerial()
-	} else {
-		log.Fatal("Neither router or switch reset flags provided. Run program with -router and/or -switch")
-	}
+	serialDevice, portSettings = SetupSerial()
 
 	if resetRouter && !skipReset {
 		routers.Reset(serialDevice, portSettings, common.Backup{Backup: false}, debug, nil)
