@@ -104,7 +104,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	return filesToDelete
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest chan string) {
+func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
 	const BUFFER_SIZE = 500
 	const RECOVERY_PROMPT = "switch:"
 	const CONFIRMATION_PROMPT = "[confirm]"
@@ -113,7 +113,14 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	const PASSWORD_RECOVERY_TRIGGERED = "password-recovery mechanism has been triggered"
 	const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
 	const YES_NO_PROMPT = "(y/n)?"
+	const LOW_PRIV_PREFIX = "Switch>"
+	const ELEVATED_PREFIX = "Switch#"
+	const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
 
+	var files []string
+	currentTime := time.Now()
+	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
+		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
 	redirectedOutput = progressDest
 
 	var progress common.Progress
@@ -164,6 +171,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	}
 
 	outputInfo("Release the mode button now\n")
+	// Assumption being made: we are being ran as a CLI app rather than the web gui
+	// Allow the user to have time to release the button
 	if progressDest == nil {
 		outputInfo("Press enter once you've released it")
 		_, err := fmt.Scanln()
@@ -185,6 +194,34 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	// Password recovery was disabled
 	if strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) {
 		outputInfo("Password recovery was disabled\n")
+
+		// We can't back up the config if password recovery is disabled
+		if backup.Backup {
+			outputInfo("Backing up the config is impossible as password recovery is disabled.\n")
+
+			// Assumption being made: we're being ran from the CLI rather than the web gui, so prompt if we want to continue
+			if progressDest == nil {
+				outputInfo("Would you like to continue? (y/N)\n")
+				var userInput string
+				_, err := fmt.Scanln(&userInput)
+				switch {
+				case err != nil:
+					log.Fatalf("Switch not reset\nError while processing input: %s\n", err)
+				case strings.ToLower(userInput) == "n" || strings.ToLower(userInput) == "no" || userInput == "":
+					outputInfo("Not resetting\n")
+					break
+				case strings.ToLower(userInput) == "y" || strings.ToLower(userInput) == "yes":
+					outputInfo("Continuing with reset.\n")
+					backup.Backup = false
+					break
+				}
+				// Assumption being made, we are being run from the web gui.
+				// We don't have prompts going (yet), so defaulting to continuing
+			} else {
+				outputInfo("Continuing with reset.\n")
+				backup.Backup = false
+			}
+		}
 		progress.TotalSteps = 4
 		progress.CurrentStep += 1
 		for !(strings.Contains(parsedOutput, YES_NO_PROMPT)) {
@@ -254,12 +291,16 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 
 		// Determine the files we need to delete
 		// TODO: Debug this section
-		outputInfo("Parsing files to delete...\n")
+		if backup.Backup {
+			outputInfo("Parsing files to move...\n")
+		} else {
+			outputInfo("Parsing files to delete...\n")
+		}
 		progress.CurrentStep += 1
-		filesToDelete := ParseFilesToDelete(listing, debug)
+		files = ParseFilesToDelete(listing, debug)
 
 		// Delete files if necessary
-		if len(filesToDelete) == 0 {
+		if len(files) == 0 {
 			outputInfo("Switch has been reset already.\n")
 			progress.TotalSteps -= 1
 			progress.CurrentStep += 1
@@ -268,17 +309,27 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 			if err != nil {
 				log.Fatal(err)
 			}
-			outputInfo("Deleting files\n")
-			progress.CurrentStep += 1
-			for _, file := range filesToDelete {
-				outputInfo(fmt.Sprintf("Deleting %s\n", file))
-				common.WriteLine(port, "del flash:"+file, debug)
-				common.ReadLine(port, BUFFER_SIZE, debug)
-				if debug {
-					outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
+			if backup.Backup {
+				outputInfo("Moving files\n")
+				progress.CurrentStep += 1
+				for _, file := range files {
+					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
+					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash%s-%s", file, backup.Prefix, file), debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
 				}
-				common.WriteLine(port, "y", debug)
-				common.ReadLine(port, BUFFER_SIZE, debug)
+			} else {
+				outputInfo("Deleting files\n")
+				progress.CurrentStep += 1
+				for _, file := range files {
+					outputInfo(fmt.Sprintf("Deleting %s\n", file))
+					common.WriteLine(port, "del flash:"+file, debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
+					if debug {
+						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
+					}
+					common.WriteLine(port, "y", debug)
+					common.ReadLine(port, BUFFER_SIZE, debug)
+				}
 			}
 			outputInfo("Switch has been reset\n")
 			progress.CurrentStep += 1
@@ -298,6 +349,136 @@ func Reset(SerialPort string, PortSettings serial.Mode, debug bool, progressDest
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
+	if backup.Backup {
+		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "")) {
+			err = port.SetReadTimeout(1 * time.Second)
+			if err != nil {
+				log.Fatal(err)
+			}
+			outputInfo("Waiting for switch to start up to back up config\n")
+
+			for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(LOW_PRIV_PREFIX)) {
+				if debug {
+					outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+				}
+				if common.IsEmpty(output) {
+					if debug {
+						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+					}
+					_, err = port.Write([]byte("\r\n"))
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
+					if debug {
+						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
+					}
+					outputInfo("Getting out of initial configuration dialog\n")
+					progress.CurrentStep += 1
+					_, err = port.Write(common.FormatCommand("no"))
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				time.Sleep(1 * time.Second)
+				output = common.TrimNull(common.ReadLine(port, 500, debug))
+			}
+			outputInfo("Getting out of initial configuration dialog\n")
+			outputInfo("We have booted up now\n")
+			progress.CurrentStep += 1
+			_, err = port.Write(common.FormatCommand(""))
+			if err != nil {
+				log.Fatal(err)
+			}
+			line := common.ReadLine(port, 500, debug)
+
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
+			}
+			outputInfo("Entering privileged exec.\n")
+			_, err = port.Write(common.FormatCommand("enable"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			line = common.ReadLine(port, 500, debug)
+
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+
+			// Assign IP address
+			outputInfo("Assigning vlan 1 an IP address")
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
+			_, err = port.Write(common.FormatCommand("conf t"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "inter vlan 1"))
+			_, err = port.Write(common.FormatCommand("inter vlan 1"))
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+
+			// Make an educated guess if we should be using DHCP
+			if backup.Source == "" {
+				outputInfo(fmt.Sprintf("INPUT: %s\n", "ip address dhcp"))
+				_, err = port.Write(common.FormatCommand("ip address dhcp"))
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				outputInfo(fmt.Sprintf("INPUT: ip address %s %s\n", backup.Source, backup.SubnetMask))
+				_, err = port.Write(common.FormatCommand(fmt.Sprintf("ip address %s %s", backup.Source, backup.SubnetMask)))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+			outputInfo(fmt.Sprintf("INPUT: %s\n", "end"))
+			_, err = port.Write(common.FormatCommand("end"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			line = common.ReadLine(port, 500, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
+
+			// Begin copying files to TFTP server
+			outputInfo(fmt.Sprintf("Copying %d files to %s.\n", len(files), backup.Destination))
+			for _, file := range files {
+				filename := fmt.Sprintf("%s-%s", backup.Prefix, file)
+				outputInfo(fmt.Sprintf("Backing up file %s to %s.\n", filename, backup.Destination))
+				_, err = port.Write(common.FormatCommand(fmt.Sprintf("copy flash:%s tftp://%s/%s", filename, backup.Destination, filename)))
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		} else {
+			// Inform the user of the missing information
+			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
+			if backup.Source == "" {
+				outputInfo("Source address missing\n")
+			}
+			if backup.SubnetMask == "" {
+				outputInfo("Subnet mask missing\n")
+			}
+			if backup.Destination == "" {
+				outputInfo("Destination address missing\n")
+			}
+		}
+	}
+
+	// Send clue that we're at the end
 	outputInfo("---EOF---")
 }
 
@@ -349,6 +530,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	outputInfo("Waiting for the switch to startup\n")
 
+	// Try to guess if we've started yet
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
@@ -365,6 +547,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				log.Fatal(err)
 			}
 		}
+
+		// Sometimes this'll pop up, sometimes this won't, so we can't test exclusively on this
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
 			if debug {
 				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
@@ -391,6 +575,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
 	}
+
+	// Elevate our privileges so we can run practical configuration commands
 	outputInfo("Entering privileged exec.\n")
 	_, err = port.Write(common.FormatCommand("enable"))
 	if err != nil {
@@ -411,6 +597,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	}
 	prompt = hostname + "(config)#"
 
+	// Begin setting up Vlans
 	if len(config.Vlans) > 0 {
 		for _, vlan := range config.Vlans {
 			outputInfo(fmt.Sprintf("Configuring vlan %d\n", vlan.Vlan))
@@ -430,6 +617,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config-if)#"
 
+			// Assign a static IP
+			// TODO: handle DHCP
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
 				outputInfo(fmt.Sprintf("Assigning IP address %s with subnet mask %s to vlan %d\n", vlan.IpAddress, vlan.SubnetMask, vlan.Vlan))
 				progress.CurrentStep += 1
@@ -445,6 +634,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
 			}
+
+			// Is this redundant?
 			if vlan.Shutdown {
 				outputInfo(fmt.Sprintf("Shutting down vlan %d\n", vlan.Vlan))
 				progress.CurrentStep += 1
@@ -489,6 +680,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished configuring vlans\n")
 	}
 
+	// Configure our physical ports
 	if len(config.Ports) != 0 {
 		for _, switchPort := range config.Ports {
 			outputInfo(fmt.Sprintf("Configuring port %s\n", switchPort.Port))
@@ -507,6 +699,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 			prompt = hostname + "(config-if)#"
 
+			// Setting intended functionality
 			if switchPort.SwitchportMode != "" {
 				outputInfo(fmt.Sprintf("Setting the switchport mode on port %s to %s\n", switchPort.Port, switchPort.SwitchportMode))
 				progress.CurrentStep += 1
@@ -524,6 +717,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 
+			// Set the intended vlan
+			// TODO: Possible voice vlan stuff? Should this just get pawned off to ansible?
 			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
 				if strings.ToLower(switchPort.SwitchportMode) == "access" {
 					outputInfo(fmt.Sprintf("Setting port %s to be an access port on vlan %d\n", switchPort.Port, switchPort.Vlan))
@@ -609,6 +804,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		progress.CurrentStep += 1
 	}
 
+	// Set up the banner
 	if config.Banner != "" {
 		outputInfo(fmt.Sprintf("Setting the banner to %s\n", config.Banner))
 		progress.CurrentStep += 1
@@ -625,6 +821,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}
 
+	// Set up the console password (old templates only)
 	if config.Version < 0.02 && config.ConsolePassword != "" {
 		outputInfo(fmt.Sprintf("Setting the console password to %s\n", config.ConsolePassword))
 		progress.CurrentStep += 1
@@ -682,6 +879,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished configuring the console port\n")
 	}
 
+	// Enable password, defaulting to a secret rather than plain text
+	// TODO: Should plain text enable passwords be allowed? Our console passwords are plain text
 	if config.EnablePassword != "" {
 		outputInfo(fmt.Sprintf("Setting the privileged exec password to %s\n", config.EnablePassword))
 		progress.CurrentStep += 1
@@ -699,6 +898,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the privileged exec password\n")
 	}
 
+	// Default gateway
+	// TODO: Probably redundant if/when DHCP gets set up, logically speaking could get moved up near vlan configuration
 	if config.DefaultGateway != "" {
 		outputInfo(fmt.Sprintf("Setting the default gateway to %s\n", config.DefaultGateway))
 		if debug {
@@ -715,6 +916,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the default gateway\n")
 	}
 
+	// Hostname configuration
 	if config.Hostname != "" {
 		outputInfo(fmt.Sprintf("Setting the hostname to %s\n", config.Hostname))
 		if debug {
@@ -734,6 +936,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the hostname.\n")
 	}
 
+	// Domain name configuration
+	// TODO: Should any sort of validation be done for this? Or do we just want to make the switch responsible for this?
 	if config.DomainName != "" {
 		outputInfo(fmt.Sprintf("Setting the domain name of the switch to %s\n", config.DomainName))
 		if debug {
@@ -752,6 +956,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	if config.Ssh.Enable {
 		allowSSH := true
+		// Ensure SSH prereqs are met
 		if config.Ssh.Username == "" {
 			outputInfo("WARNING: SSH username not specified.\n")
 			allowSSH = false
@@ -769,6 +974,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			allowSSH = false
 		}
 
+		// Prereqs are met, so we can proceed
 		if allowSSH {
 			outputInfo(fmt.Sprintf("Enabling SSH with username %s and password %s\n", config.Ssh.Username, config.Ssh.Password))
 			progress.CurrentStep += 1
@@ -810,7 +1016,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if debug {
 					outputInfo(fmt.Sprintf("DEBUG: Requested bit setting of %d is too low, defaulting to 2048\n", config.Ssh.Bits))
 				}
-				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+				// User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+				// TODO: IOS 15 supports 4096 bit keys, can this get modified on the fly?
+				config.Ssh.Bits = 2048
 			}
 
 			outputInfo(fmt.Sprintf("Generating an SSH key with %d bits big\n", config.Ssh.Bits))
@@ -842,6 +1050,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}
 
+	// Configure console lines
 	if len(config.Lines) != 0 {
 		for _, line := range config.Lines {
 			if line.Type != "" {
@@ -964,6 +1173,6 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	outputInfo("Settings applied!\n")
 	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
-	outputInfo("To fix this, run `wr` on the target device.\n")
+	outputInfo("To fix this, run `wr` on the target device.\n") // Should this be ran automatically?
 	outputInfo("---EOF---")
 }
