@@ -222,6 +222,7 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 		// Log the detailed error
 		log.Info(err.Error())
 		// Return a generic "Internal Server Error" message
+		// TODO: We know *what* the error will likely be, should this be customized at all?
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
@@ -372,6 +373,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	//	}
 	//}
 
+	// Form results, formatted for reasonable usage
 	var serialConf SerialConfiguration
 	serialConf.Port = r.PostFormValue("device")
 	serialConf.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
@@ -388,10 +390,6 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 		serialConf.StopBits = -1
 	}
 
-	serialConf.ShortHand = fmt.Sprintf("%d %d%c%f", serialConf.BaudRate, serialConf.DataBits, serialConf.Parity[0], serialConf.StopBits)
-	fmt.Printf("Serial shorthand: %s\n", serialConf.ShortHand)
-
-	fmt.Printf("POST Data: %+v\n", serialConf)
 	err = deviceTemplate.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
 		log.Info(err.Error())
@@ -418,6 +416,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Printf("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
+	// Format form results
 	var rules RunParams
 	rules.PortConfig.Port = r.PostFormValue("port")
 	rules.PortConfig.BaudRate, _ = strconv.Atoi(r.PostFormValue("baud"))
@@ -447,12 +446,14 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 		rules.PortConfig.StopBits = -1
 	}
 
+	// Build the shorthand version
 	truncated := fmt.Sprintf("%.1f", rules.PortConfig.StopBits)
 	if strings.HasSuffix(truncated, ".0") {
 		truncated = truncated[:len(truncated)-2]
 	}
 	rules.PortConfig.ShortHand = fmt.Sprintf("%d %d%c%s", rules.PortConfig.BaudRate, rules.PortConfig.DataBits, rules.PortConfig.Parity[0], truncated)
 
+	// Format some more HTML results to be presented in a table
 	rules.DeviceType = r.PostFormValue("device")
 	rules.Verbose = r.PostFormValue("verbose") == "verbose"
 	rules.Reset = r.PostFormValue("reset") == "reset"
@@ -487,7 +488,6 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 
 	go runJob(rules, jobNum)
 
-	fmt.Printf("POST Data: %+v\n", newJob)
 	err = resetTemplate.ExecuteTemplate(w, "layout", newJob)
 	if err != nil {
 		// Log the detailed error
@@ -525,6 +525,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		log.Info(err.Error())
 	}
 
+	// Because templates have to only take one struct, we have to have a special struct just for it
 	var indexHelper IndexHelper
 	indexHelper.Jobs = jobs
 	indexHelper.SerialPorts = serialPorts
@@ -540,6 +541,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServeWeb() {
+	// Gorilla muxer to support Windows 7
 	muxer := mux.NewRouter()
 	muxer.HandleFunc("/", serveIndex).Methods("GET")
 	muxer.HandleFunc("/port/", portConfig).Methods("GET")
