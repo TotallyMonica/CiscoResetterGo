@@ -171,6 +171,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 
 	outputInfo("Release the mode button now\n")
+	// Assumption being made: we are being ran as a CLI app rather than the web gui
+	// Allow the user to have time to release the button
 	if progressDest == nil {
 		outputInfo("Press enter once you've released it")
 		_, err := fmt.Scanln()
@@ -192,8 +194,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	// Password recovery was disabled
 	if strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) {
 		outputInfo("Password recovery was disabled\n")
+
+		// We can't back up the config if password recovery is disabled
 		if backup.Backup {
 			outputInfo("Backing up the config is impossible as password recovery is disabled.\n")
+
+			// Assumption being made: we're being ran from the CLI rather than the web gui, so prompt if we want to continue
 			if progressDest == nil {
 				outputInfo("Would you like to continue? (y/N)\n")
 				var userInput string
@@ -206,8 +212,14 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					break
 				case strings.ToLower(userInput) == "y" || strings.ToLower(userInput) == "yes":
 					outputInfo("Continuing with reset.\n")
+					backup.Backup = false
 					break
 				}
+				// Assumption being made, we are being run from the web gui.
+				// We don't have prompts going (yet), so defaulting to continuing
+			} else {
+				outputInfo("Continuing with reset.\n")
+				backup.Backup = false
 			}
 		}
 		progress.TotalSteps = 4
@@ -412,12 +424,20 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
+
+			// Make an educated guess if we should be using DHCP
 			if backup.Source == "" {
 				outputInfo(fmt.Sprintf("INPUT: %s\n", "ip address dhcp"))
 				_, err = port.Write(common.FormatCommand("ip address dhcp"))
+				if err != nil {
+					log.Fatal(err)
+				}
 			} else {
 				outputInfo(fmt.Sprintf("INPUT: ip address %s %s\n", backup.Source, backup.SubnetMask))
 				_, err = port.Write(common.FormatCommand(fmt.Sprintf("ip address %s %s", backup.Source, backup.SubnetMask)))
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 			line = common.ReadLine(port, 500, debug)
 			if debug {
@@ -425,6 +445,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 			outputInfo(fmt.Sprintf("INPUT: %s\n", "end"))
 			_, err = port.Write(common.FormatCommand("end"))
+			if err != nil {
+				log.Fatal(err)
+			}
 			line = common.ReadLine(port, 500, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -454,6 +477,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 		}
 	}
+
+	// Send clue that we're at the end
 	outputInfo("---EOF---")
 }
 
@@ -505,6 +530,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	outputInfo("Waiting for the switch to startup\n")
 
+	// Try to guess if we've started yet
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
@@ -521,6 +547,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				log.Fatal(err)
 			}
 		}
+
+		// Sometimes this'll pop up, sometimes this won't, so we can't test exclusively on this
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
 			if debug {
 				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
@@ -547,6 +575,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
 	}
+
+	// Elevate our privileges so we can run practical configuration commands
 	outputInfo("Entering privileged exec.\n")
 	_, err = port.Write(common.FormatCommand("enable"))
 	if err != nil {
@@ -567,6 +597,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	}
 	prompt = hostname + "(config)#"
 
+	// Begin setting up Vlans
 	if len(config.Vlans) > 0 {
 		for _, vlan := range config.Vlans {
 			outputInfo(fmt.Sprintf("Configuring vlan %d\n", vlan.Vlan))
@@ -586,6 +617,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config-if)#"
 
+			// Assign a static IP
+			// TODO: handle DHCP
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
 				outputInfo(fmt.Sprintf("Assigning IP address %s with subnet mask %s to vlan %d\n", vlan.IpAddress, vlan.SubnetMask, vlan.Vlan))
 				progress.CurrentStep += 1
@@ -601,6 +634,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
 			}
+
+			// Is this redundant?
 			if vlan.Shutdown {
 				outputInfo(fmt.Sprintf("Shutting down vlan %d\n", vlan.Vlan))
 				progress.CurrentStep += 1
@@ -645,6 +680,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished configuring vlans\n")
 	}
 
+	// Configure our physical ports
 	if len(config.Ports) != 0 {
 		for _, switchPort := range config.Ports {
 			outputInfo(fmt.Sprintf("Configuring port %s\n", switchPort.Port))
@@ -663,6 +699,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 			prompt = hostname + "(config-if)#"
 
+			// Setting intended functionality
 			if switchPort.SwitchportMode != "" {
 				outputInfo(fmt.Sprintf("Setting the switchport mode on port %s to %s\n", switchPort.Port, switchPort.SwitchportMode))
 				progress.CurrentStep += 1
@@ -680,6 +717,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 
+			// Set the intended vlan
+			// TODO: Possible voice vlan stuff? Should this just get pawned off to ansible?
 			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
 				if strings.ToLower(switchPort.SwitchportMode) == "access" {
 					outputInfo(fmt.Sprintf("Setting port %s to be an access port on vlan %d\n", switchPort.Port, switchPort.Vlan))
@@ -765,6 +804,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		progress.CurrentStep += 1
 	}
 
+	// Set up the banner
 	if config.Banner != "" {
 		outputInfo(fmt.Sprintf("Setting the banner to %s\n", config.Banner))
 		progress.CurrentStep += 1
@@ -781,6 +821,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}
 
+	// Set up the console password (old templates only)
 	if config.Version < 0.02 && config.ConsolePassword != "" {
 		outputInfo(fmt.Sprintf("Setting the console password to %s\n", config.ConsolePassword))
 		progress.CurrentStep += 1
@@ -838,6 +879,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished configuring the console port\n")
 	}
 
+	// Enable password, defaulting to a secret rather than plain text
+	// TODO: Should plain text enable passwords be allowed? Our console passwords are plain text
 	if config.EnablePassword != "" {
 		outputInfo(fmt.Sprintf("Setting the privileged exec password to %s\n", config.EnablePassword))
 		progress.CurrentStep += 1
@@ -855,6 +898,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the privileged exec password\n")
 	}
 
+	// Default gateway
+	// TODO: Probably redundant if/when DHCP gets set up, logically speaking could get moved up near vlan configuration
 	if config.DefaultGateway != "" {
 		outputInfo(fmt.Sprintf("Setting the default gateway to %s\n", config.DefaultGateway))
 		if debug {
@@ -871,6 +916,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the default gateway\n")
 	}
 
+	// Hostname configuration
 	if config.Hostname != "" {
 		outputInfo(fmt.Sprintf("Setting the hostname to %s\n", config.Hostname))
 		if debug {
@@ -890,6 +936,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		outputInfo("Finished setting the hostname.\n")
 	}
 
+	// Domain name configuration
+	// TODO: Should any sort of validation be done for this? Or do we just want to make the switch responsible for this?
 	if config.DomainName != "" {
 		outputInfo(fmt.Sprintf("Setting the domain name of the switch to %s\n", config.DomainName))
 		if debug {
@@ -908,6 +956,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	if config.Ssh.Enable {
 		allowSSH := true
+		// Ensure SSH prereqs are met
 		if config.Ssh.Username == "" {
 			outputInfo("WARNING: SSH username not specified.\n")
 			allowSSH = false
@@ -925,6 +974,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			allowSSH = false
 		}
 
+		// Prereqs are met, so we can proceed
 		if allowSSH {
 			outputInfo(fmt.Sprintf("Enabling SSH with username %s and password %s\n", config.Ssh.Username, config.Ssh.Password))
 			progress.CurrentStep += 1
@@ -966,7 +1016,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if debug {
 					outputInfo(fmt.Sprintf("DEBUG: Requested bit setting of %d is too low, defaulting to 2048\n", config.Ssh.Bits))
 				}
-				config.Ssh.Bits = 2048 // User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+				// User presumably wanted highest allowed bit setting, 2048 is max on IOS 12.2
+				// TODO: IOS 15 supports 4096 bit keys, can this get modified on the fly?
+				config.Ssh.Bits = 2048
 			}
 
 			outputInfo(fmt.Sprintf("Generating an SSH key with %d bits big\n", config.Ssh.Bits))
@@ -998,6 +1050,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}
 
+	// Configure console lines
 	if len(config.Lines) != 0 {
 		for _, line := range config.Lines {
 			if line.Type != "" {
@@ -1120,6 +1173,6 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	outputInfo("Settings applied!\n")
 	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
-	outputInfo("To fix this, run `wr` on the target device.\n")
+	outputInfo("To fix this, run `wr` on the target device.\n") // Should this be ran automatically?
 	outputInfo("---EOF---")
 }
