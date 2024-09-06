@@ -7,6 +7,7 @@ import (
 	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
+	"io"
 	"main/common"
 	"main/routers"
 	"main/switches"
@@ -162,6 +163,7 @@ func main() {
 	var serialDevice string
 	var switchDefaults string
 	var routerDefaults string
+	var backupConfig string
 	var skipReset bool
 	var webServer bool
 	var portSettings serial.Mode
@@ -171,6 +173,7 @@ func main() {
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.StringVar(&switchDefaults, "switch-defaults", "", "Set default settings on a switch")
 	flag.StringVar(&routerDefaults, "router-defaults", "", "Set default settings on a router")
+	flag.StringVar(&backupConfig, "untested-backup-config", "", "Backup switch/router config (Note: Very much untested)")
 	flag.BoolVar(&skipReset, "skip-reset", false, "Skip resetting devices")
 	flag.BoolVar(&webServer, "web-server", false, "Use the web server")
 	flag.Parse()
@@ -188,13 +191,29 @@ func main() {
 		web.ServeWeb()
 	}
 
+	var backupRules common.Backup
+
+	if backupConfig == "" {
+		backupRules.Backup = false
+	} else {
+		backupConfigFile, err := os.Open(backupConfig)
+		if err != nil {
+			log.Fatalf("Error while opening file %s: %s\n", backupConfig, err)
+		}
+
+		err = json.Unmarshal(io.ReadAll(backupConfigFile))
+		if err != nil {
+			log.Fatalf("Error while unmarshalling %s: %s\n", backupConfig, err)
+		}
+	}
+
 	serialDevice, portSettings = SetupSerial()
 
 	if resetRouter && !skipReset {
-		routers.Reset(serialDevice, portSettings, common.Backup{Backup: false}, debug, nil)
+		routers.Reset(serialDevice, portSettings, backupRules, debug, nil)
 	}
 	if resetSwitch && !skipReset {
-		switches.Reset(serialDevice, portSettings, common.Backup{Backup: false}, debug, nil)
+		switches.Reset(serialDevice, portSettings, backupRules, debug, nil)
 	}
 
 	if resetRouter && routerDefaults != "" {

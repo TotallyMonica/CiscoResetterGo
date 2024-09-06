@@ -205,8 +205,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 		commands = append(commands, "inter g0/0/0", fmt.Sprintf("ip addr %s", ip), "no shutdown")
 
-		// Begin the TFTP server
-		go common.BuiltInTftpServer(closeTftpServer)
+		// Begin the built-in TFTP server if chosen
+		if backup.UseBuiltIn {
+			go common.BuiltInTftpServer(closeTftpServer)
+		}
 	}
 
 	// We're no longer needed in global config, so queue command to get out of that
@@ -258,7 +260,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}
 
-	closeTftpServer <- true
+	if backup.UseBuiltIn {
+		closeTftpServer <- true
+	}
 
 	outputInfo("Successfully reset!\n")
 	outputInfo("---EOF---")
