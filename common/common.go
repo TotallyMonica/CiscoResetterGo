@@ -2,8 +2,11 @@ package common
 
 import (
 	"fmt"
+	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -19,6 +22,32 @@ type Backup struct {
 	Source      string
 	SubnetMask  string
 	Destination string
+	UseBuiltIn  bool
+}
+
+func TftpWriteHandler(filename string, wt io.WriterTo) error {
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = wt.WriteTo(file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func BuiltInTftpServer(close chan bool) {
+	s := tftp.NewServer(nil, TftpWriteHandler)
+	s.SetTimeout(5 * time.Second)
+	err := s.ListenAndServe(":69")
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "server: %v\n", err)
+		os.Exit(1)
+	}
+	for !<-close {
+		s.Shutdown()
+	}
 }
 
 func WaitForPrefix(port serial.Port, prompt string, debug bool) {

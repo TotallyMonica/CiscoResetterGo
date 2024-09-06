@@ -169,6 +169,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
 	}
 
+	closeTftpServer := make(chan bool)
+
 	// Check if we can and should back up
 	if backup.Backup {
 		if backup.Destination != "" || (backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "") {
@@ -186,7 +188,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}
 
-	outputInfo("Setting the registers back to regular\n")
 	err = port.SetReadTimeout(5 * time.Second)
 	if err != nil {
 		log.Fatal(err)
@@ -203,6 +204,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			ip = fmt.Sprintf("%s %s", backup.Source, backup.SubnetMask)
 		}
 		commands = append(commands, "inter g0/0/0", fmt.Sprintf("ip addr %s", ip), "no shutdown")
+
+		// Begin the TFTP server
+		go common.BuiltInTftpServer(closeTftpServer)
 	}
 
 	// We're no longer needed in global config, so queue command to get out of that
@@ -253,6 +257,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			common.ReadLines(port, 500, 2, debug)
 		}
 	}
+
+	closeTftpServer <- true
 
 	outputInfo("Successfully reset!\n")
 	outputInfo("---EOF---")
