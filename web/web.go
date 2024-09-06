@@ -355,7 +355,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 		pathTemplate := filepath.Join("templates", "device.html")
 		deviceTemplate, err = layoutTemplate.ParseFiles(pathTemplate)
 	} else {
-		deviceTemplate, err = layoutTemplate.ParseFiles(templates.Device)
+		deviceTemplate, err = layoutTemplate.Parse(templates.Device)
 	}
 	if err != nil {
 		// Log the detailed error
