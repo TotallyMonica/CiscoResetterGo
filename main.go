@@ -12,7 +12,6 @@ import (
 	"main/switches"
 	"main/web"
 	"os"
-	"runtime"
 	"strings"
 )
 
@@ -175,8 +174,6 @@ func main() {
 	flag.BoolVar(&skipReset, "skip-reset", false, "Skip resetting devices")
 	flag.BoolVar(&webServer, "web-server", false, "Use the web server")
 	flag.Parse()
-
-	fmt.Printf("The application was built with the Go version: %s\n", runtime.Version())
 
 	if !(resetRouter || resetSwitch || webServer) {
 		_, err := fmt.Fprintf(os.Stderr, "Usage of %s\n", os.Args[0])
