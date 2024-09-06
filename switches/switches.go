@@ -351,6 +351,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
 		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "")) {
+			closeTftpServer := make(chan bool)
+
+			// Spin up TFTP server
+			go common.BuiltInTftpServer(closeTftpServer)
+
+			// Wait for the switch to start up
 			err = port.SetReadTimeout(1 * time.Second)
 			if err != nil {
 				log.Fatal(err)
@@ -463,6 +469,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					log.Fatal(err)
 				}
 			}
+			closeTftpServer <- true
 		} else {
 			// Inform the user of the missing information
 			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
