@@ -169,14 +169,77 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
 	}
 
+	// Check if we can and should back up
+	if backup.Backup {
+		if backup.Destination != "" || (backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "") {
+			backup.Backup = false
+		}
+		outputInfo("Unable to back up the config due to missing values\n")
+		if backup.Destination == "" {
+			outputInfo("Backup destination is empty\n")
+		}
+		if backup.Source == "" {
+			outputInfo("Backup source is empty\n")
+		}
+		if backup.SubnetMask == "" {
+			outputInfo("Subnet mask is empty\n")
+		}
+	}
+
 	outputInfo("Setting the registers back to regular\n")
 	err = port.SetReadTimeout(5 * time.Second)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// We can safely assume we're at the prompt, begin running reset commands
-	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER, "end"}
+	// We can safely assume we're at the prompt, begin running commands to restore registers, back up, and reset
+	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER}
+
+	// Add in the relevant commands to back up if we are
+	if backup.Backup {
+		ip := ""
+		if backup.Source == "" && backup.SubnetMask == "" {
+			ip = "dhcp"
+		} else {
+			ip = fmt.Sprintf("%s %s", backup.Source, backup.SubnetMask)
+		}
+		commands = append(commands, "inter g0/0/0", fmt.Sprintf("ip addr %s", ip), "no shutdown")
+	}
+
+	// We're no longer needed in global config, so queue command to get out of that
+	commands = append(commands, "end")
+
+	// Add in some more backup-oriented commands
+	if backup.Backup {
+		commands = append(commands, fmt.Sprintf("copy startup-config tftp://%s/%s-router-config.txt", backup.Destination, backup.Prefix))
+	}
+
+	// Queue command to erase the NVRAM and reload
+	commands = append(commands, "erase nvram:", "", "reload", "yes", "")
+
+	// Execute the commands
 	for _, cmd := range commands {
+		prefix := ""
+		switch cmd {
+		case "enable":
+			outputInfo("Setting our register back to normal\n")
+			break
+		case "inter g0/0/0":
+			outputInfo("Setting an IP address to back up the config\n")
+			break
+		case "end":
+			outputInfo("Finished configuring our console\n")
+			break
+		case fmt.Sprintf("copy startup-config tftp://%s/%s-router-config.txt", backup.Destination, backup.Prefix):
+			outputInfo(fmt.Sprintf("Backing up the config to %s\n", backup.Destination))
+			prefix = SHELL_PROMPT
+			break
+		case "erase nvram:":
+			outputInfo("Erasing the router's config\n")
+			break
+		case "reload":
+			outputInfo("Restarting the switch\n")
+			break
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
 		}
@@ -184,55 +247,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if err != nil {
 			log.Fatal(err)
 		}
-		common.ReadLines(port, BUFFER_SIZE, 2, debug)
+		if prefix != "" {
+			common.WaitForSubstring(port, strings.ToLower(prefix), debug)
+		} else {
+			common.ReadLines(port, 500, 2, debug)
+		}
 	}
-
-	// Now reset config and restart
-	outputInfo("Resetting the configuration\n")
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "erase nvram:"))
-	}
-	_, err = port.Write(common.FormatCommand("erase nvram:"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	common.ReadLines(port, BUFFER_SIZE, 2, debug)
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\n"))
-	}
-	_, err = port.Write(common.FormatCommand(""))
-	if err != nil {
-		log.Fatal(err)
-	}
-	common.ReadLines(port, BUFFER_SIZE, 2, debug)
-
-	outputInfo("Reloading the router\n")
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "reload"))
-	}
-	_, err = port.Write(common.FormatCommand("reload"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	common.ReadLines(port, BUFFER_SIZE, 2, debug)
-
-	_, err = port.Write(common.FormatCommand("yes"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
-	}
-	common.ReadLines(port, BUFFER_SIZE, 2, debug)
-
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\n"))
-	}
-	_, err = port.Write(common.FormatCommand(""))
-	if err != nil {
-		log.Fatal(err)
-	}
-	common.ReadLines(port, BUFFER_SIZE, 2, debug)
 
 	outputInfo("Successfully reset!\n")
 	outputInfo("---EOF---")
