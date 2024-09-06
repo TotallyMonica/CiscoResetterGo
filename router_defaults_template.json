@@ -1,0 +1,28 @@
+{
+  "Version": 0.02,
+  "Lines": [{
+      "Type": "",
+      "StartLine": 0,
+      "EndLine": 0,
+      "Login": "",
+      "Transport": "",
+      "Password": ""
+    }],
+  "Ports": [{
+      "Port": "",
+      "IpAddress": "",
+      "SubnetMask": "",
+      "Shutdown": true
+    }],
+  "EnablePassword": "",
+  "Ssh": {
+    "Enable": false,
+    "Username": "",
+    "Password": "",
+    "Bits": 2048
+  },
+  "Banner": "",
+  "Hostname": "",
+  "DomainName": "",
+  "DefaultRoute": ""
+}

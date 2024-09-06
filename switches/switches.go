@@ -356,7 +356,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
-		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "")) {
+		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask == "") || (backup.Source != "" && backup.SubnetMask != "")) {
 			closeTftpServer := make(chan bool)
 
 			// Spin up TFTP server
