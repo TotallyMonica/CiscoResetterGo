@@ -118,6 +118,9 @@ func WriteLine(port serial.Port, line string, debug bool) {
 
 func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 	line := ReadLines(port, buffSize, 1, debug)
+	if debug {
+		fmt.Printf("FROM DEVICE: %s\n", line[0])
+	}
 	return line[0]
 }
 

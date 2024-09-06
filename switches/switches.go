@@ -317,7 +317,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
 					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", file, backup.Prefix, file), debug)
-					common.ReadLine(port, BUFFER_SIZE, debug)
+					line = common.ReadLine(port, 500, debug)
+					if debug {
+						outputInfo(fmt.Sprintf("rename flash:%s flash:%s-%s\n", file, backup.Prefix, file))
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+					}
 				}
 			} else {
 				outputInfo("Deleting files\n")
