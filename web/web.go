@@ -15,6 +15,7 @@ import (
 	"main/switches"
 	"main/templates"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -342,16 +343,23 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate, err := template.New("template").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		log.Warningf("Error while parsing template: %s\n", err)
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	deviceTemplate, err := layoutTemplate.Parse(templates.Device)
+	var deviceTemplate *template.Template
+	if os.Getenv("DEBUGHTTPPAGE") == "1" {
+		log.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
+		pathTemplate := filepath.Join("templates", "device.html")
+		deviceTemplate, err = layoutTemplate.ParseFiles(pathTemplate)
+	} else {
+		deviceTemplate, err = layoutTemplate.ParseFiles(templates.Device)
+	}
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		log.Warningf("Error while parsing template: %s\n", err)
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -394,7 +402,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 
 	err = deviceTemplate.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
-		log.Info(err.Error())
+		log.Warningf("Error while executing template: %s\n", err)
 		http.Error(w, http.StatusText(500), 500)
 	}
 }
@@ -561,7 +569,7 @@ func ServeWeb() {
 	muxer.HandleFunc("/device/{port}/", deviceConfig).Methods("POST")
 	muxer.HandleFunc("/device/{port}/{baud}/", deviceConfig).Methods("POST")
 	muxer.HandleFunc("/device/{port}/{baud}/{data}/{parity}/{stop}/", deviceConfig).Methods("POST")
-	muxer.HandleFunc("/reset/", resetDevice).Methods("POST")
+	muxer.HandleFunc("/reset/", resetDevice).Methods("POST", "GET")
 	muxer.HandleFunc("/list/jobs/", jobListHandler).Methods("GET")
 	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
 

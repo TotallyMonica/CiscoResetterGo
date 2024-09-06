@@ -1,5 +1,83 @@
 {{define "title"}}Configure device resetting parameters{{end}}
 {{define "body"}}
+<script>
+    function toggleDefaultsRequired() {
+        let defaultsCheckbox = document.getElementById("defaults");
+        let defaultsFile = document.getElementById("defaultsFile");
+        let defaultsLabel = document.getElementsByTagName("label")[5];
+        defaultsFile.required = defaultsCheckbox.required;
+        if (defaultsCheckbox.checked) {
+            defaultsFile.style.display = '';
+            defaultsLabel.style.display = '';
+        } else {
+            defaultsFile.style.display = 'none';
+            defaultsLabel.style.display = 'none';
+        }
+        console.log("Defaults file is now " + ((document.getElementById("defaultsFile").required) ? "" : "no longer ") + "required");
+    }
+    function toggleBackupExtras() {
+        let backupCheckbox = document.getElementById("backup");
+        let dhcpInput = document.getElementById("dhcp");
+        let dhcpLabel = document.getElementsByTagName("label")[7];
+        let destinationInput = document.getElementById("destination");
+        let destinationLabel = document.getElementsByTagName("label")[10];
+        if (backupCheckbox.checked) {
+            dhcpInput.style.display = '';
+            dhcpLabel.style.display = '';
+            destinationInput.style.display = '';
+            destinationLabel.style.display = '';
+        } else {
+            dhcpInput.style.display = 'none';
+            dhcpLabel.style.display = 'none';
+            destinationInput.style.display = 'none';
+            destinationLabel.style.display = 'none';
+            destinationInput.required = false;
+        }
+        toggleTemporarySourceIpRequired()
+    }
+    function toggleTemporarySourceIpRequired() {
+        let dhcpInput = document.getElementById("dhcp");
+        let sourceInput = document.getElementById("source");
+        let sourceLabel = document.getElementsByTagName("label")[8];
+        let maskInput = document.getElementById("mask");
+        let maskLabel = document.getElementsByTagName("label")[9];
+        sourceInput.required = !dhcpInput.checked;
+        console.log("Source IP is now " + ((sourceInput.required) ? "" : "no longer ") + "required");
+        if (!dhcpInput.checked) {
+            sourceInput.style.display = '';
+            sourceLabel.style.display = '';
+        } else {
+            sourceInput.style.display = 'none';
+            sourceLabel.style.display = 'none';
+        }
+        maskInput.required = !dhcpInput.checked;
+        console.log("Subnet mask is now " + ((!dhcpInput.checked) ? "" : "no longer ") + "required");
+        if (!dhcpInput.checked) {
+            maskLabel.style.display = '';
+            maskInput.style.display = '';
+        } else {
+            maskLabel.style.display = 'none';
+            maskInput.style.display = 'none';
+        }
+    }
+    setTimeout(function() {
+        let defaultsFile = document.getElementById("defaultsFile");
+        let defaultsLabel = document.getElementsByTagName("label")[5];
+        let defaultsCheckbox = document.getElementById("defaults");
+        let dhcpCheckbox = document.getElementById("dhcp");
+        let backupCheckbox = document.getElementById("backup");
+        defaultsFile.style.display = 'none';
+        defaultsLabel.style.display = 'none';
+        defaultsCheckbox.addEventListener("change", toggleDefaultsRequired);
+        backupCheckbox.addEventListener("change", toggleBackupExtras);
+        dhcpCheckbox.addEventListener("change", toggleTemporarySourceIpRequired);
+        dhcpCheckbox.checked = true;
+        for (let i = 0; i < 2; i++) {
+            toggleBackupExtras()
+        }
+    }, 10);
+
+</script>
 <form action='/reset/' method='post' enctype='multipart/form-data'>
     <br>
     <h6>Choose device type</h6>
@@ -35,11 +113,42 @@
         <input type='file' class='form-control-file' id='defaultsFile' name='defaultsFile'>
     </div>
 
+    <br>
+    <h6>Backups</h6>
+    <div class=form-check>
+        <label class='form-check-label' for='backup'>Backup config?</label>
+        <input class='form-check-input' type='checkbox' id='backup' name='backup' value='backup'>
+    </div>
+
+    <div class=form-check>
+        <label class='form-check-label' for='dhcp'>Use DHCP Address?</label>
+        <input class='form-check-input' type='checkbox' id='dhcp' name='dhcp' value='dhcp'>
+    </div>
+
+    <br>
+    <div class="form-group form-check-inline">
+        <label class='form-check-label' for='source'>Temporary IP address for device</label>
+        <input type="text" class="form-control" id="source" required>
+    </div>
+
+    <div class="form-group form-check-inline">
+        <label class='form-check-label' for='mask'>Temporary subnet mask for device</label>
+        <input type="text" class="form-control" id="mask" required>
+    </div>
+
+    <br>
+    <br>
+    <div class="form-group form-check-inline">
+        <label class='form-check-label' for='destination'>TFTP Server address</label>
+        <input type="text" class="form-control" id="destination">
+    </div>
+
     <input type="hidden" id="port" name="port" value="{{ .Port }}">
     <input type="hidden" id="baud" name="baud" value="{{ .BaudRate }}">
     <input type="hidden" id="data" name="data" value="{{ .DataBits }}">
     <input type="hidden" id="parity" name="parity" value="{{ .Parity }}">
     <input type="hidden" id="stop" name="stop" value="{{ .StopBits }}">
+    <br>
     <br>
     <input type="submit" value="Submit" class="btn btn-primary">
 </form>
