@@ -44,6 +44,7 @@ type RunParams struct {
 	Defaults         bool
 	DefaultsFile     string
 	DefaultsContents string
+	BackupConfig     common.Backup
 }
 
 type SerialConfiguration struct {
@@ -474,6 +475,14 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 		rules.DefaultsContents = buf.String()
 		buf.Reset()
 	}
+
+	rules.BackupConfig.Backup = r.PostFormValue("backup") == "backup"
+	if r.PostFormValue("dhcp") != "dhcp" {
+		rules.BackupConfig.Source = r.PostFormValue("source")
+		rules.BackupConfig.SubnetMask = r.PostFormValue("mask")
+	}
+	rules.BackupConfig.Destination = r.PostFormValue("destination")
+	rules.BackupConfig.UseBuiltIn = r.PostFormValue("builtin") == "builtin"
 
 	jobNum := len(jobs) + 1
 
