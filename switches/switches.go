@@ -76,7 +76,9 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 				for _, prefix := range commonPrefixes {
 					for i := 0; i < len(cleanLine); i++ {
 						if len(cleanLine[i]) > 0 && strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[i])), prefix) {
-							delimitedCleanLine := strings.Split(cleanLine[i], "\n")
+							log.Printf("Found file %s that matches prefix %s\n", strings.ToLower(strings.TrimSpace(cleanLine[i])), prefix)
+							getRidOfSpacesPlease := strings.TrimSpace(cleanLine[i])
+							delimitedCleanLine := strings.Split(getRidOfSpacesPlease, "\n")
 							filesToDelete = append(filesToDelete, delimitedCleanLine[0])
 							outputInfo(fmt.Sprintf("DEBUG: File %s needs to be deleted (contains substring %s)\n", cleanLine[i], prefix))
 						}
@@ -119,7 +121,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	var files []string
 	currentTime := time.Now()
-	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
+	backup.Prefix = currentTime.Format(fmt.Sprintf("%d%02d%02d_%02d%02d%02d", currentTime.Year(), currentTime.Month(),
 		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
 	redirectedOutput = progressDest
 
@@ -314,7 +316,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				progress.CurrentStep += 1
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
-					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash%s-%s", file, backup.Prefix, file), debug)
+					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", file, backup.Prefix, file), debug)
 					common.ReadLine(port, BUFFER_SIZE, debug)
 				}
 			} else {
