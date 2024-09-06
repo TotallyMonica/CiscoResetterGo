@@ -3,10 +3,19 @@ package templates
 var Device = `{{define "title"}}Configure device resetting parameters{{end}}
 {{define "body"}}
 <script>
+    function getLabel(reqLabel) {
+        let labels = document.getElementsByTagName("label");
+        for (let i = 0; i < labels.length; i++) {
+            if (labels[i].getAttribute("for") == reqLabel) {
+                return i;
+            }
+        }
+        return -1;
+    }
     function toggleDefaultsRequired() {
         let defaultsCheckbox = document.getElementById("defaults");
         let defaultsFile = document.getElementById("defaultsFile");
-        let defaultsLabel = document.getElementsByTagName("label")[5];
+        let defaultsLabel = document.getElementsByTagName("label")[getLabel("defaults")];
         defaultsFile.required = defaultsCheckbox.required;
         if (defaultsCheckbox.checked) {
             defaultsFile.style.display = '';
@@ -19,18 +28,25 @@ var Device = `{{define "title"}}Configure device resetting parameters{{end}}
     }
     function toggleBackupExtras() {
         let backupCheckbox = document.getElementById("backup");
+        let builtinInput = document.getElementById("builtin");
         let dhcpInput = document.getElementById("dhcp");
-        let dhcpLabel = document.getElementsByTagName("label")[7];
         let destinationInput = document.getElementById("destination");
-        let destinationLabel = document.getElementsByTagName("label")[10];
+        let dhcpLabel = document.getElementsByTagName("label")[getLabel("dhcp")];
+        let builtinLabel = document.getElementsByTagName("label")[getLabel("builtin")];
+        let destinationLabel = document.getElementsByTagName("label")[getLabel("destination")];;
         if (backupCheckbox.checked) {
             dhcpInput.style.display = '';
             dhcpLabel.style.display = '';
+            builtinInput.style.display = '';
+            builtinLabel.style.display = '';
             destinationInput.style.display = '';
             destinationLabel.style.display = '';
+            destinationInput.required = true    ;
         } else {
             dhcpInput.style.display = 'none';
             dhcpLabel.style.display = 'none';
+            builtinInput.style.display = 'none';
+            builtinLabel.style.display = 'none';
             destinationInput.style.display = 'none';
             destinationLabel.style.display = 'none';
             destinationInput.required = false;
@@ -40,9 +56,10 @@ var Device = `{{define "title"}}Configure device resetting parameters{{end}}
     function toggleTemporarySourceIpRequired() {
         let dhcpInput = document.getElementById("dhcp");
         let sourceInput = document.getElementById("source");
-        let sourceLabel = document.getElementsByTagName("label")[8];
         let maskInput = document.getElementById("mask");
-        let maskLabel = document.getElementsByTagName("label")[9];
+        let sourceLabel = document.getElementsByTagName("label")[getLabel("source")];
+        let maskLabel = document.getElementsByTagName("label")[getLabel("mask")];
+
         sourceInput.required = !dhcpInput.checked;
         console.log("Source IP is now " + ((sourceInput.required) ? "" : "no longer ") + "required");
         if (!dhcpInput.checked) {
@@ -127,22 +144,27 @@ var Device = `{{define "title"}}Configure device resetting parameters{{end}}
         <input class='form-check-input' type='checkbox' id='dhcp' name='dhcp' value='dhcp'>
     </div>
 
+    <div class=form-check>
+        <label class='form-check-label' for='builtin'>Use built-in TFTP server?</label>
+        <input class='form-check-input' type='checkbox' id='builtin' name='builtin' value='builtin'>
+    </div>
+
     <br>
     <div class="form-group form-check-inline">
         <label class='form-check-label' for='source'>Temporary IP address for device</label>
-        <input type="text" class="form-control" id="source" required>
+        <input type="text" class="form-control" id="source" name="source" required>
     </div>
 
     <div class="form-group form-check-inline">
         <label class='form-check-label' for='mask'>Temporary subnet mask for device</label>
-        <input type="text" class="form-control" id="mask" required>
+        <input type="text" class="form-control" id="mask" name="mask" required>
     </div>
 
     <br>
     <br>
     <div class="form-group form-check-inline">
         <label class='form-check-label' for='destination'>TFTP Server address</label>
-        <input type="text" class="form-control" id="destination">
+        <input type="text" class="form-control" id="destination" name="destination">
     </div>
 
     <input type="hidden" id="port" name="port" value="{{ .Port }}">

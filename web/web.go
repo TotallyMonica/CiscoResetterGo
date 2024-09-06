@@ -492,6 +492,8 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	rules.BackupConfig.Destination = r.PostFormValue("destination")
 	rules.BackupConfig.UseBuiltIn = r.PostFormValue("builtin") == "builtin"
 
+	log.Debugf("POST Data: %+v\n", rules)
+
 	jobNum := len(jobs) + 1
 
 	newJob := Job{
