@@ -34,6 +34,7 @@ While it is possible to compile Python scripts to a single executable, to me it 
 - Cisco 4221
 - Cisco 2960G Series
 - Cisco 2960 Plus Series
+- Cisco 2960-C Series PoE
 
 ## To-Do
 - [x] ~~Ensure Cisco 4221 is properly reset~~ Confirmed 4/11/2024
