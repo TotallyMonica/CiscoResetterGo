@@ -182,6 +182,127 @@ func runJob(rules RunParams, jobNum int) {
 	}
 }
 
+// New Client API Endpoint
+func newClientApi(w http.ResponseWriter, r *http.Request) {
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	var clientTemplate *template.Template
+	if os.Getenv("DEBUGHTTPPAGE") == "1" {
+		log.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
+		pathTemplate := filepath.Join("templates", "api", "client.html")
+		clientTemplate, err = layoutTemplate.ParseFiles(pathTemplate)
+	} else {
+		clientTemplate, err = layoutTemplate.Parse(templates.Client)
+	}
+	if err != nil {
+		// Log the detailed error
+		log.Warningf("Error while parsing template: %s\n", err)
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	fmt.Printf("clientHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	if r.Method == "POST" {
+		ports, err := enumerator.GetDetailedPortsList()
+		if err != nil {
+			// Log the detailed error
+			log.Info(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+		jsonPorts, err := json.Marshal(ports)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(jsonPorts)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+		return
+	} else if r.Method == "GET" {
+		err = clientTemplate.ExecuteTemplate(w, "layout", nil)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+	}
+}
+
+// Client job info
+func clientJobApi(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == "POST" {
+		rawBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(400), 400)
+			return
+		}
+
+		fmt.Printf("clientJobApi: %s sent data to %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+		var body Job
+		err = json.Unmarshal(rawBody, &body)
+		if err != nil {
+			log.Infof("clientJobApi: Error while unmarshalling data from %s: %s\n", r.RemoteAddr, err.Error())
+			http.Error(w, http.StatusText(400), 400)
+			return
+		}
+
+		jobIdx := findJob(body.Number)
+		if jobIdx == -1 {
+			log.Infof("Job %d could not be found.\n", body.Number)
+			http.Error(w, http.StatusText(404), 404)
+			return
+		}
+		jobs[jobIdx] = body
+
+		log.Infof("Updated job %d info from client %s\n", body.Number, r.RemoteAddr)
+
+		jsonJob, err := json.Marshal(jobs)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(jsonJob)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+		return
+	} else if r.Method == "GET" {
+		jsonJob, err := json.Marshal(jobs)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(jsonJob)
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+		}
+		return
+	}
+}
+
 func portConfig(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
@@ -574,6 +695,8 @@ func ServeWeb() {
 	muxer.HandleFunc("/reset/", resetDevice).Methods("POST", "GET")
 	muxer.HandleFunc("/list/jobs/", jobListHandler).Methods("GET")
 	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
+	muxer.HandleFunc("/api/client/{client}/", newClientApi).Methods("GET", "POST")
+	muxer.HandleFunc("/api/jobs/{job}/", clientJobApi).Methods("GET", "POST")
 
 	server := &http.Server{
 		Handler:      muxer,

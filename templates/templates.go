@@ -1,5 +1,9 @@
 package templates
 
+var Client = ``
+
+var JobApi = ``
+
 var Device = `{{define "title"}}Configure device resetting parameters{{end}}
 {{define "body"}}
 <script>
