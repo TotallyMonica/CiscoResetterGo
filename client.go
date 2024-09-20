@@ -48,7 +48,7 @@ func main() {
 	proto := "http"
 	client, err := http.Post(fmt.Sprintf("%s://%s:%d/api/client/demo/", proto, server, port), "application/json", bytes.NewBuffer(marshalledBody))
 	if err != nil {
-		log.Fatalf("Error while connecting to %s://%s:%d/api/client/demo/", proto, server, port, err)
+		log.Fatalf("Error while connecting to %s://%s:%d/api/client/demo/: %s\n", proto, server, port, err)
 	}
 	defer client.Body.Close()
 
