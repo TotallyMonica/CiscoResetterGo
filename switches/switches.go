@@ -316,11 +316,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo("Moving files\n")
 				progress.CurrentStep += 1
 				for _, file := range files {
-					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
-					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", file, backup.Prefix, file), debug)
+					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", strings.TrimSpace(file), backup.Prefix, file))
+					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", strings.TrimSpace(file), backup.Prefix, strings.TrimSpace(file)), debug)
 					line = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
-						outputInfo(fmt.Sprintf("rename flash:%s flash:%s-%s\n", file, backup.Prefix, file))
+						outputInfo(fmt.Sprintf("rename flash:%s flash:%s-%s\n", strings.TrimSpace(file), backup.Prefix, strings.TrimSpace(file)))
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 					}
 				}
@@ -328,8 +328,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo("Deleting files\n")
 				progress.CurrentStep += 1
 				for _, file := range files {
-					outputInfo(fmt.Sprintf("Deleting %s\n", file))
-					common.WriteLine(port, "del flash:"+file, debug)
+					outputInfo(fmt.Sprintf("Deleting %s\n", strings.TrimSpace(file)))
+					common.WriteLine(port, "del flash:"+strings.TrimSpace(file), debug)
 					common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
