@@ -79,9 +79,6 @@ func snitchOutput(c chan string, job int) {
 		jobs[jobIdx].Output += serialOutput
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
-		if len(delimited) > 30 {
-			jobs[jobIdx].Output = strings.Join(delimited[len(delimited)-30:], "\n")
-		}
 		serialOutput = <-c
 	}
 	jobs[jobIdx].Status = "EOF"
@@ -450,6 +447,22 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	job = jobs[jobIdx]
 
+	// Determine the amount of lines to print out if requested
+	if len(r.URL.Query().Get("lines")) != 0 {
+		lineCount, err := strconv.Atoi(r.URL.Query().Get("lines"))
+
+		// Ensure line count is an integer
+		if err != nil {
+			fmt.Printf("jobHandler: Requested line count is invalid: %s\n", r.URL.Query().Get("lines"))
+			http.Error(w, "Invalid line count", http.StatusBadRequest)
+			return
+		}
+
+		// Only print the requested number of lines
+		fmt.Printf("jobHandler: Client %s requested %d line(s) from job %d\n", r.RemoteAddr, lineCount, reqJob)
+		job.Output = strings.Join(strings.Split(job.Output, "\n")[len(strings.Split(job.Output, "\n"))-lineCount:], "\n")
+	}
+
 	err = jobTemplate.ExecuteTemplate(w, "layout", job)
 	if err != nil {
 		// Log the detailed error
@@ -704,6 +717,6 @@ func ServeWeb() {
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
 	}
-	fmt.Printf("Listening on port %d\n", 8080)
+	fmt.Printf("Listening on %s\n", server.Addr)
 	log.Fatal(server.ListenAndServe())
 }
