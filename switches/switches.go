@@ -55,6 +55,18 @@ type SwitchConfig struct {
 	Lines           []LineConfig
 }
 
+const BUFFER_SIZE = 500
+const RECOVERY_PROMPT = "switch:"
+const CONFIRMATION_PROMPT = "[confirm]"
+const PASSWORD_RECOVERY = "password-recovery"
+const PASSWORD_RECOVERY_DISABLED = "password-recovery mechanism is disabled"
+const PASSWORD_RECOVERY_TRIGGERED = "password-recovery mechanism has been triggered"
+const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
+const YES_NO_PROMPT = "(y/n)?"
+const LOW_PRIV_PREFIX = "Switch>"
+const ELEVATED_PREFIX = "Switch#"
+const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
+
 var redirectedOutput chan string
 
 func outputInfo(data string) {
@@ -107,17 +119,6 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
-	const BUFFER_SIZE = 500
-	const RECOVERY_PROMPT = "switch:"
-	const CONFIRMATION_PROMPT = "[confirm]"
-	const PASSWORD_RECOVERY = "password-recovery"
-	const PASSWORD_RECOVERY_DISABLED = "password-recovery mechanism is disabled"
-	const PASSWORD_RECOVERY_TRIGGERED = "password-recovery mechanism has been triggered"
-	const PASSWORD_RECOVERY_ENABLED = "password-recovery mechanism is enabled"
-	const YES_NO_PROMPT = "(y/n)?"
-	const LOW_PRIV_PREFIX = "Switch>"
-	const ELEVATED_PREFIX = "Switch#"
-	const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
 
 	var files []string
 	currentTime := time.Now()
@@ -158,7 +159,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	var output []byte
 	var parsedOutput string
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
-		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug)))))
 		if debug {
 			outputInfo(fmt.Sprintf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput))
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
@@ -189,7 +190,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		for i := 0; i < 5; i++ {
 			common.WriteLine(port, "\r", debug)
 		}
-		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, 500, debug)))))
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug)))))
 	}
 
 	// Test to see what we triggered on.
@@ -282,10 +283,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
 		time.Sleep(5 * time.Second)
-		line := common.ReadLine(port, BUFFER_SIZE*5, debug)
+		line := common.ReadLine(port, BUFFER_SIZE, debug)
 		listing = append(listing, line)
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
-			line = common.ReadLine(port, BUFFER_SIZE*5, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			listing = append(listing, line)
 			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
@@ -317,7 +318,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", file, backup.Prefix, file))
 					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", file, backup.Prefix, file), debug)
-					line = common.ReadLine(port, 500, debug)
+					line = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("rename flash:%s flash:%s-%s\n", file, backup.Prefix, file))
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -396,7 +397,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 				}
 				time.Sleep(1 * time.Second)
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			}
 			outputInfo("Getting out of initial configuration dialog\n")
 			outputInfo("We have booted up now\n")
@@ -405,7 +406,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if err != nil {
 				log.Fatal(err)
 			}
-			line := common.ReadLine(port, 500, debug)
+			line := common.ReadLine(port, BUFFER_SIZE, debug)
 
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -416,7 +417,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -426,13 +427,13 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo("Assigning vlan 1 an IP address")
 			outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
 			_, err = port.Write(common.FormatCommand("conf t"))
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 			outputInfo(fmt.Sprintf("INPUT: %s\n", "inter vlan 1"))
 			_, err = port.Write(common.FormatCommand("inter vlan 1"))
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -451,7 +452,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					log.Fatal(err)
 				}
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -460,7 +461,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -544,7 +545,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	outputInfo("Waiting for the switch to startup\n")
 
 	// Try to guess if we've started yet
-	output := common.TrimNull(common.ReadLine(port, 500, debug))
+	output := common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
@@ -574,7 +575,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			}
 		}
 		time.Sleep(1 * time.Second)
-		output = common.TrimNull(common.ReadLine(port, 500, debug))
+		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 	}
 	outputInfo("We have booted up now\n")
 	progress.CurrentStep += 1
@@ -582,7 +583,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	if err != nil {
 		log.Fatal(err)
 	}
-	line := common.ReadLine(port, 500, debug)
+	line := common.ReadLine(port, BUFFER_SIZE, debug)
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -596,7 +597,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		log.Fatal(err)
 	}
 	prompt = hostname + "#"
-	line = common.ReadLine(port, 500, debug)
+	line = common.ReadLine(port, BUFFER_SIZE, debug)
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -623,7 +624,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -642,7 +643,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, 500, debug)
+				line = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -670,7 +671,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					log.Fatal(err)
 				}
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -683,7 +684,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -706,7 +707,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -724,7 +725,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, 500, debug)
+				line = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -743,7 +744,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					line = common.ReadLine(port, 500, debug)
+					line = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 					}
@@ -757,7 +758,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					line = common.ReadLine(port, 500, debug)
+					line = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 					}
@@ -777,7 +778,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, 500, debug)
+				line = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -791,7 +792,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, 500, debug)
+				line = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -806,7 +807,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -828,7 +829,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -845,7 +846,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -858,7 +859,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -872,7 +873,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -883,7 +884,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -904,7 +905,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -922,7 +923,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -939,7 +940,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -960,7 +961,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, 500, debug)
+		line = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -998,7 +999,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1010,7 +1011,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1043,7 +1044,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1095,7 +1096,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.ReadLine(port, 500, debug)
+				output = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
@@ -1132,7 +1133,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					output = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -1148,7 +1149,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					output = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -1167,7 +1168,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, 500, debug)
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
@@ -1178,7 +1179,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
