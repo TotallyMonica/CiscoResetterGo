@@ -460,7 +460,9 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Only print the requested number of lines
 		fmt.Printf("jobHandler: Client %s requested %d line(s) from job %d\n", r.RemoteAddr, lineCount, reqJob)
-		job.Output = strings.Join(strings.Split(job.Output, "\n")[len(strings.Split(job.Output, "\n"))-lineCount:], "\n")
+		if len(strings.Split(job.Output, "\n")) > lineCount {
+			job.Output = strings.Join(strings.Split(job.Output, "\n")[len(strings.Split(job.Output, "\n"))-lineCount:], "\n")
+		}
 	}
 
 	err = jobTemplate.ExecuteTemplate(w, "layout", job)
