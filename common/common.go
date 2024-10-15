@@ -137,14 +137,11 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			if err != nil {
 				log.Fatal(err)
 			}
-			if n == 0 || string(output[i][n-1]) == "\n" || string(output[i][n-1]) == "\r" {
+			if n == 0 {
 				break
 			}
 			if debug {
 				fmt.Printf("%s", output[i][:n])
-			}
-			if n == '\n' {
-				break
 			}
 		}
 
