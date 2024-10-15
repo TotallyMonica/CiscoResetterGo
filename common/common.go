@@ -143,7 +143,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			if debug {
 				fmt.Printf("%s", output[i][:n])
 			}
-			if n > 1 && strings.Contains(string(output[i][1:n]), "\n") {
+			if n == '\n' {
 				break
 			}
 		}
