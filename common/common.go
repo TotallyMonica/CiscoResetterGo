@@ -132,12 +132,12 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 	for i := 0; i < maxLines; i++ {
 		output[i] = make([]byte, buffSize)
 		for {
-			// Reads up to buffSize bytes
+			// Reads up to buffSize bytes, n is number of bytes read
 			n, err := port.Read(output[i])
 			if err != nil {
 				log.Fatal(err)
 			}
-			if n == 0 {
+			if n == 0 || string(output[i][n-1]) == "\n" || string(output[i][n-1]) == "\r" {
 				break
 			}
 			if debug {
