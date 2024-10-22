@@ -303,16 +303,17 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		files = ParseFilesToDelete(listing, debug)
 
+		err = port.SetReadTimeout(1 * time.Second)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		// Delete files if necessary
 		if len(files) == 0 {
 			outputInfo("Switch has been reset already.\n")
 			progress.TotalSteps -= 1
 			progress.CurrentStep += 1
 		} else {
-			err = port.SetReadTimeout(1 * time.Second)
-			if err != nil {
-				log.Fatal(err)
-			}
 			if backup.Backup {
 				outputInfo("Moving files\n")
 				progress.CurrentStep += 1
