@@ -359,17 +359,19 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
+		err = port.SetReadTimeout(serial.NoTimeout)
+		if err != nil {
+			log.Fatal(err)
+		}
 		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask == "") || (backup.Source != "" && backup.SubnetMask != "")) {
 			closeTftpServer := make(chan bool)
 
 			// Spin up TFTP server
-			go common.BuiltInTftpServer(closeTftpServer)
+			if backup.UseBuiltIn {
+				go common.BuiltInTftpServer(closeTftpServer)
+			}
 
 			// Wait for the switch to start up
-			err = port.SetReadTimeout(1 * time.Second)
-			if err != nil {
-				log.Fatal(err)
-			}
 			outputInfo("Waiting for switch to start up to back up config\n")
 
 			for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(LOW_PRIV_PREFIX)) {
@@ -388,6 +390,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 				}
 				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
+					err = port.SetReadTimeout(1 * time.Second)
+					if err != nil {
+						log.Fatalf("Error occurred while changing port timeout to back up config: %s\n", err)
+					}
+
 					if debug {
 						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
 					}
@@ -398,7 +405,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 						log.Fatal(err)
 					}
 				}
-				time.Sleep(1 * time.Second)
 				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			}
 			outputInfo("Getting out of initial configuration dialog\n")
@@ -478,7 +484,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					log.Fatal(err)
 				}
 			}
-			closeTftpServer <- true
+			if backup.UseBuiltIn {
+				closeTftpServer <- true
+			}
 		} else {
 			// Inform the user of the missing information
 			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
@@ -539,11 +547,6 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}(port)
 
-	err = port.SetReadTimeout(1 * time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	outputInfo("Waiting for the switch to startup\n")
 
 	// Try to guess if we've started yet
@@ -579,6 +582,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		time.Sleep(1 * time.Second)
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 	}
+
+	err = port.SetReadTimeout(1 * time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	outputInfo("We have booted up now\n")
 	progress.CurrentStep += 1
 	_, err = port.Write(common.FormatCommand(""))
