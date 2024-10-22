@@ -130,6 +130,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 		fmt.Printf("\n======================================\nDEBUG: ")
 	}
 	for i := 0; i < maxLines; i++ {
+		var readBytes int
 		output[i] = make([]byte, buffSize)
 		for {
 			// Reads up to buffSize bytes, n is number of bytes read
@@ -140,13 +141,14 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			if n == 0 {
 				break
 			}
+			readBytes = n
 			if debug {
 				fmt.Printf("%s", output[i][:n])
 			}
 		}
-
+		output[i] = output[i][:readBytes]
 		if debug {
-			fmt.Printf("DEBUG: parsed %s", TrimNull(output[i]))
+			fmt.Printf("DEBUG: parsed %s", output[i][:readBytes])
 		}
 	}
 
