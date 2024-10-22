@@ -143,11 +143,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}(port)
 
-	err = port.SetReadTimeout(5 * time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	outputInfo("Trigger password recovery by following these steps: \n")
 	outputInfo("1. Unplug the switch\n")
 	outputInfo("2. Hold the MODE button on the switch.\n")
@@ -182,6 +177,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if err != nil {
 			log.Fatalf("Error while processing entered string: %s\n", err)
 		}
+	}
+
+	err = port.SetReadTimeout(5 * time.Second)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Ensure we have one of the test cases in the buffer
