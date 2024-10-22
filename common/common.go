@@ -99,14 +99,11 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 }
 
 func FormatCommand(cmd string) []byte {
-	formattedString := []byte(cmd + "\n")
+	formattedString := []byte(cmd + "\r\n")
 	return formattedString
 }
 
 func WriteLine(port serial.Port, line string, debug bool) {
-	if len(line) == 0 {
-		line = "\r"
-	}
 	_, err := port.Write(FormatCommand(line))
 	if err != nil {
 		log.Fatal(err)
@@ -133,17 +130,22 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 		var readBytes int
 		output[i] = make([]byte, buffSize)
 		for {
+			lineSoFar := TrimNull(output[i])
 			// Reads up to buffSize bytes, n is number of bytes read
 			n, err := port.Read(output[i])
 			if err != nil {
 				log.Fatal(err)
 			}
+			output[i] = []byte(fmt.Sprintf("%s%s", lineSoFar, output[i][:n]))
 			if n == 0 {
 				break
 			}
-			readBytes = n
+			readBytes += n
 			if debug {
-				fmt.Printf("%s", output[i][:n])
+				fmt.Printf("Output up to %d bytes: %s\n", readBytes, output[i][:readBytes])
+			}
+			if output[i][readBytes-1] == '\n' || readBytes >= buffSize {
+				break
 			}
 		}
 		output[i] = output[i][:readBytes]
