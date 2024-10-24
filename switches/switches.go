@@ -276,12 +276,16 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			time.Sleep(5 * time.Second)
 			output = common.ReadLine(port, 500, debug)
 			consoleOutput = append(consoleOutput, output)
+			err = port.SetReadTimeout(1 * time.Second)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
 			}
-			common.WriteLine(port, "", debug)
+			common.WriteLine(port, " ", debug)
 			time.Sleep(5 * time.Second)
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			consoleOutput = append(consoleOutput, output)
@@ -290,13 +294,13 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		// Get files
 		outputInfo("Flash has been initialized, now listing directory\n")
 		progress.CurrentStep += 1
-		//err = port.SetReadTimeout(15 * time.Second)
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
 		time.Sleep(5 * time.Second)
+		err = port.SetReadTimeout(15 * time.Second)
+		if err != nil {
+			log.Fatal(err)
+		}
 		line := common.ReadLine(port, BUFFER_SIZE, debug)
 		consoleOutput = append(consoleOutput, line)
 		listing = append(listing, line)
