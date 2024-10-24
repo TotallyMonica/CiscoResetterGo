@@ -142,13 +142,8 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 			if n == 0 {
 				break
 			}
-			if output[i][n-1] == '\b' {
-				output[i] = lineSoFar[:readBytes-1]
-				readBytes -= 1
-			} else {
-				output[i] = []byte(fmt.Sprintf("%s%s", lineSoFar, output[i][:n]))
-				readBytes += n
-			}
+			output[i] = []byte(fmt.Sprintf("%s%s", lineSoFar, output[i][:n]))
+			readBytes += n
 			if debug {
 				fmt.Printf("Output up to %d bytes: %s\n", readBytes, output[i][:readBytes])
 			}
