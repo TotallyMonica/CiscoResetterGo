@@ -5,6 +5,7 @@ import (
 	"go.bug.st/serial"
 	"log"
 	"main/common"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +69,7 @@ const ELEVATED_PREFIX = "Switch#"
 const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
 
 var redirectedOutput chan string
+var consoleOutput [][]byte
 
 func outputInfo(data string) {
 	if redirectedOutput == nil {
@@ -154,9 +156,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	var output []byte
 	var parsedOutput string
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
-		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug)))))
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))
 		if debug {
 			outputInfo(fmt.Sprintf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput))
+			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
 				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
 				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
@@ -179,10 +183,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}
 
-	err = port.SetReadTimeout(5 * time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
+	//err = port.SetReadTimeout(5 * time.Second)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	// Ensure we have one of the test cases in the buffer
 	outputInfo("Checking to if password recovery is enabled\n")
@@ -252,6 +256,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			consoleOutput = append(consoleOutput, output)
 		}
 		if debug {
 			outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
@@ -260,37 +265,47 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		// Initialize Flash
 		outputInfo("Entered recovery console, now initializing flash\n")
 		progress.CurrentStep += 1
-		_, err = port.Write(common.FormatCommand("flash_init"))
-		if err != nil {
-			log.Fatal(err)
-		}
+		common.WriteLine(port, "flash_init", debug)
+		time.Sleep(5 * time.Second)
 		output = common.ReadLine(port, 500, debug)
+		consoleOutput = append(consoleOutput, output)
+
+		// Loop until it stops getting butchered
+		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "unknown cmd: ") {
+			common.WriteLine(port, "flash_init", debug)
+			time.Sleep(5 * time.Second)
+			output = common.ReadLine(port, 500, debug)
+			consoleOutput = append(consoleOutput, output)
+		}
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
 			}
 			common.WriteLine(port, "", debug)
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			consoleOutput = append(consoleOutput, output)
 		}
 
 		// Get files
 		outputInfo("Flash has been initialized, now listing directory\n")
 		progress.CurrentStep += 1
-		err = port.SetReadTimeout(15 * time.Second)
-		if err != nil {
-			log.Fatal(err)
-		}
+		//err = port.SetReadTimeout(15 * time.Second)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
 		time.Sleep(5 * time.Second)
 		line := common.ReadLine(port, BUFFER_SIZE, debug)
+		consoleOutput = append(consoleOutput, line)
 		listing = append(listing, line)
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
 			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			listing = append(listing, line)
+			consoleOutput = append(consoleOutput, line)
 			common.WriteLine(port, "", debug)
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 
 		// Determine the files we need to delete
@@ -303,10 +318,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		files = ParseFilesToDelete(listing, debug)
 
-		err = port.SetReadTimeout(1 * time.Second)
-		if err != nil {
-			log.Fatal(err)
-		}
+		//err = port.SetReadTimeout(1 * time.Second)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
 
 		// Delete files if necessary
 		if len(files) == 0 {
@@ -332,12 +347,14 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Deleting %s\n", strings.TrimSpace(file)))
 					common.WriteLine(port, "del flash:"+strings.TrimSpace(file), debug)
-					common.ReadLine(port, BUFFER_SIZE, debug)
+					output = common.ReadLine(port, BUFFER_SIZE, debug)
+					consoleOutput = append(consoleOutput, output)
 					if debug {
 						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
 					}
 					common.WriteLine(port, "y", debug)
-					common.ReadLine(port, BUFFER_SIZE, debug)
+					output = common.ReadLine(port, BUFFER_SIZE, debug)
+					consoleOutput = append(consoleOutput, output)
 				}
 			}
 			outputInfo("Switch has been reset\n")
@@ -348,21 +365,26 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			consoleOutput = append(consoleOutput, output)
 		}
 
 		common.WriteLine(port, "reset", debug)
-		common.ReadLine(port, BUFFER_SIZE, debug)
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		consoleOutput = append(consoleOutput, output)
 
 		common.WriteLine(port, "y", debug)
-		common.ReadLines(port, BUFFER_SIZE, 10, debug)
+		outputLines := common.ReadLines(port, BUFFER_SIZE, 10, debug)
+		for _, output := range outputLines {
+			consoleOutput = append(consoleOutput, output)
+		}
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
-		err = port.SetReadTimeout(serial.NoTimeout)
-		if err != nil {
-			log.Fatal(err)
-		}
+		//err = port.SetReadTimeout(serial.NoTimeout)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
 		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask == "") || (backup.Source != "" && backup.SubnetMask != "")) {
 			closeTftpServer := make(chan bool)
 
@@ -390,10 +412,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 				}
 				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
-					err = port.SetReadTimeout(1 * time.Second)
-					if err != nil {
-						log.Fatalf("Error occurred while changing port timeout to back up config: %s\n", err)
-					}
+					//err = port.SetReadTimeout(1 * time.Second)
+					//if err != nil {
+					//	log.Fatalf("Error occurred while changing port timeout to back up config: %s\n", err)
+					//}
 
 					if debug {
 						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
@@ -500,6 +522,28 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo("Destination address missing\n")
 			}
 		}
+	}
+
+	dumpFile := os.Getenv("DumpConsoleOutput")
+	if dumpFile != "" {
+		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Error while opening file %s to dump console outputs: %s\n", dumpFile, err)
+		}
+
+		defer file.Close()
+
+		totalWritten := 0
+
+		for _, line := range consoleOutput {
+			written, err := file.Write(line)
+			if err != nil {
+				log.Fatalf("Error while writing %v to %s: %s\n", line, dumpFile, err)
+			}
+			totalWritten += written
+		}
+
+		outputInfo(fmt.Sprintf("Wrote %d bytes to %s\n", totalWritten, dumpFile))
 	}
 
 	// Send clue that we're at the end
