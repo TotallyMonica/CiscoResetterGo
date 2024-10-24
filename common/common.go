@@ -25,6 +25,12 @@ type Backup struct {
 	UseBuiltIn  bool
 }
 
+var lineTimeout time.Duration = 1 * time.Minute
+
+func SetReadLineTimeout(t time.Duration) {
+	lineTimeout = t
+}
+
 func TftpWriteHandler(filename string, wt io.WriterTo) error {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
@@ -131,27 +137,39 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 	}
 	for i := 0; i < maxLines; i++ {
 		var readBytes int
-		output[i] = make([]byte, buffSize)
-		for {
-			lineSoFar := TrimNull(output[i])
-			// Reads up to buffSize bytes, n is number of bytes read
-			n, err := port.Read(output[i])
-			if err != nil {
-				log.Fatal(err)
+
+		// Limit how long timer will read for
+		lineTimer := time.NewTimer(lineTimeout)
+
+		lineOutput := make([]byte, buffSize)
+
+		go func() {
+			<-lineTimer.C
+			for {
+				lineSoFar := TrimNull(lineOutput)
+				// Reads up to buffSize bytes, n is number of bytes read
+				n, err := port.Read(lineOutput)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if n == 0 {
+					break
+				}
+				lineOutput = []byte(fmt.Sprintf("%s%s", lineSoFar, lineOutput[:n]))
+				readBytes += n
+				if debug {
+					fmt.Printf("Output up to %d bytes: %s\n", readBytes, lineOutput[:readBytes])
+				}
+				if strings.Contains(string(lineOutput[readBytes-1]), "\n") || readBytes >= buffSize {
+					break
+				}
 			}
-			if n == 0 {
-				break
-			}
-			output[i] = []byte(fmt.Sprintf("%s%s", lineSoFar, output[i][:n]))
-			readBytes += n
-			if debug {
-				fmt.Printf("Output up to %d bytes: %s\n", readBytes, output[i][:readBytes])
-			}
-			if strings.Contains(string(output[i][readBytes-1]), "\n") || readBytes >= buffSize {
-				break
-			}
-		}
-		output[i] = output[i][:readBytes]
+		}()
+
+		time.Sleep(lineTimeout)
+		lineTimer.Stop()
+
+		output[i] = lineOutput[:readBytes]
 		if debug {
 			fmt.Printf("DEBUG: parsed %s", output[i][:readBytes])
 		}

@@ -267,6 +267,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		common.WriteLine(port, "flash_init", debug)
 		time.Sleep(5 * time.Second)
+		err = port.SetReadTimeout(1 * time.Second)
+		if err != nil {
+			log.Fatal(err)
+		}
 		output = common.ReadLine(port, 500, debug)
 		consoleOutput = append(consoleOutput, output)
 
@@ -276,10 +280,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			time.Sleep(5 * time.Second)
 			output = common.ReadLine(port, 500, debug)
 			consoleOutput = append(consoleOutput, output)
-			err = port.SetReadTimeout(1 * time.Second)
-			if err != nil {
-				log.Fatal(err)
-			}
 		}
 		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
