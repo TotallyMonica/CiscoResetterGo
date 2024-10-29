@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
@@ -25,7 +26,7 @@ type Backup struct {
 	UseBuiltIn  bool
 }
 
-var lineTimeout time.Duration = 1 * time.Minute
+var lineTimeout time.Duration = 10 * time.Second
 
 func SetReadLineTimeout(t time.Duration) {
 	lineTimeout = t
@@ -36,10 +37,13 @@ func TftpWriteHandler(filename string, wt io.WriterTo) error {
 	if err != nil {
 		return err
 	}
-	_, err = wt.WriteTo(file)
+	recvd, err := wt.WriteTo(file)
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("TftpWriteHandler: Received %d bytes\n", recvd)
+
 	return nil
 }
 
@@ -47,12 +51,13 @@ func BuiltInTftpServer(close chan bool) {
 	s := tftp.NewServer(nil, TftpWriteHandler)
 	s.SetTimeout(5 * time.Second)
 	err := s.ListenAndServe(":69")
+	defer s.Shutdown()
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "server: %v\n", err)
+		fmt.Printf("server: %v\n", err)
 		os.Exit(1)
 	}
-	for !<-close {
-		s.Shutdown()
+	for <-close {
+		return
 	}
 }
 
@@ -96,7 +101,7 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			}
 			_, err := port.Write([]byte("\r\n"))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("WaitForSubstring: Error while writing new line: %s\n", err)
 			}
 		}
 		time.Sleep(1 * time.Second)
@@ -139,18 +144,19 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 		var readBytes int
 
 		// Limit how long timer will read for
-		lineTimer := time.NewTimer(lineTimeout)
+		readLineCtx, cancel := context.WithTimeout(context.Background(), lineTimeout)
+
+		defer cancel()
 
 		lineOutput := make([]byte, buffSize)
 
 		go func() {
-			<-lineTimer.C
 			for {
 				lineSoFar := TrimNull(lineOutput)
 				// Reads up to buffSize bytes, n is number of bytes read
 				n, err := port.Read(lineOutput)
 				if err != nil {
-					log.Fatal(err)
+					log.Fatalf("WaitForSubstring: Error while reading data from port: %s\n", err)
 				}
 				if n == 0 {
 					break
@@ -164,10 +170,15 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 					break
 				}
 			}
+
 		}()
 
-		time.Sleep(lineTimeout)
-		lineTimer.Stop()
+		select {
+		case <-readLineCtx.Done():
+			output[i] = lineOutput[:readBytes]
+		case <-time.After(lineTimeout):
+			output[i] = lineOutput[:readBytes]
+		}
 
 		output[i] = lineOutput[:readBytes]
 		if debug {

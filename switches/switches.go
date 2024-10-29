@@ -135,13 +135,13 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	port, err := serial.Open(SerialPort, &PortSettings)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("switches.Reset: Error while opening port: %s\n", err)
 	}
 
 	defer func(port serial.Port) {
 		err := port.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("switches.Reset: Error while closing port: %s\n", err)
 		}
 	}(port)
 
@@ -269,7 +269,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		time.Sleep(5 * time.Second)
 		err = port.SetReadTimeout(1 * time.Second)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
 		}
 		output = common.ReadLine(port, 500, debug)
 		consoleOutput = append(consoleOutput, output)
@@ -299,7 +299,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		time.Sleep(5 * time.Second)
 		err = port.SetReadTimeout(15 * time.Second)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
 		}
 		line := common.ReadLine(port, BUFFER_SIZE, debug)
 		consoleOutput = append(consoleOutput, line)
@@ -412,7 +412,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 					_, err = port.Write([]byte("\r\n"))
 					if err != nil {
-						log.Fatal(err)
+						log.Fatalf("switches.Reset: Error while writing bytes to port: %s\n", err)
 					}
 				}
 				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
@@ -428,7 +428,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					progress.CurrentStep += 1
 					_, err = port.Write(common.FormatCommand("no"))
 					if err != nil {
-						log.Fatal(err)
+						log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 					}
 				}
 				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
@@ -438,7 +438,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			progress.CurrentStep += 1
 			_, err = port.Write(common.FormatCommand(""))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 			}
 			line := common.ReadLine(port, BUFFER_SIZE, debug)
 
@@ -449,7 +449,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo("Entering privileged exec.\n")
 			_, err = port.Write(common.FormatCommand("enable"))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 			}
 			line = common.ReadLine(port, BUFFER_SIZE, debug)
 
@@ -477,7 +477,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo(fmt.Sprintf("INPUT: %s\n", "ip address dhcp"))
 				_, err = port.Write(common.FormatCommand("ip address dhcp"))
 				if err != nil {
-					log.Fatal(err)
+					log.Fatalf("switches.Reset: Error while sending DHCP to port: %s\n", err)
 				}
 			} else {
 				outputInfo(fmt.Sprintf("INPUT: ip address %s %s\n", backup.Source, backup.SubnetMask))
