@@ -1,7 +1,7 @@
 package common
 
 import (
-	"context"
+	"bufio"
 	"fmt"
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
@@ -141,48 +141,16 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 		fmt.Printf("\n======================================\nDEBUG: ")
 	}
 	for i := 0; i < maxLines; i++ {
-		var readBytes int
+		reader := bufio.NewReader(port)
 
-		// Limit how long timer will read for
-		readLineCtx, cancel := context.WithTimeout(context.Background(), lineTimeout)
-
-		defer cancel()
-
-		lineOutput := make([]byte, buffSize)
-
-		go func() {
-			for {
-				lineSoFar := TrimNull(lineOutput)
-				// Reads up to buffSize bytes, n is number of bytes read
-				n, err := port.Read(lineOutput)
-				if err != nil {
-					log.Fatalf("WaitForSubstring: Error while reading data from port: %s\n", err)
-				}
-				if n == 0 {
-					break
-				}
-				lineOutput = []byte(fmt.Sprintf("%s%s", lineSoFar, lineOutput[:n]))
-				readBytes += n
-				if debug {
-					fmt.Printf("Output up to %d bytes: %s\n", readBytes, lineOutput[:readBytes])
-				}
-				if strings.Contains(string(lineOutput[readBytes-1]), "\n") || readBytes >= buffSize {
-					break
-				}
-			}
-
-		}()
-
-		select {
-		case <-readLineCtx.Done():
-			output[i] = lineOutput[:readBytes]
-		case <-time.After(lineTimeout):
-			output[i] = lineOutput[:readBytes]
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatalf("Error while reading from port: %s\n ", err)
 		}
 
-		output[i] = lineOutput[:readBytes]
+		output[i] = []byte(line)
 		if debug {
-			fmt.Printf("DEBUG: parsed %s", output[i][:readBytes])
+			fmt.Printf("DEBUG: parsed %s", output[i])
 		}
 	}
 
