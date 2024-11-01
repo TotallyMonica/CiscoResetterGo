@@ -121,7 +121,6 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
-
 	var files []string
 	currentTime := time.Now()
 	backup.Prefix = currentTime.Format(fmt.Sprintf("%d%02d%02d_%02d%02d%02d", currentTime.Year(), currentTime.Month(),
@@ -144,6 +143,13 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			log.Fatalf("switches.Reset: Error while closing port: %s\n", err)
 		}
 	}(port)
+
+	common.SetReaderPort(port)
+
+	err = port.SetReadTimeout(1 * time.Second)
+	if err != nil {
+		log.Fatalf("switches.Reset: Error while setting read timeout: %s\n", err)
+	}
 
 	outputInfo("Trigger password recovery by following these steps: \n")
 	outputInfo("1. Unplug the switch\n")
@@ -168,8 +174,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				strings.Contains(parsedOutput, RECOVERY_PROMPT)))
 			outputInfo(fmt.Sprintf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED))
 		}
-		common.WriteLine(port, "\r", debug)
-		time.Sleep(1 * time.Second)
+		//common.WriteLine(port, "\r", debug)
 	}
 
 	outputInfo("Release the mode button now\n")
@@ -251,11 +256,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	} else if strings.Contains(parsedOutput, RECOVERY_PROMPT) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) {
 		outputInfo("Password recovery was enabled\n")
 		progress.CurrentStep += 1
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			common.WriteLine(port, "", debug)
 			consoleOutput = append(consoleOutput, output)
 		}
 		if debug {
@@ -266,7 +272,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		outputInfo("Entered recovery console, now initializing flash\n")
 		progress.CurrentStep += 1
 		common.WriteLine(port, "flash_init", debug)
-		time.Sleep(5 * time.Second)
+		//time.Sleep(5 * time.Second)
 		err = port.SetReadTimeout(1 * time.Second)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
@@ -275,28 +281,29 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		consoleOutput = append(consoleOutput, output)
 
 		// Loop until it stops getting butchered
-		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "unknown cmd: ") {
+		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "unknown cmd: ") ||
+			!strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "flash_init") {
 			common.WriteLine(port, "flash_init", debug)
-			time.Sleep(5 * time.Second)
 			output = common.ReadLine(port, 500, debug)
 			consoleOutput = append(consoleOutput, output)
 		}
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
 			}
-			common.WriteLine(port, " ", debug)
-			time.Sleep(5 * time.Second)
+			common.WriteLine(port, "\r", debug)
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			consoleOutput = append(consoleOutput, output)
 		}
+
+		// Clear out buffer
+		common.ReadLine(port, 500, debug)
 
 		// Get files
 		outputInfo("Flash has been initialized, now listing directory\n")
 		progress.CurrentStep += 1
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
-		time.Sleep(5 * time.Second)
 		err = port.SetReadTimeout(15 * time.Second)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
@@ -304,12 +311,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		line := common.ReadLine(port, BUFFER_SIZE, debug)
 		consoleOutput = append(consoleOutput, line)
 		listing = append(listing, line)
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
 			line = common.ReadLine(port, BUFFER_SIZE, debug)
 			listing = append(listing, line)
 			consoleOutput = append(consoleOutput, line)
-			common.WriteLine(port, "", debug)
-			time.Sleep(5 * time.Second)
+			common.WriteLine(port, "\r", debug)
 		}
 
 		// Determine the files we need to delete
@@ -367,7 +373,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 		outputInfo("Restarting the switch\n")
 		progress.CurrentStep += 1
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			consoleOutput = append(consoleOutput, output)
 		}
