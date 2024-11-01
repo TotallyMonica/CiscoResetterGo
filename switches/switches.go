@@ -601,6 +601,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}(port)
 
+	common.SetReaderPort(port)
+
 	outputInfo("Waiting for the switch to startup\n")
 
 	// Try to guess if we've started yet
@@ -611,15 +613,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
-		if common.IsEmpty(output) {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
-			}
-			_, err = port.Write([]byte("\r\n"))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+		common.WriteLine(port, "", debug)
 
 		// Sometimes this'll pop up, sometimes this won't, so we can't test exclusively on this
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
@@ -633,7 +627,6 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				log.Fatal(err)
 			}
 		}
-		time.Sleep(1 * time.Second)
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 	}
 
