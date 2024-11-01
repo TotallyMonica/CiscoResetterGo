@@ -26,10 +26,16 @@ type Backup struct {
 	UseBuiltIn  bool
 }
 
-var lineTimeout time.Duration = 10 * time.Second
+var LineTimeout time.Duration = 10 * time.Second
+
+var reader *bufio.Reader
+
+func SetReaderPort(port io.Reader) {
+	reader = bufio.NewReader(port)
+}
 
 func SetReadLineTimeout(t time.Duration) {
-	lineTimeout = t
+	LineTimeout = t
 }
 
 func TftpWriteHandler(filename string, wt io.WriterTo) error {
@@ -88,7 +94,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 }
 
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
-	output := TrimNull(ReadLine(port, 500, debug))
+	output := ReadLine(port, 500, debug)
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
@@ -104,8 +110,7 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 				log.Fatalf("WaitForSubstring: Error while writing new line: %s\n", err)
 			}
 		}
-		time.Sleep(1 * time.Second)
-		output = TrimNull(ReadLine(port, 500, debug))
+		output = ReadLine(port, 500, debug)
 	}
 }
 
@@ -118,6 +123,10 @@ func FormatCommand(cmd string) []byte {
 }
 
 func WriteLine(port serial.Port, line string, debug bool) {
+	if line == "\r\n" || line == "\r" || line == "\n" || line == "" || line == "\n\r" {
+		//log.Printf("Note: quietly discarding command\n")
+		//return
+	}
 	bytes, err := port.Write(FormatCommand(line))
 	if err != nil {
 		log.Fatal(err)
@@ -138,19 +147,27 @@ func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
 	output := make([][]byte, maxLines)
 	if debug {
-		fmt.Printf("\n======================================\nDEBUG: ")
+		fmt.Printf("\n======================================\nDEBUG: \n")
 	}
 	for i := 0; i < maxLines; i++ {
-		reader := bufio.NewReader(port)
+		//scanner := bufio.NewScanner(port)
 
-		line, err := reader.ReadString('\n')
+		res, err := reader.ReadString('\n')
 		if err != nil {
-			log.Fatalf("Error while reading from port: %s\n ", err)
+			log.Fatalf("ReadLines: error while parsing output from port: %s\n", err)
 		}
 
-		output[i] = []byte(line)
+		output[i] = []byte(res)
+
+		//for scanner.Scan() {
+		//	output[i] = append(output[i], scanner.Bytes()...)
+		//	if len(output[i]) > 2 && strings.Contains(string(output[i][1:]), "\r") {
+		//		break
+		//	}
+		//}
+
 		if debug {
-			fmt.Printf("DEBUG: parsed %s", output[i])
+			fmt.Printf("DEBUG: parsed %s\n", output[i])
 		}
 	}
 
