@@ -50,6 +50,30 @@ type RouterDefaults struct {
 var redirectedOutput chan string
 var consoleOutput [][]byte
 
+func WriteConsoleOutput() {
+	dumpFile := os.Getenv("DumpConsoleOutput")
+	if dumpFile != "" {
+		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Error while opening file %s to dump console outputs: %s\n", dumpFile, err)
+		}
+
+		defer file.Close()
+
+		totalWritten := 0
+
+		for _, line := range consoleOutput {
+			written, err := file.Write(line)
+			if err != nil {
+				log.Fatalf("Error while writing %v to %s: %s\n", line, dumpFile, err)
+			}
+			totalWritten += written
+		}
+
+		outputInfo(fmt.Sprintf("Wrote %d bytes to %s\n", totalWritten, dumpFile))
+	}
+}
+
 func outputInfo(data string) {
 	current := time.Now()
 	if redirectedOutput == nil && !strings.HasSuffix(data, "---EOF---") {
@@ -127,6 +151,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 		}
 	}
+	WriteConsoleOutput()
 
 	// In ROMMON
 	outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
@@ -149,9 +174,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 
 		for !strings.HasPrefix(strings.ToLower(parsedOutput), fmt.Sprintf("%s %d >", ROMMON_PROMPT, idx+1)) {
-			_, err = port.Write([]byte("\r\n"))
+			_, err = port.Write([]byte("\r\n\r\n\r\n"))
 			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n"))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
@@ -272,51 +297,26 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			break
 		}
 
-		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
-			}
-			_, err = port.Write(common.FormatCommand(cmd))
-			if err != nil {
-				log.Fatal(err)
-			}
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		}
+		_, err = port.Write(common.FormatCommand(cmd))
+		if err != nil {
+			log.Fatal(err)
+		}
 
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) || strings.TrimSpace(string(output)) == "Enter configuration commands, one per line.  End with CNTL/Z.\r\n" {
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 			}
 			consoleOutput = append(consoleOutput, output)
-
-			if prefix != "" {
-				common.WaitForSubstring(port, strings.ToLower(prefix), debug)
-			}
+			WriteConsoleOutput()
 		}
 	}
 
 	if backup.UseBuiltIn {
 		closeTftpServer <- true
-	}
-
-	dumpFile := os.Getenv("DumpConsoleOutput")
-	if dumpFile != "" {
-		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("Error while opening file %s to dump console outputs: %s\n", dumpFile, err)
-		}
-
-		defer file.Close()
-
-		totalWritten := 0
-
-		for _, line := range consoleOutput {
-			written, err := file.Write(line)
-			if err != nil {
-				log.Fatalf("Error while writing %v to %s: %s\n", line, dumpFile, err)
-			}
-			totalWritten += written
-		}
-
-		outputInfo(fmt.Sprintf("Wrote %d bytes to %s\n", totalWritten, dumpFile))
 	}
 
 	outputInfo("Successfully reset!\n")
