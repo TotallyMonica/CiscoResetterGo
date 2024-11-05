@@ -607,7 +607,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	// Try to guess if we've started yet
 	output := common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
@@ -1003,7 +1003,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
 		hostname = config.Hostname
-		prompt = hostname + "(config)"
+		prompt = hostname + "(config)#"
 
 		outputInfo("Finished setting the hostname.\n")
 	}
@@ -1112,7 +1112,17 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			common.WaitForSubstring(port, prompt, debug)
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
+				if debug {
+					outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+					outputInfo(fmt.Sprintf("DEBUG: Expected prompt: %s\n", strings.ToLower(prompt)))
+				}
+				common.WriteLine(port, "", debug)
+				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			}
 			err = port.SetReadTimeout(1 * time.Second)
 			if err != nil {
 				log.Fatal(err)
