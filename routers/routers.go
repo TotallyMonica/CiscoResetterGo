@@ -104,9 +104,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	// Get to ROMMON
 	if debug {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
-			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT)))
-			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT))
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
+			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >")))
+			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT+" 1 >"))
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
@@ -115,18 +115,16 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(1 * time.Second)
 		}
 		outputInfo(fmt.Sprintf("%s\n", output))
 	} else {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			consoleOutput = append(consoleOutput, output)
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -135,19 +133,31 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
 	// TODO: Ensure we're actually at the prompt instead of just assuming
-	for _, cmd := range commands {
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), cmd) {
+	for idx, cmd := range commands {
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		}
+		_, err = port.Write(common.FormatCommand(cmd))
+		if err != nil {
+			log.Fatal(err)
+		}
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		parsedOutput := strings.TrimSpace(string(common.TrimNull(output)))
+		consoleOutput = append(consoleOutput, output)
+		if debug {
+			outputInfo(fmt.Sprintf("DEBUG: Sent %s to device\n", cmd))
+		}
+
+		for !strings.HasPrefix(strings.ToLower(parsedOutput), fmt.Sprintf("%s %d >", ROMMON_PROMPT, idx+1)) {
+			_, err = port.Write([]byte("\r\n"))
 			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
-			}
-			_, err = port.Write(common.FormatCommand(cmd))
-			if err != nil {
-				log.Fatal(err)
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
 			consoleOutput = append(consoleOutput, output)
 			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: Sent %s to device\n", cmd))
+				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 			}
 		}
 	}
