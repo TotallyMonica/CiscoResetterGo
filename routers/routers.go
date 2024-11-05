@@ -5,6 +5,7 @@ import (
 	"go.bug.st/serial"
 	"log"
 	"main/common"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ type RouterDefaults struct {
 }
 
 var redirectedOutput chan string
+var consoleOutput [][]byte
 
 func outputInfo(data string) {
 	current := time.Now()
@@ -82,6 +84,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}(port)
 
+	common.SetReaderPort(port)
+
 	if err != nil {
 		log.Fatalf("routers.Reset: Error while opening port %s: %s\n", SerialPort, err)
 	}
@@ -104,6 +108,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT)))
 			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT))
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
 			outputInfo(fmt.Sprintf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c"))
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
@@ -116,6 +121,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	} else {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT) {
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			consoleOutput = append(consoleOutput, output)
 			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
@@ -130,16 +136,19 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	// TODO: Ensure we're actually at the prompt instead of just assuming
 	for _, cmd := range commands {
-		if debug {
-			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
-		}
-		_, err = port.Write(common.FormatCommand(cmd))
-		if err != nil {
-			log.Fatal(err)
-		}
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
-		if debug {
-			outputInfo(fmt.Sprintf("DEBUG: Sent %s to device", cmd))
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), cmd) {
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+			}
+			_, err = port.Write(common.FormatCommand(cmd))
+			if err != nil {
+				log.Fatal(err)
+			}
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			consoleOutput = append(consoleOutput, output)
+			if debug {
+				outputInfo(fmt.Sprintf("DEBUG: Sent %s to device\n", cmd))
+			}
 		}
 	}
 
@@ -150,23 +159,21 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		log.Fatal(err)
 	}
 	outputInfo("We've finished with ROMMON, going back into the regular console\n")
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT) {
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT+">") {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
-		if common.IsEmpty(output) {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
-			}
-			_, err = port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
-			if err != nil {
-				log.Fatal(err)
-			}
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
 		}
-		time.Sleep(1 * time.Second)
+		_, err = port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+		if err != nil {
+			log.Fatal(err)
+		}
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
+		consoleOutput = append(consoleOutput, output)
 	}
 
 	closeTftpServer := make(chan bool)
@@ -228,40 +235,78 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		switch cmd {
 		case "enable":
 			outputInfo("Setting our register back to normal\n")
+			prefix = SHELL_PROMPT + "#"
 			break
+		case "conf t":
+			outputInfo("Entering privileged exec\n")
+			prefix = SHELL_PROMPT + "(config)#"
 		case "inter g0/0/0":
 			outputInfo("Setting an IP address to back up the config\n")
+			prefix = SHELL_PROMPT + "(config-if)#"
 			break
 		case "end":
 			outputInfo("Finished configuring our console\n")
+			prefix = SHELL_PROMPT + "#"
 			break
 		case fmt.Sprintf("copy startup-config tftp://%s/%s-router-config.txt", backup.Destination, backup.Prefix):
 			outputInfo(fmt.Sprintf("Backing up the config to %s\n", backup.Destination))
-			prefix = SHELL_PROMPT
+			prefix = SHELL_PROMPT + "#"
 			break
 		case "erase nvram:":
 			outputInfo("Erasing the router's config\n")
+			prefix = SHELL_PROMPT + "#"
 			break
 		case "reload":
 			outputInfo("Restarting the switch\n")
+			prefix = SHELL_PROMPT + "#"
 			break
 		}
-		if debug {
-			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
-		}
-		_, err = port.Write(common.FormatCommand(cmd))
-		if err != nil {
-			log.Fatal(err)
-		}
-		if prefix != "" {
-			common.WaitForSubstring(port, strings.ToLower(prefix), debug)
-		} else {
-			common.ReadLines(port, 500, 2, debug)
+
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) {
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+			}
+			_, err = port.Write(common.FormatCommand(cmd))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			if debug {
+				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+			}
+			consoleOutput = append(consoleOutput, output)
+
+			if prefix != "" {
+				common.WaitForSubstring(port, strings.ToLower(prefix), debug)
+			}
 		}
 	}
 
 	if backup.UseBuiltIn {
 		closeTftpServer <- true
+	}
+
+	dumpFile := os.Getenv("DumpConsoleOutput")
+	if dumpFile != "" {
+		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Error while opening file %s to dump console outputs: %s\n", dumpFile, err)
+		}
+
+		defer file.Close()
+
+		totalWritten := 0
+
+		for _, line := range consoleOutput {
+			written, err := file.Write(line)
+			if err != nil {
+				log.Fatalf("Error while writing %v to %s: %s\n", line, dumpFile, err)
+			}
+			totalWritten += written
+		}
+
+		outputInfo(fmt.Sprintf("Wrote %d bytes to %s\n", totalWritten, dumpFile))
 	}
 
 	outputInfo("Successfully reset!\n")
