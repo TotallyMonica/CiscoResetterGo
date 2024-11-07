@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -193,4 +194,13 @@ func IsEmpty(output []byte) bool {
 		}
 	}
 	return true
+}
+
+func IsSyslog(output string) bool {
+	compile, err := regexp.Compile(`\w{3}\s((\s\d|\d{2})\s)((\s\d|\d{2}):){2}\d{2}\.\d{3}:\s%(\w|-)*:\s.*`)
+	if err != nil {
+		log.Fatalf("common.IsSyslog: Could not compile Syslog regexp: %s\n", err)
+	}
+
+	return compile.MatchString(output)
 }
