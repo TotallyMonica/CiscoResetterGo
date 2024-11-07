@@ -373,11 +373,20 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		log.Fatalf("routers.Defaults: Error while opening port %s: %s\n", SerialPort, err)
 	}
 
+	common.SetReaderPort(port)
+
 	err = port.SetReadTimeout(1 * time.Second)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	if debug {
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+	}
+	_, err = port.Write([]byte("\r\n"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	output := common.TrimNull(common.ReadLine(port, 500, debug))
 	outputInfo("Waiting for the router to start up\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
