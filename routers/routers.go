@@ -94,7 +94,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	const NORMAL_REGISTER = "0x2102"
 	const SAVE_PROMPT = "[yes/no]:"
 	const SHELL_CUE = "press return to get started!"
-	const ROMMON_CONFIG = false
 
 	redirectedOutput = progressDest
 	currentTime := time.Now()
@@ -124,71 +123,68 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	outputInfo("1. Turn off the router\n")
 	outputInfo("2. After waiting for the lights to shut off, turn the router back on\n")
 
-	if ROMMON_CONFIG {
-		outputInfo("Sending ^C until we get into ROMMON...\n")
-		var output []byte
+	outputInfo("Sending ^C until we get into ROMMON...\n")
+	var output []byte
 
-		// Get to ROMMON
-		if debug {
-			for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
-				outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >")))
-				outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT+" 1 >"))
-				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
-				consoleOutput = append(consoleOutput, output)
-				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
-				outputInfo(fmt.Sprintf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c"))
-				_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			outputInfo(fmt.Sprintf("%s\n", output))
-		} else {
-			for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
-				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
-				consoleOutput = append(consoleOutput, output)
-				_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-		}
-		WriteConsoleOutput()
-
-		// In ROMMON
-		outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
-		commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
-
-		// TODO: Ensure we're actually at the prompt instead of just assuming
-		for idx, cmd := range commands {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
-			}
-			_, err = port.Write(common.FormatCommand(cmd))
+	// Get to ROMMON
+	if debug {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
+			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >")))
+			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT+" 1 >"))
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			consoleOutput = append(consoleOutput, output)
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
+			outputInfo(fmt.Sprintf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c"))
+			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
-			parsedOutput := strings.TrimSpace(string(common.TrimNull(output)))
+		}
+		outputInfo(fmt.Sprintf("%s\n", output))
+	} else {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			consoleOutput = append(consoleOutput, output)
-			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: Sent %s to device\n", cmd))
-			}
-
-			for !strings.HasPrefix(strings.ToLower(parsedOutput), fmt.Sprintf("%s %d >", ROMMON_PROMPT, idx+1)) {
-				_, err = port.Write([]byte("\r\n\r\n\r\n"))
-				if debug {
-					outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n"))
-				}
-				output = common.ReadLine(port, BUFFER_SIZE, debug)
-				parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
-				consoleOutput = append(consoleOutput, output)
-				if debug {
-					outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
-				}
+			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
+	}
+	WriteConsoleOutput()
 
+	// In ROMMON
+	outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
+	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
+
+	// TODO: Ensure we're actually at the prompt instead of just assuming
+	for idx, cmd := range commands {
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
+		}
+		_, err = port.Write(common.FormatCommand(cmd))
+		if err != nil {
+			log.Fatal(err)
+		}
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		parsedOutput := strings.TrimSpace(string(common.TrimNull(output)))
+		consoleOutput = append(consoleOutput, output)
+		if debug {
+			outputInfo(fmt.Sprintf("DEBUG: Sent %s to device\n", cmd))
+		}
+
+		for !strings.HasPrefix(strings.ToLower(parsedOutput), fmt.Sprintf("%s %d >", ROMMON_PROMPT, idx+1)) {
+			_, err = port.Write([]byte("\r\n\r\n\r\n"))
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n"))
+			}
+			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
+			consoleOutput = append(consoleOutput, output)
+			if debug {
+				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+			}
+		}
 	}
 
 	// We've made it out of ROMMON
@@ -205,7 +201,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	if err != nil {
 		log.Fatal(err)
 	}
-	output := common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
+	output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
 	consoleOutput = append(consoleOutput, output)
 
 	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT+">") {
@@ -249,7 +245,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		log.Fatal(err)
 	}
 	// We can safely assume we're at the prompt, begin running commands to restore registers, back up, and reset
-	commands := []string{"enable", "conf t", "config-register " + NORMAL_REGISTER}
+	commands = []string{"enable", "conf t", "config-register " + NORMAL_REGISTER}
 
 	// Add in the relevant commands to back up if we are
 	if backup.Backup {
