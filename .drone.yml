@@ -1,5 +1,5 @@
 kind: pipeline
-name: Go 1.23.2 validation
+name: Go latest validation
 
 platform:
   os: linux
@@ -7,14 +7,14 @@ platform:
 
 steps:
   - name: build
-    image: golang:1.23.2
+    image: golang:latest
     commands:
       - go build
       - go test -v
 
 ---
 kind: pipeline
-name: Go 1.20.14 validation
+name: Go 1.20 validation
 
 platform:
   os: linux
@@ -22,7 +22,7 @@ platform:
 
 steps:
   - name: build
-    image: golang:1.20.14
+    image: golang:1.20
     commands:
       - go build
       - go test -v
