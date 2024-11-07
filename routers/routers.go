@@ -305,7 +305,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			log.Fatal(err)
 		}
 
-		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) || strings.TrimSpace(string(output)) == "Enter configuration commands, one per line.  End with CNTL/Z.\r\n" {
+		for !(strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) ||
+			cmd == "conf t" && strings.Contains(strings.ToLower(strings.TrimSpace(string(output))), strings.ToLower(strings.TrimSpace("enter configuration commands, one per line.  end with cntl/z.")))) {
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
@@ -319,6 +320,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		closeTftpServer <- true
 	}
 
+	WriteConsoleOutput()
 	outputInfo("Successfully reset!\n")
 	outputInfo("---EOF---")
 }
