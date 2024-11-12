@@ -215,6 +215,8 @@ func TestDefaults(t *testing.T) {
 func TestResetAndDefaults(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test in CI environment")
+	} else if os.Getenv("SKIP_RESET_DEFAULTS_TESTS") != "" {
+		t.Skip("Skipping reset and defaults tests")
 	}
 
 	type resetArgs struct {
@@ -251,46 +253,66 @@ func TestResetAndDefaults(t *testing.T) {
 		t.Fatalf("Error while parsing defaults file for testing: %s", err)
 	}
 
-	tests := []struct {
+	tests := make([]struct {
 		name         string
 		resetArgs    resetArgs
 		defaultsArgs defaultsArgs
-	}{{
-		name: "Reset and apply defaults with verbose output",
-		resetArgs: resetArgs{
-			SerialPort:   "COM3",
-			PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
-			backup: common.Backup{
-				Backup: false,
+	}, 0)
+
+	if os.Getenv("SKIP_VERBOSE_RESET_DEFAULT_TEST") != "" {
+		t.Skip("Skipping verbose reset and default tests")
+	} else {
+		tests = append(tests, struct {
+			name         string
+			resetArgs    resetArgs
+			defaultsArgs defaultsArgs
+		}{
+			name: "Reset and apply defaults with verbose output",
+			resetArgs: resetArgs{
+				SerialPort:   "COM3",
+				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
+				backup: common.Backup{
+					Backup: false,
+				},
+				debug:        true,
+				progressDest: make(chan string),
 			},
-			debug:        true,
-			progressDest: make(chan string),
-		},
-		defaultsArgs: defaultsArgs{
-			SerialPort:   "COM3",
-			PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
-			config:       defaultsStruct,
-			debug:        true,
-			progressDest: make(chan string),
-		},
-	}, {
-		name: "Reset and apply defaults with limited output",
-		resetArgs: resetArgs{
-			SerialPort:   "COM3",
-			PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
-			backup: common.Backup{
-				Backup: false,
+			defaultsArgs: defaultsArgs{
+				SerialPort:   "COM3",
+				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
+				config:       defaultsStruct,
+				debug:        true,
+				progressDest: make(chan string),
 			},
-			debug:        false,
-			progressDest: make(chan string),
-		},
-		defaultsArgs: defaultsArgs{
-			SerialPort:   "COM3",
-			PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
-			config:       defaultsStruct,
-			progressDest: make(chan string),
-		},
-	}}
+		})
+	}
+
+	if os.Getenv("SKIP_LIMITED_RESET_DEFAULT_TEST") != "" {
+		t.Skip("Skipping limited output reset and default tests")
+	} else {
+		tests = append(tests, struct {
+			name         string
+			resetArgs    resetArgs
+			defaultsArgs defaultsArgs
+		}{
+			name: "Reset and apply defaults with limited output",
+			resetArgs: resetArgs{
+				SerialPort:   "COM3",
+				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
+				backup: common.Backup{
+					Backup: false,
+				},
+				debug:        false,
+				progressDest: make(chan string),
+			},
+			defaultsArgs: defaultsArgs{
+				SerialPort:   "COM3",
+				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
+				config:       defaultsStruct,
+				progressDest: make(chan string),
+			},
+		})
+	}
 
 	for _, tt := range tests {
 		start := time.Now()
