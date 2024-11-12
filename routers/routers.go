@@ -272,7 +272,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 
 	// Queue command to erase the NVRAM and reload
-	commands = append(commands, "erase nvram:", "", "reload", "yes", "")
+	commands = append(commands, "erase nvram:", "")
 
 	// Execute the commands
 	for _, cmd := range commands {
@@ -326,17 +326,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				cmd == "conf t" && strings.Contains(strings.ToLower(strings.TrimSpace(string(output))),
 					strings.ToLower(strings.TrimSpace("enter configuration commands, one per line.  end with cntl/z.")))) { // Global config specific test
 
-			if strings.Contains(strings.ToLower(strings.TrimSpace(string(output))), "system configuration has been modified. save? [yes/no]:") {
-				if debug {
-					outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
-				}
-				common.WriteLine(port, "yes", debug)
-			} else {
-				if debug {
-					outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
-				}
-				common.WriteLine(port, "", debug)
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 			}
+			common.WriteLine(port, "", debug)
 
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
@@ -345,6 +338,50 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			consoleOutput = append(consoleOutput, output)
 			WriteConsoleOutput()
 		}
+	}
+
+	// Reload the switch
+	if debug {
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "reload"))
+	}
+	common.WriteLine(port, "reload", debug)
+	output = common.ReadLine(port, BUFFER_SIZE, debug)
+	consoleOutput = append(consoleOutput, output)
+	if debug {
+		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+	}
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), SAVE_PROMPT) {
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+		}
+		common.WriteLine(port, "", debug)
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		consoleOutput = append(consoleOutput, output)
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+		}
+	}
+
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), CONFIRMATION_PROMPT) {
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
+		}
+		common.WriteLine(port, "yes", debug)
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		consoleOutput = append(consoleOutput, output)
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+		}
+	}
+
+	if debug {
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+	}
+	common.WriteLine(port, "", debug)
+	output = common.ReadLine(port, BUFFER_SIZE, debug)
+	consoleOutput = append(consoleOutput, output)
+	if debug {
+		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 	}
 
 	if backup.UseBuiltIn {
