@@ -327,31 +327,40 @@ func TestResetAndDefaults(t *testing.T) {
 			select {
 			case msg := <-tt.resetArgs.progressDest:
 				if strings.Contains(msg, "--EOF--") {
-					t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
+					t.Logf("Reset test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
-					t.Logf("Test %s: %s", tt.name, msg)
+					t.Logf("Reset test %s: %s", tt.name, msg)
 				}
 			case <-timeout:
-				t.Fatalf("Test %s timed out in 20 minutes.", tt.name)
+				t.Fatalf("Reset test %s timed out in 20 minutes.", tt.name)
 			}
 			if canExit {
 				break
 			}
 		}
 
+		time.Sleep(5 * time.Second)
+
 		go t.Run(tt.name, func(t *testing.T) {
 			Defaults(tt.defaultsArgs.SerialPort, tt.defaultsArgs.PortSettings, tt.defaultsArgs.config, tt.defaultsArgs.debug, tt.defaultsArgs.progressDest)
 		})
-		select {
-		case msg := <-tt.defaultsArgs.progressDest:
-			if strings.Contains(msg, "--EOF--") {
-				t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
-			} else {
-				t.Logf("Test %s: %s", tt.name, msg)
+		for {
+			canExit := false
+			select {
+			case msg := <-tt.defaultsArgs.progressDest:
+				if strings.Contains(msg, "--EOF--") {
+					t.Logf("Defaults test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
+					canExit = true
+				} else {
+					t.Logf("Defaults test %s: %s", tt.name, msg)
+				}
+			case <-timeout:
+				t.Fatalf("Defaults test %s timed out in 20 minutes.", tt.name)
 			}
-		case <-timeout:
-			t.Fatalf("Test %s timed out in 20 minutes.", tt.name)
+			if canExit {
+				break
+			}
 		}
 		time.Sleep(5 * time.Second)
 	}
