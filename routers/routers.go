@@ -396,20 +396,19 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
-		if common.IsEmpty(output) {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
-			}
-			_, err = port.Write([]byte("\r\n"))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
 			if debug {
 				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
 			}
 			_, err = port.Write(common.FormatCommand("no"))
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+			}
+			_, err = port.Write([]byte("\r\n"))
 			if err != nil {
 				log.Fatal(err)
 			}
