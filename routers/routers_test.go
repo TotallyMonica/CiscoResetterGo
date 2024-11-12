@@ -18,6 +18,9 @@ func validateOutput() {
 }
 
 func TestReset(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping test in CI environment\n")
+	}
 	type args struct {
 		SerialPort   string
 		PortSettings serial.Mode
@@ -80,6 +83,9 @@ func TestReset(t *testing.T) {
 }
 
 func TestDefaults(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping test in CI environment\n")
+	}
 	type args struct {
 		SerialPort   string
 		PortSettings serial.Mode
@@ -149,6 +155,10 @@ func TestDefaults(t *testing.T) {
 }
 
 func TestResetAndDefaults(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping test in CI environment\n")
+	}
+
 	type resetArgs struct {
 		SerialPort   string
 		PortSettings serial.Mode
