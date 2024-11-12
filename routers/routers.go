@@ -376,7 +376,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	common.SetReaderPort(port)
 
-	err = port.SetReadTimeout(1 * time.Second)
+	err = port.SetReadTimeout(1 * time.Minute)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -417,6 +417,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		time.Sleep(1 * time.Second)
 		output = common.TrimNull(common.ReadLine(port, 500, debug))
 	}
+	err = port.SetReadTimeout(1 * time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
 		log.Fatal(err)
