@@ -303,7 +303,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			break
 		case "reload":
 			outputInfo("Restarting the switch\n")
-			prefix = SAVE_PROMPT
 			break
 		}
 
@@ -326,14 +325,16 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			!(strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) || // Disregard lines that don't have the prompt we're looking for
 				cmd == "conf t" && strings.Contains(strings.ToLower(strings.TrimSpace(string(output))),
 					strings.ToLower(strings.TrimSpace("enter configuration commands, one per line.  end with cntl/z.")))) { // Global config specific test
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
-			}
 
-			if prefix == SAVE_PROMPT {
+			if strings.Contains(strings.ToLower(strings.TrimSpace(string(output))), "system configuration has been modified. save? [yes/no]:") {
+				if debug {
+					outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
+				}
 				common.WriteLine(port, "yes", debug)
-				prefix = CONFIRMATION_PROMPT
 			} else {
+				if debug {
+					outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+				}
 				common.WriteLine(port, "", debug)
 			}
 
