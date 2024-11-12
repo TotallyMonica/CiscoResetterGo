@@ -11,6 +11,8 @@ steps:
     commands:
       - go build
       - go test -v
+    environment:
+      CI: "drone"
 
 ---
 kind: pipeline
@@ -26,3 +28,5 @@ steps:
     commands:
       - go build
       - go test -v
+    environment:
+      CI: "drone"
