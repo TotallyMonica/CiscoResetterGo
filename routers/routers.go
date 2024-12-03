@@ -195,9 +195,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 	outputInfo("We've finished with ROMMON, going back into the regular console\n")
 	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 	}
-	_, err = port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+	_, err = port.Write([]byte("\r\n"))
 	if err != nil {
 		log.Fatal(err)
 	}
