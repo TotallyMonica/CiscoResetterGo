@@ -204,6 +204,17 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
 	consoleOutput = append(consoleOutput, output)
 
+	// Wait until we get clue that we're ready for input, intentionally not sending anything
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), SHELL_CUE) {
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+		}
+	}
+
+	// Send new lines until we get to shell prompt
 	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), SHELL_PROMPT+">") {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
@@ -370,20 +381,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	consoleOutput = append(consoleOutput, output)
 	if debug {
 		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
-	}
-
-	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), CONFIRMATION_PROMPT) {
-		if debug {
-			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
-		}
-
-		common.WriteLine(port, "yes", debug)
-
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
-		consoleOutput = append(consoleOutput, output)
-		if debug {
-			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
-		}
 	}
 
 	if debug {
