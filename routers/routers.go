@@ -193,6 +193,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		log.Fatal(err)
 	}
 	outputInfo("We've finished with ROMMON, going back into the regular console\n")
+	WriteConsoleOutput()
 	if debug {
 		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 	}
@@ -209,8 +210,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
-			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 		}
+		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 	}
 
 	// Send new lines until we get to shell prompt
@@ -232,6 +233,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 
 	outputInfo("We've made it into the regular console\n")
+	WriteConsoleOutput()
 
 	closeTftpServer := make(chan bool)
 
