@@ -157,7 +157,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
-	// TODO: Ensure we're actually at the prompt instead of just assuming
 	for idx, cmd := range commands {
 		if debug {
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", cmd))
