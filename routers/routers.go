@@ -231,6 +231,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		consoleOutput = append(consoleOutput, output)
 	}
 
+	outputInfo("We've made it into the regular console\n")
+
 	closeTftpServer := make(chan bool)
 
 	// Check if we can and should back up
