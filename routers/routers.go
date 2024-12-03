@@ -174,9 +174,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 
 		for !strings.HasPrefix(strings.ToLower(parsedOutput), fmt.Sprintf("%s %d >", ROMMON_PROMPT, idx+1)) {
-			_, err = port.Write([]byte("\r\n\r\n\r\n"))
+			_, err = port.Write([]byte("\r\n"))
 			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n"))
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 			}
 			output = common.ReadLine(port, BUFFER_SIZE, debug)
 			parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
@@ -211,9 +211,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
 		if debug {
-			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n\\r\\n"))
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 		}
-		_, err = port.Write([]byte("\r\n\r\n\r\n\r\n\r\n\r\n"))
+		_, err = port.Write([]byte("\r\n"))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -362,11 +362,23 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}
 
+	if debug {
+		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
+	}
+	common.WriteLine(port, "yes", debug)
+	output = common.ReadLine(port, BUFFER_SIZE, debug)
+	consoleOutput = append(consoleOutput, output)
+	if debug {
+		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+	}
+
 	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), CONFIRMATION_PROMPT) {
 		if debug {
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
 		}
+
 		common.WriteLine(port, "yes", debug)
+
 		output = common.ReadLine(port, BUFFER_SIZE, debug)
 		consoleOutput = append(consoleOutput, output)
 		if debug {
