@@ -478,12 +478,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if err != nil {
 		log.Fatal(err)
 	}
-	line := common.ReadLine(port, 500, debug)
+	lines := common.ReadLines(port, 500, 2, debug)
 
 	outputInfo("Elevating our privileges\n")
 
 	if debug {
-		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		for _, line := range lines {
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		}
 		outputInfo(fmt.Sprintf("INPUT: %s\n", "enable"))
 	}
 	_, err = port.Write(common.FormatCommand("enable"))
@@ -491,10 +493,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		log.Fatal(err)
 	}
 	prompt = hostname + "#"
-	line = common.ReadLine(port, 500, debug)
+	lines = common.ReadLines(port, 500, 2, debug)
 
 	if debug {
-		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		for _, line := range lines {
+			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+		}
 		outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
 	}
 
@@ -517,10 +521,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, 500, debug))
+			lines = common.ReadLines(port, 500, 2, debug)
 			prompt = hostname + "(config-if)#"
 			if debug {
-				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+				for _, line := range lines {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				}
 			}
 
 			// Assign an IP address
@@ -533,9 +539,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				lines = common.ReadLines(port, 500, 2, debug)
 				if debug {
-					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+					for _, line := range lines {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+					}
 				}
 			}
 
@@ -549,9 +557,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				lines = common.ReadLines(port, 500, 2, debug)
 				if debug {
-					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+					for _, line := range lines {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+					}
 				}
 			} else {
 				outputInfo(fmt.Sprintf("Brining up the interface\n"))
@@ -562,9 +572,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				lines = common.ReadLines(port, 500, 2, debug)
 				if debug {
-					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+					for _, line := range lines {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+					}
 				}
 			}
 
@@ -577,9 +589,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, 500, debug))
+			lines = common.ReadLines(port, 500, 2, debug)
 			if debug {
-				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+				for _, line := range lines {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				}
 			}
 
 			prompt = hostname + "(config)#"
@@ -621,9 +635,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.ReadLine(port, 500, debug)
+				lines = common.ReadLines(port, 500, 2, debug)
 				if debug {
-					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+					for _, line := range lines {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+					}
 				}
 
 				// Set the line password
@@ -637,7 +653,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 						log.Fatal(err)
 					}
 					if debug {
-						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+						for _, line := range lines {
+							outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+						}
 					}
 
 					// In case login type wasn't provided, set that.
@@ -656,9 +674,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					lines = common.ReadLines(port, 500, 2, debug)
 					if debug {
-						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+						for _, line := range lines {
+							outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+						}
 					}
 				}
 
@@ -671,9 +691,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					lines = common.ReadLines(port, 500, 2, debug)
 					if debug {
-						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+						for _, line := range lines {
+							outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+						}
 					}
 				}
 			}
@@ -690,9 +712,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		lines = common.ReadLines(port, 500, 2, debug)
 		if debug {
-			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+			for _, line := range lines {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
 		}
 	}
 
@@ -706,9 +730,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		lines = common.ReadLines(port, 500, 2, debug)
 		if debug {
-			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+			for _, line := range lines {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
 		}
 	}
 
@@ -722,9 +748,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		lines = common.ReadLines(port, 500, 2, debug)
 		if debug {
-			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+			for _, line := range lines {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
 		}
 	}
 
@@ -740,9 +768,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		hostname = config.Hostname
 		prompt = hostname + "(config)"
-		output = common.ReadLine(port, 500, debug)
+		lines = common.ReadLines(port, 500, 2, debug)
 		if debug {
-			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+			for _, line := range lines {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
 		}
 	}
 
@@ -755,9 +785,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		lines = common.ReadLines(port, 500, 2, debug)
 		if debug {
-			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
+			for _, line := range lines {
+				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			}
 		}
 	}
 	if config.Ssh.Enable {
@@ -789,9 +821,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			lines = common.ReadLines(port, 500, 2, debug)
 			if debug {
-				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				for _, line := range lines {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				}
 			}
 
 			outputInfo("Generating the RSA key\n")
@@ -802,9 +836,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			lines = common.ReadLines(port, 500, 2, debug)
 			if debug {
-				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				for _, line := range lines {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				}
 			}
 
 			if config.Ssh.Bits > 0 && config.Ssh.Bits < 360 {
@@ -833,9 +869,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, 500, debug)
+			lines = common.ReadLines(port, 500, 2, debug)
 			if debug {
-				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				for _, line := range lines {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+				}
 			}
 
 			// Previous command can take a while, so wait for the prompt
