@@ -212,6 +212,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
 		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+		consoleOutput = append(consoleOutput, output)
 	}
 
 	// Send new lines until we get to shell prompt
