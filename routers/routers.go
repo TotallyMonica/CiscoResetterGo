@@ -134,8 +134,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
-			outputInfo(fmt.Sprintf("TO DEVICE: %s%s%s%s%s%s%s%s%s%s\n", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c", "^c"))
-			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "^c"))
+			_, err = port.Write([]byte("\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -145,7 +145,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
 			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
 			consoleOutput = append(consoleOutput, output)
-			_, err = port.Write([]byte("\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03"))
+			_, err = port.Write([]byte("\x03"))
 			if err != nil {
 				log.Fatal(err)
 			}
