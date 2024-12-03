@@ -1,5 +1,5 @@
 kind: pipeline
-name: Go 1.23.2 validation
+name: Go latest validation
 
 platform:
   os: linux
