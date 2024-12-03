@@ -378,16 +378,20 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	common.WriteLine(port, "yes", debug)
 	output = common.ReadLine(port, BUFFER_SIZE, debug)
 	consoleOutput = append(consoleOutput, output)
-	if debug {
-		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
-	}
 
-	if debug {
-		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+	// Send blank new lines until we've reset
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), CONFIRMATION_PROMPT) {
+		if debug {
+			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
+		}
+
+		if debug {
+			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
+		}
+		common.WriteLine(port, "", debug)
+		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		consoleOutput = append(consoleOutput, output)
 	}
-	common.WriteLine(port, "", debug)
-	output = common.ReadLine(port, BUFFER_SIZE, debug)
-	consoleOutput = append(consoleOutput, output)
 	if debug {
 		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 	}
