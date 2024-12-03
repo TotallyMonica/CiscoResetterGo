@@ -39,21 +39,6 @@ func SetReadLineTimeout(t time.Duration) {
 	LineTimeout = t
 }
 
-func LogInfo(redirectedOutput chan string, data string) {
-	current := time.Now()
-	if redirectedOutput == nil && !strings.HasSuffix(data, "---EOF---") {
-		fmt.Printf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(), current.Day(),
-			current.Hour(), current.Minute(), current.Second(), data)
-	} else if redirectedOutput != nil {
-		redirectedOutput <- fmt.Sprintf("<%d-%02d-%02d %02d:%02d:%02d> %s", current.Year(), current.Month(),
-			current.Day(), current.Hour(), current.Minute(), current.Second(), data)
-	}
-}
-
-func LogWarning(redirectedOutput chan string, data string) {
-
-}
-
 func TftpWriteHandler(filename string, wt io.WriterTo) error {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
