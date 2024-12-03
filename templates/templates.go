@@ -206,7 +206,7 @@ Cisco Resetter Go Homepage
     </tr>
     {{ range .Jobs }}
     <tr>
-        <td><a href="/jobs/{{ .Number }}"/?lines=30>{{ .Number }}</a></td>
+        <td><a href="/jobs/{{ .Number }}/?lines=30">{{ .Number }}</a></td>
         <td>{{ .Params.PortConfig.Port }}</td>
         <td>{{ .Params.PortConfig.ShortHand }}</td>
         <td>{{ .Params.DeviceType }}</td>
