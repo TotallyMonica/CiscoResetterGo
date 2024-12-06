@@ -156,6 +156,9 @@ func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
 	if debug {
 		fmt.Printf("FROM DEVICE: %s\n", line[0])
 	}
+	if err != nil {
+		return nil, err
+	}
 	return line[0], err
 }
 
