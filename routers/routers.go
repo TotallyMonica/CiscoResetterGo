@@ -863,6 +863,16 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 	}
 
+	outputInfo("Leaving global exec")
+
+	if debug {
+		outputInfo(fmt.Sprintf("INPUT: %s\n", "end"))
+	}
+	common.WriteLine(port, "end", debug)
+	prompt = hostname + "#"
+
+	common.WaitForSubstring(port, prompt, debug)
+
 	outputInfo("Settings applied!\n")
 	outputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
 	outputInfo("To fix this, run `wr` on the target device.\n")
