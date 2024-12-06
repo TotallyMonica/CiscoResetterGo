@@ -491,6 +491,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	prompt = hostname + "#"
 	common.WaitForSubstring(port, prompt, debug)
 
