@@ -95,6 +95,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 }
 
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
+	WriteLine(port, "", debug)
 	output := ReadLine(port, 500, debug)
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
