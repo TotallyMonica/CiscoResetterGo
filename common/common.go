@@ -107,11 +107,8 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
 			}
-			_, err := port.Write([]byte("\r\n"))
-			if err != nil {
-				log.Fatalf("WaitForSubstring: Error while writing new line: %s\n", err)
-			}
 		}
+		WriteLine(port, "", debug)
 		output = ReadLine(port, 500, debug)
 	}
 }
