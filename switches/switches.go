@@ -1164,10 +1164,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
+
+				prompt = hostname + "(config-line)#"
+				common.WaitForSubstring(port, prompt, debug)
 
 				// Set the line password
 				if line.Password != "" {
@@ -1240,6 +1242,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
+
+			prompt = hostname + "(config)#"
+			common.WaitForSubstring(port, prompt, debug)
+
 		}
 		outputInfo("Finished configuring console lines.\n")
 		progress.CurrentStep += 1
