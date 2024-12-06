@@ -335,11 +335,24 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
+		line, err := common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(line))), fmt.Sprintf("%s %s", RECOVERY_PROMPT, "dir flash:")) {
+			common.WriteLine(port, "dir flash:", debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
+		}
+
 		err = port.SetReadTimeout(15 * time.Second)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
 		}
-		line, err := common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 		}
