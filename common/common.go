@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
@@ -80,7 +81,10 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = TrimNull(ReadLine(port, 500, debug))
+			output, err = ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 		fmt.Println(output)
 	} else {
@@ -89,27 +93,39 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = TrimNull(ReadLine(port, 500, debug))
+			output, err = ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
 
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
-	WriteLine(port, "", debug)
-	output := ReadLine(port, 500, debug)
+	output, err := ReadLine(port, 500, debug)
+	if err != nil && !errors.Is(err, io.ErrNoProgress) {
+		log.Fatalf("Error while waiting for substring: %s\n", err.Error())
+	} else if errors.Is(err, io.ErrNoProgress) {
+		if debug {
+			fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
+		}
+		WriteLine(port, "", debug)
+	}
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
 			fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
 			fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
 		}
-		if IsEmpty(output) {
+		output, err = ReadLine(port, 500, debug)
+		if err != nil && !errors.Is(err, io.ErrNoProgress) {
+			log.Fatalf("Error while waiting for substring: %s\n", err.Error())
+		} else if errors.Is(err, io.ErrNoProgress) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
 			}
+			WriteLine(port, "", debug)
 		}
-		WriteLine(port, "", debug)
-		output = ReadLine(port, 500, debug)
 	}
 }
 
@@ -135,15 +151,15 @@ func WriteLine(port serial.Port, line string, debug bool) {
 	}
 }
 
-func ReadLine(port serial.Port, buffSize int, debug bool) []byte {
-	line := ReadLines(port, buffSize, 1, debug)
+func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
+	line, err := ReadLines(port, buffSize, 1, debug)
 	if debug {
 		fmt.Printf("FROM DEVICE: %s\n", line[0])
 	}
-	return line[0]
+	return line[0], err
 }
 
-func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byte {
+func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]byte, error) {
 	output := make([][]byte, maxLines)
 	if debug {
 		fmt.Printf("\n======================================\nDEBUG: \n")
@@ -153,7 +169,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 
 		res, err := reader.ReadString('\n')
 		if err != nil {
-			log.Fatalf("ReadLines: error while parsing output from port: %s\n", err)
+			return nil, err
 		}
 
 		output[i] = []byte(res)
@@ -170,7 +186,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) [][]byt
 		}
 	}
 
-	return output
+	return output, nil
 }
 
 func TrimNull(bytes []byte) []byte {

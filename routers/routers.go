@@ -131,7 +131,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >")))
 			outputInfo(fmt.Sprintf("Expected prefix: %s\n", ROMMON_PROMPT+" 1 >"))
-			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+			}
 			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", strings.ToLower(strings.TrimSpace(string(output[:])))))
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "^c"))
@@ -143,7 +146,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		outputInfo(fmt.Sprintf("%s\n", output))
 	} else {
 		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), ROMMON_PROMPT+" 1 >") {
-			output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+			}
 			consoleOutput = append(consoleOutput, output)
 			_, err = port.Write([]byte("\x03"))
 			if err != nil {
@@ -165,7 +171,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		parsedOutput := strings.TrimSpace(string(common.TrimNull(output)))
 		consoleOutput = append(consoleOutput, output)
 		if debug {
@@ -177,7 +186,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if debug {
 				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 			}
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+			}
 			parsedOutput = strings.TrimSpace(string(common.TrimNull(output)))
 			consoleOutput = append(consoleOutput, output)
 			if debug {
@@ -201,7 +213,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	if err != nil {
 		log.Fatal(err)
 	}
-	output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
+	output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+	if err != nil {
+		log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+	}
 	consoleOutput = append(consoleOutput, output)
 
 	// Wait until we get clue that we're ready for input, intentionally not sending anything
@@ -211,7 +226,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
-		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		consoleOutput = append(consoleOutput, output)
 	}
 
@@ -229,7 +247,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE*2, debug))
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		consoleOutput = append(consoleOutput, output)
 	}
 
@@ -329,7 +350,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			log.Fatal(err)
 		}
 
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 		}
@@ -346,7 +370,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 			common.WriteLine(port, "", debug)
 
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 			}
@@ -360,7 +387,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "reload"))
 	}
 	common.WriteLine(port, "reload", debug)
-	output = common.ReadLine(port, BUFFER_SIZE, debug)
+	output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+	if err != nil {
+		log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+	}
 	consoleOutput = append(consoleOutput, output)
 	if debug {
 		outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
@@ -370,7 +400,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 		}
 		common.WriteLine(port, "", debug)
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		consoleOutput = append(consoleOutput, output)
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
@@ -381,7 +414,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "yes"))
 	}
 	common.WriteLine(port, "yes", debug)
-	output = common.ReadLine(port, BUFFER_SIZE, debug)
+	output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+	if err != nil {
+		log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+	}
 	consoleOutput = append(consoleOutput, output)
 
 	// Send blank new lines until we've reset
@@ -394,7 +430,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 		}
 		common.WriteLine(port, "", debug)
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("routers.Reset: Error while reading line: %s\n", err)
+		}
 		consoleOutput = append(consoleOutput, output)
 	}
 	if debug {
@@ -442,7 +481,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if err != nil {
 		log.Fatal(err)
 	}
-	output := common.TrimNull(common.ReadLine(port, 500, debug))
+	output, err := common.ReadLine(port, 500, debug)
+	if err != nil {
+		log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+	}
 	outputInfo("Waiting for the router to start up\n")
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
@@ -468,7 +510,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 		}
 		time.Sleep(1 * time.Second)
-		output = common.TrimNull(common.ReadLine(port, 500, debug))
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 	}
 	err = port.SetReadTimeout(1 * time.Second)
 	if err != nil {
@@ -479,7 +524,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if err != nil {
 		log.Fatal(err)
 	}
-	output = common.ReadLine(port, 500, debug)
+	output, err = common.ReadLine(port, 500, debug)
+	if err != nil {
+		log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+	}
 
 	outputInfo("Elevating our privileges\n")
 
@@ -495,7 +543,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	prompt = hostname + "#"
 	common.WaitForSubstring(port, prompt, debug)
 
-	output = common.ReadLine(port, 500, debug)
+	output, err = common.ReadLine(port, 500, debug)
+	if err != nil {
+		log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+	}
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
@@ -522,7 +573,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, 500, debug))
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+			}
 			prompt = hostname + "(config-if)#"
 			common.WaitForSubstring(port, prompt, debug)
 
@@ -540,7 +594,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				output, err = common.ReadLine(port, 500, debug)
+				if err != nil {
+					log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+				}
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
@@ -556,7 +613,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				output, err = common.ReadLine(port, 500, debug)
+				if err != nil {
+					log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+				}
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
@@ -569,7 +629,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.TrimNull(common.ReadLine(port, 500, debug))
+				output, err = common.ReadLine(port, 500, debug)
+				if err != nil {
+					log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+				}
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
@@ -584,7 +647,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.TrimNull(common.ReadLine(port, 500, debug))
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
@@ -633,7 +699,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				prompt = hostname + "(config-line)#"
 				common.WaitForSubstring(port, prompt, debug)
 
-				output = common.ReadLine(port, 500, debug)
+				output, err = common.ReadLine(port, 500, debug)
+				if err != nil {
+					log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+				}
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
@@ -668,7 +737,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					output, err = common.ReadLine(port, 500, debug)
+					if err != nil {
+						log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+					}
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -683,7 +755,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, 500, debug)
+					output, err = common.ReadLine(port, 500, debug)
+					if err != nil {
+						log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+					}
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -706,7 +781,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
@@ -722,7 +800,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
@@ -738,7 +819,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
@@ -757,7 +841,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		hostname = config.Hostname
 		prompt = hostname + "(config)"
 		common.WaitForSubstring(port, prompt, debug)
-		output = common.ReadLine(port, 500, debug)
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
@@ -772,7 +859,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, 500, debug)
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}
@@ -806,7 +896,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, 500, debug)
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
@@ -819,7 +912,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, 500, debug)
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
@@ -850,7 +946,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, 500, debug)
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("routers.Defaults: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
