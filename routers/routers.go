@@ -765,7 +765,11 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				}
 			}
 
-			outputInfo(fmt.Sprintf("Configuring line %s %d to %d\n", line.Type, line.StartLine, line.EndLine))
+			outputInfo(fmt.Sprintf("Configuring line %s %d to %d done\n", line.Type, line.StartLine, line.EndLine))
+			if debug {
+				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "exit"))
+			}
+			common.WriteLine(port, "exit", debug)
 			prompt = hostname + "(config)#"
 			common.WaitForSubstring(port, prompt, debug)
 		}
@@ -853,9 +857,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	if config.Banner != "" {
 		outputInfo(fmt.Sprintf("Setting the banner to %s\n", config.Banner))
 		if debug {
-			outputInfo(fmt.Sprintf("INPUT: %s\n", "banner motd "+config.Banner))
+			outputInfo(fmt.Sprintf("INPUT: %s\"%s\"\n", "banner motd ", config.Banner))
 		}
-		_, err = port.Write(common.FormatCommand("banner motd " + config.Banner))
+		_, err = port.Write(common.FormatCommand(fmt.Sprintf("banner motd \"%s\"", config.Banner)))
 		if err != nil {
 			log.Fatal(err)
 		}
