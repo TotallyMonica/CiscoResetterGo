@@ -386,6 +386,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			progress.TotalSteps -= 1
 			progress.CurrentStep += 1
 		} else {
+			common.WaitForSubstring(port, RECOVERY_PROMPT, debug)
 			if backup.Backup {
 				outputInfo("Moving files\n")
 				progress.CurrentStep += 1
@@ -403,7 +404,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				progress.CurrentStep += 1
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Deleting %s\n", strings.TrimSpace(file)))
-					common.WriteLine(port, "del flash:"+strings.TrimSpace(file), debug)
+					common.WriteLine(port, fmt.Sprintf("del flash:%s", strings.TrimSpace(file)), debug)
 					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					if err != nil {
 						log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
@@ -434,20 +435,24 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			consoleOutput = append(consoleOutput, output)
 		}
 
-		common.WriteLine(port, "reset", debug)
-		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
-		if err != nil {
-			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
-		}
-		consoleOutput = append(consoleOutput, output)
-
-		common.WriteLine(port, "y", debug)
-		outputLines, err := common.ReadLines(port, BUFFER_SIZE, 10, debug)
-		if err != nil {
-			log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
-		}
-		for _, output := range outputLines {
+		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), fmt.Sprintf("%s %s", RECOVERY_PROMPT, "reset")) {
+			common.WriteLine(port, "reset", debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
 			consoleOutput = append(consoleOutput, output)
+		}
+
+		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), strings.ToLower("Are you sure you want to reset the system (y/n)?y")) {
+			common.WriteLine(port, "y", debug)
+			outputLines, err := common.ReadLines(port, BUFFER_SIZE, 10, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
+			}
+			for _, output := range outputLines {
+				consoleOutput = append(consoleOutput, output)
+			}
 		}
 	}
 	progress.CurrentStep += 1
