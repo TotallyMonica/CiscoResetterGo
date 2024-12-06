@@ -102,6 +102,7 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) {
 }
 
 func WaitForSubstring(port serial.Port, prompt string, debug bool) {
+	WriteLine(port, "", debug)
 	output, err := ReadLine(port, 500, debug)
 	if err != nil && !errors.Is(err, io.ErrNoProgress) {
 		log.Fatalf("Error while waiting for substring: %s\n", err.Error())
@@ -109,6 +110,8 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 		if debug {
 			fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
 		}
+		WriteLine(port, "", debug)
+		WriteLine(port, "", debug)
 		WriteLine(port, "", debug)
 	}
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
@@ -124,6 +127,8 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
 			}
+			WriteLine(port, "", debug)
+			WriteLine(port, "", debug)
 			WriteLine(port, "", debug)
 		}
 	}
@@ -153,11 +158,11 @@ func WriteLine(port serial.Port, line string, debug bool) {
 
 func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
 	line, err := ReadLines(port, buffSize, 1, debug)
-	if debug {
-		fmt.Printf("FROM DEVICE: %s\n", line[0])
-	}
 	if err != nil {
 		return nil, err
+	}
+	if debug {
+		fmt.Printf("FROM DEVICE: %s\n", line[0])
 	}
 	return line[0], err
 }
