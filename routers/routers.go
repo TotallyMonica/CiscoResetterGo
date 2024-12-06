@@ -492,6 +492,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		log.Fatal(err)
 	}
 	prompt = hostname + "#"
+	common.WaitForSubstring(port, prompt, debug)
+
 	line = common.ReadLine(port, 500, debug)
 
 	if debug {
@@ -505,6 +507,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		log.Fatal(err)
 	}
 	prompt = hostname + "(config)#"
+	common.WaitForSubstring(port, prompt, debug)
 
 	// Configure router ports
 	if len(config.Ports) != 0 {
@@ -520,6 +523,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 			output = common.TrimNull(common.ReadLine(port, 500, debug))
 			prompt = hostname + "(config-if)#"
+			common.WaitForSubstring(port, prompt, debug)
+
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
@@ -584,6 +589,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 			}
 
 			prompt = hostname + "(config)#"
+			common.WaitForSubstring(port, prompt, debug)
 		}
 
 		outputInfo("Finished configuring physical interfaces\n")
@@ -622,6 +628,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 				if err != nil {
 					log.Fatal(err)
 				}
+
+				prompt = hostname + "(config-line)#"
+				common.WaitForSubstring(port, prompt, debug)
+
 				output = common.ReadLine(port, 500, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
@@ -678,6 +688,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 					}
 				}
 			}
+
+			outputInfo(fmt.Sprintf("Configuring line %s %d to %d\n", line.Type, line.StartLine, line.EndLine))
+			prompt = hostname + "(config)#"
+			common.WaitForSubstring(port, prompt, debug)
 		}
 	}
 
@@ -741,6 +755,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 		}
 		hostname = config.Hostname
 		prompt = hostname + "(config)"
+		common.WaitForSubstring(port, prompt, debug)
 		output = common.ReadLine(port, 500, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
