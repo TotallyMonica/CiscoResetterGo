@@ -375,10 +375,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		//	log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 		//}
 
-		err = port.SetReadTimeout(15 * time.Second)
-		if err != nil {
-			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
-		}
 		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
