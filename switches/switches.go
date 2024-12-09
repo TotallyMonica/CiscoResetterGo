@@ -1,8 +1,10 @@
 package switches
 
 import (
+	"errors"
 	"fmt"
 	"go.bug.st/serial"
+	"io"
 	"log"
 	"main/common"
 	"os"
@@ -304,7 +306,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 		// Loop until it stops getting butchered
 		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "unknown cmd: ") ||
-			!strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "flash_init") {
+			!strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), fmt.Sprintf("%s flash_init", RECOVERY_PROMPT)) {
 			common.WriteLine(port, "flash_init", debug)
 			output, err = common.ReadLine(port, 500, debug)
 			if err != nil {
@@ -312,11 +314,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 			consoleOutput = append(consoleOutput, output)
 		}
-		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
-			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
-			}
-			common.WriteLine(port, "\r", debug)
+
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+			common.WriteLine(port, "", debug)
 			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if err != nil {
 				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
@@ -324,7 +324,26 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			consoleOutput = append(consoleOutput, output)
 		}
 
+		// Make sure there's nothing extra left in the buffer
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), RECOVERY_PROMPT) {
+			output, err = common.ReadLine(port, 500, debug)
+			if errors.Is(err, io.ErrNoProgress) {
+				common.WriteLine(port, "", debug)
+				common.WriteLine(port, "", debug)
+				common.WriteLine(port, "", debug)
+			} else if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			} else {
+				consoleOutput = append(consoleOutput, output)
+			}
+		}
+
 		// Clear out buffer
+		common.WriteLine(port, "", debug)
+		_, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
 		_, err = common.ReadLine(port, 500, debug)
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
@@ -339,14 +358,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if err != nil {
 			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 		}
-
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(line))), fmt.Sprintf("%s %s", RECOVERY_PROMPT, "dir flash:")) {
-			common.WriteLine(port, "dir flash:", debug)
-			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
-			if err != nil {
-				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
-			}
-		}
+		//
+		//common.WriteLine(port, "dir flash:", debug)
+		//line, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		//if err != nil {
+		//	log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		//}
 
 		err = port.SetReadTimeout(15 * time.Second)
 		if err != nil {
@@ -374,6 +391,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 		progress.CurrentStep += 1
 		files = ParseFilesToDelete(listing, debug)
+
+		common.WaitForSubstring(port, RECOVERY_PROMPT, debug)
 
 		//err = port.SetReadTimeout(1 * time.Second)
 		//if err != nil {
