@@ -199,7 +199,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	//}
 
 	// Ensure we have one of the test cases in the buffer
-	outputInfo("Checking to if password recovery is enabled\n")
+	outputInfo("Checking to see if password recovery is enabled\n")
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
 		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
 		for i := 0; i < 5; i++ {
@@ -427,7 +427,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					common.WriteLine(port, "", debug)
 					consoleOutput = append(consoleOutput, output)
 				} else {
-					outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+					if debug {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+					}
 					consoleOutput = append(consoleOutput, output)
 				}
 			}
@@ -449,7 +451,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				progress.CurrentStep += 1
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Deleting %s\n", strings.TrimSpace(file)))
-					outputInfo(fmt.Sprintf("INPUT: %s%s\n", "del flash:", strings.TrimSpace(file)))
+					if debug {
+						outputInfo(fmt.Sprintf("INPUT: %s%s\n", "del flash:", strings.TrimSpace(file)))
+					}
 					common.WriteLine(port, fmt.Sprintf("del flash:%s", strings.TrimSpace(file)), debug)
 					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					if err != nil {
