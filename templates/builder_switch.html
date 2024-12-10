@@ -27,16 +27,63 @@
         let numPhysPorts = physPortDiv.getElementsByClassName("count")[0].value;
 
         physPortIdxDiv = document.createElement('div');
-        physPortIdxDiv.setAttribute("class", "portlist")
+        physPortIdxDiv.setAttribute("class", "portlist");
 
         for (let i = 0; i < numPhysPorts; i++) {
-            let sampleParagraph = document.createElement('p');
-            sampleParagraph.textContent = "Physical port ID " + i;
-            physPortIdxDiv.appendChild(sampleParagraph);
+            let physicalPortForm = document.createElement("div");
+            let portTypeLabel = document.createElement("label");
+            let portNumStartLabel = document.createElement("label");
+            let portNumEndLabel = document.createElement("label");
+            let loginMethodLabel = document.createElement("label");
+            let transportMethodLabel = document.createElement("label");
+            let passwordLabel = document.createElement("label");
+
+            let portTypeInput = document.createElement("label");
+            let portNumStartInput = document.createElement("input");
+            let portNumEndInput = document.createElement("input");
+            let loginMethodInput = document.createElement("input");
+            let transportMethodInput = document.createElement("input");
+            let passwordInput = document.createElement("input");
+
+            portTypeLabel.textContent = "Port type";
+            portNumStartLabel.textContent = "Starting port number";
+            portNumEndLabel.textContent = "Ending port number";
+            loginMethodLabel.textContent = "Login method";
+            transportMethodLabel.textContent = "Transport";
+            passwordLabel.textContent = "Password";
+
+            portTypeInput.setAttribute("type", "text");
+            portNumStartInput.setAttribute("type", "number");
+            portNumEndInput.setAttribute("type", "number");
+            loginMethodInput.setAttribute("type", "text");
+            transportMethodInput.setAttribute("type", "text");
+            passwordInput.setAttribute("type", "password");
+
+            portTypeInput.setAttribute("class", "form-control");
+            portNumStartInput.setAttribute("class", "form-control");
+            portNumEndInput.setAttribute("class", "form-control");
+            loginMethodInput.setAttribute("class", "form-control");
+            transportMethodInput.setAttribute("class", "form-control");
+            passwordInput.setAttribute("class", "form-control");
+
+            physicalPortForm.appendChild(portTypeLabel);
+            physicalPortForm.appendChild(portTypeInput);
+            physicalPortForm.appendChild(portNumStartLabel);
+            physicalPortForm.appendChild(portNumStartInput);
+            physicalPortForm.appendChild(portNumEndLabel);
+            physicalPortForm.appendChild(portNumEndInput);
+            physicalPortForm.appendChild(loginMethodLabel);
+            physicalPortForm.appendChild(loginMethodInput);
+            physicalPortForm.appendChild(transportMethodLabel);
+            physicalPortForm.appendChild(transportMethodInput);
+            physicalPortForm.appendChild(passwordLabel);
+            physicalPortForm.appendChild(passwordInput);
+            physPortIdxDiv.appendChild(physicalPortForm);
+            physPortIdxDiv.appendChild(document.createElement("br"));
         }
 
         if (!(physPortDiv.getElementsByClassName("portlist")[0])) {
-            physPortDiv.appendChild(physPortIdxDiv)
+            physPortDiv.appendChild(physPortIdxDiv);
         } else {
             physPortDiv.getElementsByClassName("portlist")[0].replaceWith(physPortIdxDiv);
         }
@@ -59,16 +106,6 @@
     <div class="form-group physportsgrp">
         <label for="physports">Physical ports</label>
         <input type="number" class="form-control count" id="physports">
-    </div>
-
-    <div class="form-group console">
-        <label class="form-check-label" for="console">Configure local console line?</label>
-        <input type="checkbox" class="form-check-input" id="console">
-    </div>
-
-    <div class="form-group vtycfg">
-        <label class="form-check-label" for="vtycfg">Configure virtual terminal lines</label>
-        <input type="checkbox" class="form-check-input" id="vtycfg">
     </div>
 
     <div class="form-group gateway">
