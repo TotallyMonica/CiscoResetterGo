@@ -415,13 +415,19 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			for !errors.Is(err, io.ErrNoProgress) {
 				output, err = common.ReadLine(port, 500, debug)
 				if errors.Is(err, io.ErrNoProgress) {
+
 					break
-				} else if err != nil {
+				} else if err != nil && !errors.Is(err, io.ErrNoProgress) {
 					log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
-				} else {
+				} else if strings.Contains(strings.ToLower(strings.TrimSpace(string(output))), "-- more --") {
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "\\n"))
 					}
+					common.WriteLine(port, "", debug)
+					consoleOutput = append(consoleOutput, output)
+				} else {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
 					consoleOutput = append(consoleOutput, output)
 				}
 			}
@@ -452,6 +458,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					consoleOutput = append(consoleOutput, output)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(line)))))
+					}
+
+					time.Sleep(100 * time.Millisecond)
+
+					if debug {
 						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
 						outputInfo(fmt.Sprintf("INPUT: %s\n", "y"))
 					}
@@ -464,6 +475,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(line)))))
 					}
 					consoleOutput = append(consoleOutput, output)
+
+					time.Sleep(100 * time.Millisecond)
 				}
 			}
 			outputInfo("Switch has been reset\n")
@@ -474,7 +487,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
-			if err != nil {
+			if errors.Is(err, io.ErrNoProgress) {
+				common.WriteLine(port, "", debug)
+			} else if err != nil {
 				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 			}
 			consoleOutput = append(consoleOutput, output)
