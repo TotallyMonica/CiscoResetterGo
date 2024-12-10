@@ -1,10 +1,13 @@
 package switches
 
 import (
+	"errors"
 	"fmt"
 	"go.bug.st/serial"
+	"io"
 	"log"
 	"main/common"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +71,7 @@ const ELEVATED_PREFIX = "Switch#"
 const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration dialog? [yes/no]:"
 
 var redirectedOutput chan string
+var consoleOutput [][]byte
 
 func outputInfo(data string) {
 	if redirectedOutput == nil {
@@ -107,7 +111,6 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 						if len(cleanLine[i]) > 0 && strings.Contains(strings.ToLower(strings.TrimSpace(cleanLine[i])), prefix) {
 							delimitedCleanLine := strings.Split(cleanLine[i], "\n")
 							filesToDelete = append(filesToDelete, delimitedCleanLine[0])
-							outputInfo(fmt.Sprintf("DEBUG: File %s needs to be deleted (contains substring %s)\n", cleanLine[i], prefix))
 						}
 					}
 				}
@@ -119,7 +122,6 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
-
 	var files []string
 	currentTime := time.Now()
 	backup.Prefix = currentTime.Format(fmt.Sprintf("%d%02d%02d_%02d%02d%02d", currentTime.Year(), currentTime.Month(),
@@ -133,19 +135,21 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	port, err := serial.Open(SerialPort, &PortSettings)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("switches.Reset: Error while opening port: %s\n", err)
 	}
 
 	defer func(port serial.Port) {
 		err := port.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("switches.Reset: Error while closing port: %s\n", err)
 		}
 	}(port)
 
-	err = port.SetReadTimeout(5 * time.Second)
+	common.SetReaderPort(port)
+
+	err = port.SetReadTimeout(1 * time.Second)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("switches.Reset: Error while setting read timeout: %s\n", err)
 	}
 
 	outputInfo("Trigger password recovery by following these steps: \n")
@@ -159,9 +163,14 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	var output []byte
 	var parsedOutput string
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
-		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug)))))
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))
 		if debug {
 			outputInfo(fmt.Sprintf("\n=============================================\nFROM DEVICE: %s\n", parsedOutput))
+			consoleOutput = append(consoleOutput, output)
 			outputInfo(fmt.Sprintf("Has prefix: %t\n", strings.Contains(parsedOutput, PASSWORD_RECOVERY) ||
 				strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) ||
 				strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
@@ -169,8 +178,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				strings.Contains(parsedOutput, RECOVERY_PROMPT)))
 			outputInfo(fmt.Sprintf("Expected substrings: %s, %s, %s, %s, or %s\n", RECOVERY_PROMPT, PASSWORD_RECOVERY, PASSWORD_RECOVERY_DISABLED, PASSWORD_RECOVERY_TRIGGERED, PASSWORD_RECOVERY_ENABLED))
 		}
-		common.WriteLine(port, "\r", debug)
-		time.Sleep(1 * time.Second)
+		//common.WriteLine(port, "\r", debug)
 	}
 
 	outputInfo("Release the mode button now\n")
@@ -184,14 +192,23 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 	}
 
+	//err = port.SetReadTimeout(5 * time.Second)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+
 	// Ensure we have one of the test cases in the buffer
-	outputInfo("Checking to if password recovery is enabled\n")
+	outputInfo("Checking to see if password recovery is enabled\n")
 	for !(strings.Contains(parsedOutput, PASSWORD_RECOVERY_DISABLED) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_TRIGGERED) ||
 		strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) || strings.Contains(parsedOutput, RECOVERY_PROMPT)) {
 		for i := 0; i < 5; i++ {
 			common.WriteLine(port, "\r", debug)
 		}
-		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug)))))
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		parsedOutput = strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))
 	}
 
 	// Test to see what we triggered on.
@@ -230,7 +247,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		for !(strings.Contains(parsedOutput, YES_NO_PROMPT)) {
 			common.WriteLine(port, "", debug)
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
 		}
 
 		common.WriteLine(port, "", debug)
@@ -238,20 +258,31 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		for !(strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT)) {
 			common.WriteLine(port, "", debug)
 			time.Sleep(1 * time.Second)
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
 		}
 		common.WriteLine(port, "boot", debug)
-		common.ReadLines(port, BUFFER_SIZE, 10, debug)
+		_, err = common.ReadLines(port, BUFFER_SIZE, 10, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
+		}
 
 		// Password recovery was enabled
 	} else if strings.Contains(parsedOutput, RECOVERY_PROMPT) || strings.Contains(parsedOutput, PASSWORD_RECOVERY_ENABLED) {
 		outputInfo("Password recovery was enabled\n")
 		progress.CurrentStep += 1
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			if debug {
 				outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
 			}
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
+			common.WriteLine(port, "", debug)
+			consoleOutput = append(consoleOutput, output)
 		}
 		if debug {
 			outputInfo(fmt.Sprintf("DEBUG: %s\n", common.TrimNull(output)))
@@ -260,37 +291,100 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		// Initialize Flash
 		outputInfo("Entered recovery console, now initializing flash\n")
 		progress.CurrentStep += 1
-		_, err = port.Write(common.FormatCommand("flash_init"))
+		common.WriteLine(port, "flash_init", debug)
+		//time.Sleep(5 * time.Second)
+		err = port.SetReadTimeout(1 * time.Second)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("switches.Reset: Error while setting the read timeout: %s\n", err)
 		}
-		output = common.ReadLine(port, 500, debug)
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
-			if debug {
-				outputInfo(fmt.Sprintf("DEBUG: %s\n", output))
+		output, err = common.ReadLine(port, 500, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		consoleOutput = append(consoleOutput, output)
+
+		// Loop until it stops getting butchered
+		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), "unknown cmd: ") ||
+			!strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), fmt.Sprintf("%s flash_init", RECOVERY_PROMPT)) {
+			common.WriteLine(port, "flash_init", debug)
+			output, err = common.ReadLine(port, 500, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 			}
+			consoleOutput = append(consoleOutput, output)
+		}
+
+		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
 			common.WriteLine(port, "", debug)
-			time.Sleep(1 * time.Second)
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
+			consoleOutput = append(consoleOutput, output)
+		}
+
+		// Make sure there's nothing extra left in the buffer
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), RECOVERY_PROMPT) {
+			output, err = common.ReadLine(port, 500, debug)
+			if errors.Is(err, io.ErrNoProgress) {
+				if debug {
+					outputInfo(fmt.Sprintf("INPUT: %s\n", "\\n\\n\\n"))
+				}
+				common.WriteLine(port, "", debug)
+				common.WriteLine(port, "", debug)
+				common.WriteLine(port, "", debug)
+			} else if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			} else {
+				if debug {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+				}
+				consoleOutput = append(consoleOutput, output)
+			}
+		}
+
+		// Clear out buffer
+		for !errors.Is(err, io.ErrNoProgress) {
+			output, err = common.ReadLine(port, 500, debug)
+			if errors.Is(err, io.ErrNoProgress) {
+				break
+			} else if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			} else {
+				if debug {
+					outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+				}
+				consoleOutput = append(consoleOutput, output)
+			}
 		}
 
 		// Get files
 		outputInfo("Flash has been initialized, now listing directory\n")
 		progress.CurrentStep += 1
-		err = port.SetReadTimeout(15 * time.Second)
-		if err != nil {
-			log.Fatal(err)
-		}
 		listing := make([][]byte, 1)
 		common.WriteLine(port, "dir flash:", debug)
-		time.Sleep(5 * time.Second)
-		line := common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err := common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		//
+		//common.WriteLine(port, "dir flash:", debug)
+		//line, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		//if err != nil {
+		//	log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		//}
+
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		consoleOutput = append(consoleOutput, line)
 		listing = append(listing, line)
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))), RECOVERY_PROMPT) {
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			listing = append(listing, line)
-			common.WriteLine(port, "", debug)
-			time.Sleep(1 * time.Second)
+			consoleOutput = append(consoleOutput, line)
+			common.WriteLine(port, "\r", debug)
 		}
 
 		// Determine the files we need to delete
@@ -303,23 +397,49 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		progress.CurrentStep += 1
 		files = ParseFilesToDelete(listing, debug)
 
+		common.WaitForSubstring(port, RECOVERY_PROMPT, debug)
+
+		//err = port.SetReadTimeout(1 * time.Second)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
+
 		// Delete files if necessary
 		if len(files) == 0 {
 			outputInfo("Switch has been reset already.\n")
 			progress.TotalSteps -= 1
 			progress.CurrentStep += 1
 		} else {
-			err = port.SetReadTimeout(1 * time.Second)
-			if err != nil {
-				log.Fatal(err)
+			// Clear buffer
+			for !errors.Is(err, io.ErrNoProgress) {
+				output, err = common.ReadLine(port, 500, debug)
+				if errors.Is(err, io.ErrNoProgress) {
+
+					break
+				} else if err != nil && !errors.Is(err, io.ErrNoProgress) {
+					log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+				} else if strings.Contains(strings.ToLower(strings.TrimSpace(string(output))), "-- more --") {
+					if debug {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "\\n"))
+					}
+					common.WriteLine(port, "", debug)
+					consoleOutput = append(consoleOutput, output)
+				} else {
+					if debug {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", common.TrimNull(output)))
+					}
+					consoleOutput = append(consoleOutput, output)
+				}
 			}
+
 			if backup.Backup {
 				outputInfo("Moving files\n")
 				progress.CurrentStep += 1
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Moving file %s to %s-%s\n", strings.TrimSpace(file), backup.Prefix, file))
 					common.WriteLine(port, fmt.Sprintf("rename flash:%s flash:%s-%s", strings.TrimSpace(file), backup.Prefix, strings.TrimSpace(file)), debug)
-					line = common.ReadLine(port, BUFFER_SIZE, debug)
+					line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("rename flash:%s flash:%s-%s\n", strings.TrimSpace(file), backup.Prefix, strings.TrimSpace(file)))
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -330,13 +450,36 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				progress.CurrentStep += 1
 				for _, file := range files {
 					outputInfo(fmt.Sprintf("Deleting %s\n", strings.TrimSpace(file)))
-					common.WriteLine(port, "del flash:"+strings.TrimSpace(file), debug)
-					common.ReadLine(port, BUFFER_SIZE, debug)
+					if debug {
+						outputInfo(fmt.Sprintf("INPUT: %s%s\n", "del flash:", strings.TrimSpace(file)))
+					}
+					common.WriteLine(port, fmt.Sprintf("del flash:%s", strings.TrimSpace(file)), debug)
+					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+					if err != nil {
+						log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+					}
+					consoleOutput = append(consoleOutput, output)
+					if debug {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(line)))))
+					}
+
+					time.Sleep(250 * time.Millisecond)
+
 					if debug {
 						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
+						outputInfo(fmt.Sprintf("INPUT: %s\n", "y"))
 					}
 					common.WriteLine(port, "y", debug)
-					common.ReadLine(port, BUFFER_SIZE, debug)
+					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+					if err != nil {
+						log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+					}
+					if debug {
+						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(line)))))
+					}
+					consoleOutput = append(consoleOutput, output)
+
+					time.Sleep(250 * time.Millisecond)
 				}
 			}
 			outputInfo("Switch has been reset\n")
@@ -345,30 +488,48 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 		outputInfo("Restarting the switch\n")
 		progress.CurrentStep += 1
-		for !strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+		for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), RECOVERY_PROMPT) {
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if errors.Is(err, io.ErrNoProgress) {
+				common.WriteLine(port, "", debug)
+			} else if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
+			consoleOutput = append(consoleOutput, output)
 		}
 
 		common.WriteLine(port, "reset", debug)
-		common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
+		consoleOutput = append(consoleOutput, output)
+
+		time.Sleep(100 * time.Millisecond)
 
 		common.WriteLine(port, "y", debug)
-		common.ReadLines(port, BUFFER_SIZE, 10, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
+		}
+		consoleOutput = append(consoleOutput, output)
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
 	if backup.Backup {
+		//err = port.SetReadTimeout(serial.NoTimeout)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
 		if backup.Destination != "" && ((backup.Source == "" && backup.SubnetMask == "") || (backup.Source != "" && backup.SubnetMask != "")) {
 			closeTftpServer := make(chan bool)
 
 			// Spin up TFTP server
-			go common.BuiltInTftpServer(closeTftpServer)
+			if backup.UseBuiltIn {
+				go common.BuiltInTftpServer(closeTftpServer)
+			}
 
 			// Wait for the switch to start up
-			err = port.SetReadTimeout(1 * time.Second)
-			if err != nil {
-				log.Fatal(err)
-			}
 			outputInfo("Waiting for switch to start up to back up config\n")
 
 			for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(LOW_PRIV_PREFIX)) {
@@ -383,10 +544,15 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 					_, err = port.Write([]byte("\r\n"))
 					if err != nil {
-						log.Fatal(err)
+						log.Fatalf("switches.Reset: Error while writing bytes to port: %s\n", err)
 					}
 				}
 				if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(INITIAL_CONFIG_PROMPT)) {
+					//err = port.SetReadTimeout(1 * time.Second)
+					//if err != nil {
+					//	log.Fatalf("Error occurred while changing port timeout to back up config: %s\n", err)
+					//}
+
 					if debug {
 						outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "no"))
 					}
@@ -394,20 +560,22 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					progress.CurrentStep += 1
 					_, err = port.Write(common.FormatCommand("no"))
 					if err != nil {
-						log.Fatal(err)
+						log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 					}
 				}
-				time.Sleep(1 * time.Second)
-				output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+				output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+				if err != nil {
+					log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+				}
 			}
 			outputInfo("Getting out of initial configuration dialog\n")
 			outputInfo("We have booted up now\n")
 			progress.CurrentStep += 1
 			_, err = port.Write(common.FormatCommand(""))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 			}
-			line := common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err := common.ReadLine(port, BUFFER_SIZE, debug)
 
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -416,9 +584,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo("Entering privileged exec.\n")
 			_, err = port.Write(common.FormatCommand("enable"))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("switches.Reset: Error while writing command to port: %s\n", err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -428,13 +596,13 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo("Assigning vlan 1 an IP address")
 			outputInfo(fmt.Sprintf("INPUT: %s\n", "conf t"))
 			_, err = port.Write(common.FormatCommand("conf t"))
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
 			outputInfo(fmt.Sprintf("INPUT: %s\n", "inter vlan 1"))
 			_, err = port.Write(common.FormatCommand("inter vlan 1"))
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -444,7 +612,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo(fmt.Sprintf("INPUT: %s\n", "ip address dhcp"))
 				_, err = port.Write(common.FormatCommand("ip address dhcp"))
 				if err != nil {
-					log.Fatal(err)
+					log.Fatalf("switches.Reset: Error while sending DHCP to port: %s\n", err)
 				}
 			} else {
 				outputInfo(fmt.Sprintf("INPUT: ip address %s %s\n", backup.Source, backup.SubnetMask))
@@ -453,7 +621,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					log.Fatal(err)
 				}
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -462,7 +630,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -477,7 +645,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					log.Fatal(err)
 				}
 			}
-			closeTftpServer <- true
+			if backup.UseBuiltIn {
+				closeTftpServer <- true
+			}
 		} else {
 			// Inform the user of the missing information
 			outputInfo("Unable to back up configs to TFTP server as there are missing values\n")
@@ -491,6 +661,28 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo("Destination address missing\n")
 			}
 		}
+	}
+
+	dumpFile := os.Getenv("DumpConsoleOutput")
+	if dumpFile != "" {
+		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Error while opening file %s to dump console outputs: %s\n", dumpFile, err)
+		}
+
+		defer file.Close()
+
+		totalWritten := 0
+
+		for _, line := range consoleOutput {
+			written, err := file.Write(line)
+			if err != nil {
+				log.Fatalf("Error while writing %v to %s: %s\n", line, dumpFile, err)
+			}
+			totalWritten += written
+		}
+
+		outputInfo(fmt.Sprintf("Wrote %d bytes to %s\n", totalWritten, dumpFile))
 	}
 
 	// Send clue that we're at the end
@@ -538,30 +730,19 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 	}(port)
 
-	err = port.SetReadTimeout(1 * time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
+	common.SetReaderPort(port)
 
 	outputInfo("Waiting for the switch to startup\n")
 
 	// Try to guess if we've started yet
-	output := common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
-	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
+	output, err := common.ReadLine(port, BUFFER_SIZE, debug)
+	for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
 		if debug {
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
 			outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
 		}
-		if common.IsEmpty(output) {
-			if debug {
-				outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
-			}
-			_, err = port.Write([]byte("\r\n"))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+		common.WriteLine(port, "", debug)
 
 		// Sometimes this'll pop up, sometimes this won't, so we can't test exclusively on this
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
@@ -575,16 +756,24 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				log.Fatal(err)
 			}
 		}
-		time.Sleep(1 * time.Second)
-		output = common.TrimNull(common.ReadLine(port, BUFFER_SIZE, debug))
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Defaults: Error while reading line: %s\n", err)
+		}
 	}
+
+	err = port.SetReadTimeout(1 * time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	outputInfo("We have booted up now\n")
 	progress.CurrentStep += 1
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
 		log.Fatal(err)
 	}
-	line := common.ReadLine(port, BUFFER_SIZE, debug)
+	line, err := common.ReadLine(port, BUFFER_SIZE, debug)
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -598,7 +787,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		log.Fatal(err)
 	}
 	prompt = hostname + "#"
-	line = common.ReadLine(port, BUFFER_SIZE, debug)
+	line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 
 	if debug {
 		outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
@@ -625,7 +814,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -644,7 +833,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, BUFFER_SIZE, debug)
+				line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -672,7 +861,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					log.Fatal(err)
 				}
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -685,7 +874,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -708,7 +897,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -726,7 +915,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, BUFFER_SIZE, debug)
+				line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -745,7 +934,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					line = common.ReadLine(port, BUFFER_SIZE, debug)
+					line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 					}
@@ -759,7 +948,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					line = common.ReadLine(port, BUFFER_SIZE, debug)
+					line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 					}
@@ -779,7 +968,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, BUFFER_SIZE, debug)
+				line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -793,7 +982,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				line = common.ReadLine(port, BUFFER_SIZE, debug)
+				line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 				}
@@ -808,7 +997,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -830,7 +1019,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -847,7 +1036,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -860,7 +1049,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -874,7 +1063,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -885,7 +1074,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -906,7 +1095,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -924,7 +1113,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -941,12 +1130,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
 		hostname = config.Hostname
-		prompt = hostname + "(config)"
+		prompt = hostname + "(config)#"
 
 		outputInfo("Finished setting the hostname.\n")
 	}
@@ -962,7 +1151,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		line = common.ReadLine(port, BUFFER_SIZE, debug)
+		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 		}
@@ -1000,7 +1189,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1012,7 +1201,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1045,7 +1234,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			line = common.ReadLine(port, BUFFER_SIZE, debug)
+			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
 			}
@@ -1055,7 +1244,23 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			common.WaitForSubstring(port, prompt, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+			}
+			for !strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
+				if debug {
+					outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output)) // We don't really need all 32k bytes
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output)))))
+					outputInfo(fmt.Sprintf("FROM DEVICE: Output empty? %t\n", common.IsEmpty(output)))
+					outputInfo(fmt.Sprintf("DEBUG: Expected prompt: %s\n", strings.ToLower(prompt)))
+				}
+				common.WriteLine(port, "", debug)
+				output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+				if err != nil {
+					log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+				}
+			}
 			err = port.SetReadTimeout(1 * time.Second)
 			if err != nil {
 				log.Fatal(err)
@@ -1097,10 +1302,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				if err != nil {
 					log.Fatal(err)
 				}
-				output = common.ReadLine(port, BUFFER_SIZE, debug)
 				if debug {
 					outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 				}
+
+				prompt = hostname + "(config-line)#"
+				common.WaitForSubstring(port, prompt, debug)
 
 				// Set the line password
 				if line.Password != "" {
@@ -1134,7 +1341,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, BUFFER_SIZE, debug)
+					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+					if err != nil {
+						log.Fatalf("switches.Defaults: Error while reading line: %s\n", err)
+					}
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -1150,7 +1360,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					if err != nil {
 						log.Fatal(err)
 					}
-					output = common.ReadLine(port, BUFFER_SIZE, debug)
+					output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+					if err != nil {
+						log.Fatalf("switches.Defaults: Error while reading line: %s\n", err)
+					}
 					if debug {
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 					}
@@ -1169,10 +1382,17 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			output = common.ReadLine(port, BUFFER_SIZE, debug)
+			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+			if err != nil {
+				log.Fatalf("switches.Defaults: Error while reading line: %s\n", err)
+			}
 			if debug {
 				outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 			}
+
+			prompt = hostname + "(config)#"
+			common.WaitForSubstring(port, prompt, debug)
+
 		}
 		outputInfo("Finished configuring console lines.\n")
 		progress.CurrentStep += 1
@@ -1180,7 +1400,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		output = common.ReadLine(port, BUFFER_SIZE, debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
+		}
 		if debug {
 			outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output))))))
 		}

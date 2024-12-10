@@ -143,6 +143,7 @@ func runJob(rules RunParams, jobNum int) {
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
+			jobs[jobIdx].Status = "Finished resetting"
 		}
 		jobIdx := findJob(jobNum)
 		jobs[jobIdx].Status = "Done"
@@ -176,6 +177,9 @@ func runJob(rules RunParams, jobNum int) {
 				time.Sleep(1 * time.Minute)
 			}
 		}
+
+		jobIdx := findJob(jobNum)
+		jobs[jobIdx].Status = "Done"
 	}
 }
 
