@@ -495,23 +495,19 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			consoleOutput = append(consoleOutput, output)
 		}
 
-		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), fmt.Sprintf("%s %s", RECOVERY_PROMPT, "reset")) {
-			common.WriteLine(port, "reset", debug)
-			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
-			if err != nil {
-				log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
-			}
-			consoleOutput = append(consoleOutput, output)
+		common.WriteLine(port, "reset", debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading line: %s\n", err)
 		}
+		consoleOutput = append(consoleOutput, output)
 
-		for strings.Contains(strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))), strings.ToLower("Are you sure you want to reset the system (y/n)?y")) {
-			common.WriteLine(port, "y", debug)
-			output, err = common.ReadLine(port, BUFFER_SIZE, debug)
-			if err != nil {
-				log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
-			}
-			consoleOutput = append(consoleOutput, output)
+		common.WriteLine(port, "y", debug)
+		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
+		if err != nil {
+			log.Fatalf("switches.Reset: Error while reading lines: %s\n", err)
 		}
+		consoleOutput = append(consoleOutput, output)
 	}
 	progress.CurrentStep += 1
 	outputInfo("Successfully reset!\n")
