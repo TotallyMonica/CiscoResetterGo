@@ -52,6 +52,13 @@
             transportMethodLabel.textContent = "Transport";
             passwordLabel.textContent = "Password";
 
+            portTypeLabel.setAttribute("for", "portType" + i);
+            portNumStartLabel.setAttribute("for", "portRangeStart" + i);
+            portNumEndLabel.setAttribute("for", "portRangeEnd" + i);
+            loginMethodLabel.setAttribute("for", "loginPort" + i);
+            transportMethodLabel.setAttribute("for", "transportPort" + i);
+            passwordLabel.setAttribute("for", "passwordPort" + i);
+
             portTypeInput.setAttribute("type", "text");
             portNumStartInput.setAttribute("type", "number");
             portNumEndInput.setAttribute("type", "number");
@@ -65,6 +72,13 @@
             loginMethodInput.setAttribute("class", "form-control");
             transportMethodInput.setAttribute("class", "form-control");
             passwordInput.setAttribute("class", "form-control");
+
+            portTypeInput.setAttribute("id", "portType" + i);
+            portNumStartInput.setAttribute("id", "portRangeStart" + i);
+            portNumEndInput.setAttribute("id", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("id", "loginPort" + i);
+            transportMethodInput.setAttribute("id", "transportPort" + i);
+            passwordInput.setAttribute("id", "passwordPort" + i);
 
             physicalPortForm.appendChild(portTypeLabel);
             physicalPortForm.appendChild(portTypeInput);
