@@ -502,6 +502,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		}
 		consoleOutput = append(consoleOutput, output)
 
+		time.Sleep(100 * time.Millisecond)
+
 		common.WriteLine(port, "y", debug)
 		output, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		if err != nil {
