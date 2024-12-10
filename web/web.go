@@ -658,6 +658,50 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func builderHome(w http.ResponseWriter, r *http.Request) {
+	var builderPage *template.Template
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	params := mux.Vars(r)
+
+	switch strings.ToLower(params["device"]) {
+	case "router":
+		builderPage, err = layoutTemplate.Parse(templates.BuilderRouter)
+		break
+	case "switch":
+		builderPage, err = layoutTemplate.Parse(templates.BuilderSwitch)
+		break
+	default:
+		builderPage, err = layoutTemplate.Parse(templates.BuilderHome)
+		break
+	}
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+	err = builderPage.ExecuteTemplate(w, "layout", nil)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+}
+
 func serveIndex(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
@@ -716,6 +760,8 @@ func ServeWeb() {
 	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
 	muxer.HandleFunc("/api/client/{client}/", newClientApi).Methods("GET", "POST")
 	muxer.HandleFunc("/api/jobs/{job}/", clientJobApi).Methods("GET", "POST")
+	muxer.HandleFunc("/builder/", builderHome).Methods("GET")
+	muxer.HandleFunc("/builder/{device}/", builderHome).Methods("GET")
 
 	server := &http.Server{
 		Handler:      muxer,

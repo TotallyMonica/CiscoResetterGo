@@ -29,3 +29,12 @@ var Ports string
 
 //go:embed reset.html
 var Reset string
+
+//go:embed builder_home.html
+var BuilderHome string
+
+//go:embed builder_switch.html
+var BuilderSwitch string
+
+//go:embed builder_router.html
+var BuilderRouter string
