@@ -460,7 +460,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 						outputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(line)))))
 					}
 
-					time.Sleep(100 * time.Millisecond)
+					time.Sleep(250 * time.Millisecond)
 
 					if debug {
 						outputInfo(fmt.Sprintf("DEBUG: Confirming deletion\n"))
@@ -476,7 +476,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 					}
 					consoleOutput = append(consoleOutput, output)
 
-					time.Sleep(100 * time.Millisecond)
+					time.Sleep(250 * time.Millisecond)
 				}
 			}
 			outputInfo("Switch has been reset\n")
