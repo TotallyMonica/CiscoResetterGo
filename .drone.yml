@@ -5,18 +5,24 @@ platform:
   os: linux
   arch: amd64
 
-pipeline:
-  build_go_1.23:
-    image: golang:1.23.2
+steps:
+  - name: build
+    image: golang:latest
     commands:
       - go build
       - go test -v
-    environment:
-      CI: "drone"
-  build_go_1.20:
-    image: golang:1.20.14
+
+---
+kind: pipeline
+name: Go 1.20 validation
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: build
+    image: golang:1.20
     commands:
       - go build
       - go test -v
-    environment:
-      CI: "drone"
