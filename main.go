@@ -13,6 +13,7 @@ import (
 	"main/switches"
 	"main/web"
 	"os"
+	"runtime/debug"
 	"strings"
 )
 
@@ -157,7 +158,7 @@ func SetupSerial() (string, serial.Mode) {
 }
 
 func main() {
-	var debug bool
+	var verboseOutput bool
 	var resetRouter bool
 	var resetSwitch bool
 	var serialDevice string
@@ -166,9 +167,10 @@ func main() {
 	var backupConfig string
 	var skipReset bool
 	var webServer bool
+	var version bool
 	var portSettings serial.Mode
 
-	flag.BoolVar(&debug, "debug", false, "Show debugging messages")
+	flag.BoolVar(&verboseOutput, "verboseOutput", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
 	flag.StringVar(&switchDefaults, "switch-defaults", "", "Set default settings on a switch")
@@ -176,7 +178,38 @@ func main() {
 	flag.StringVar(&backupConfig, "untested-backup-config", "", "Backup switch/router config (Note: Very much untested)")
 	flag.BoolVar(&skipReset, "skip-reset", false, "Skip resetting devices")
 	flag.BoolVar(&webServer, "web-server", false, "Use the web server")
+	flag.BoolVar(&version, "version", false, "Show version")
 	flag.Parse()
+
+	if version {
+		buildInfo, ok := debug.ReadBuildInfo()
+		fmt.Println("Cisco Resetter Go")
+		fmt.Println("Version: v0.0.0-beta1")
+		if ok {
+			verboseBuildInfo, err := json.MarshalIndent(buildInfo, "", "\t")
+			if err != nil {
+				log.Fatalf("Couldn't marshal additional build information: %s\n", err)
+			}
+
+			var unmarshaledBuild debug.BuildInfo
+			err = json.Unmarshal(verboseBuildInfo, &unmarshaledBuild)
+			if err != nil {
+				log.Fatalf("Couldn't unmarshal additional build information: %s\n", err)
+			}
+
+			for _, setting := range unmarshaledBuild.Settings {
+				if setting.Key == "vcs.revision" {
+					fmt.Printf("Build %s built on Go %s\n", setting.Value, unmarshaledBuild.GoVersion)
+					break
+				}
+			}
+		}
+
+		fmt.Println("Written by Monica Hanson")
+		fmt.Println("Source code available from https://github.com/TotallyMonica/CiscoResetterGo")
+
+		os.Exit(0)
+	}
 
 	if !(resetRouter || resetSwitch || webServer) {
 		_, err := fmt.Fprintf(os.Stderr, "Usage of %s\n", os.Args[0])
@@ -210,10 +243,10 @@ func main() {
 	serialDevice, portSettings = SetupSerial()
 
 	if resetRouter && !skipReset {
-		routers.Reset(serialDevice, portSettings, backupRules, debug, nil)
+		routers.Reset(serialDevice, portSettings, backupRules, verboseOutput, nil)
 	}
 	if resetSwitch && !skipReset {
-		switches.Reset(serialDevice, portSettings, backupRules, debug, nil)
+		switches.Reset(serialDevice, portSettings, backupRules, verboseOutput, nil)
 	}
 
 	if resetRouter && routerDefaults != "" {
@@ -229,7 +262,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		routers.Defaults(serialDevice, portSettings, defaults, debug, nil)
+		routers.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
 		fmt.Println("File path not provided, not setting defaults on switch")
 	}
@@ -247,7 +280,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		switches.Defaults(serialDevice, portSettings, defaults, debug, nil)
+		switches.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
 		fmt.Println("File path not provided, not setting defaults on switch")
 	}
