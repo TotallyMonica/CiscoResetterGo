@@ -38,16 +38,20 @@
             let transportMethodLabel = document.createElement("label");
             let passwordLabel = document.createElement("label");
 
-            let portTypeInput = document.createElement("label");
-            let portNumStartInput = document.createElement("input");
-            let portNumEndInput = document.createElement("input");
-            let loginMethodInput = document.createElement("input");
-            let transportMethodInput = document.createElement("input");
-            let passwordInput = document.createElement("input");
+            let portTypeInput = document.createElement("input");        // Could probably turn this into a dropdown, should be required
+            let portNumStartInput = document.createElement("input");    // Make a number, should be required, legal range 0 <= n <= 15 && start <= end
+            let portNumEndInput = document.createElement("input");      // Make a number, only necessary if type is vty, legal range 0 <= n <= 15 && start <= end
+            let loginMethodInput = document.createElement("input");     // Make a dropdown for regular login (PW Only) or local login (Local auth)
+            let transportMethodInput = document.createElement("input"); // Dropdown for SSH or Telnet (only relevant if line is a vty)
+            let passwordInput = document.createElement("input");        // Should be a password type
 
-            portTypeLabel.textContent = "Port type";
-            portNumStartLabel.textContent = "Starting port number";
-            portNumEndLabel.textContent = "Ending port number";
+            // Breaks for the console line
+            let startConfBr = document.createElement("br");
+            let endConfBr = document.createElement("br");
+
+            portTypeLabel.textContent = "Console line " + (i + 1);
+            portNumStartLabel.textContent = "Starting line number";
+            portNumEndLabel.textContent = "Ending line number";
             loginMethodLabel.textContent = "Login method";
             transportMethodLabel.textContent = "Transport";
             passwordLabel.textContent = "Password";
@@ -102,6 +106,7 @@
             physPortDiv.getElementsByClassName("portlist")[0].replaceWith(physPortIdxDiv);
         }
     }
+
     setTimeout(function() {
         let vlansDiv = document.getElementsByClassName("vlangrp")[0];
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
@@ -118,7 +123,7 @@
     </div>
 
     <div class="form-group physportsgrp">
-        <label for="physports">Physical ports</label>
+        <label for="physports">Console lines</label>
         <input type="number" class="form-control count" id="physports">
     </div>
 
