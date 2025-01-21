@@ -10,13 +10,60 @@
         vlanIdxDiv.setAttribute("class", "vlanlist")
 
         for (let i = 0; i < numVlans; i++) {
-            let sampleParagraph = document.createElement('p');
+            // Create div for elements
+            let vlanForm = document.createElement('div');
+            let sectionBreak = document.createElement('br');
+            let sampleParagraph = document.createElement('h4');
             sampleParagraph.textContent = "Vlan ID " + i;
-            vlanIdxDiv.appendChild(sampleParagraph);
+
+            // Create form labels
+            let vlanIdLabel = document.createElement('label');
+            let vlanTagLabel = document.createElement('label');
+            let vlanIpLabel = document.createElement('label');
+
+            // Associate labels to inputs
+            vlanIdLabel.setAttribute("for", "vlanId" + i);
+            vlanTagLabel.setAttribute("for", "vlanTag" + i);
+            vlanIpLabel.setAttribute("for", "vlanIp" + i);
+
+            vlanIdLabel.textContent = "Vlan ID";
+            vlanTagLabel.textContent = "Vlan Tag";
+            vlanIpLabel.textContent = "Vlan IP";
+
+            // Create form inputs
+            let vlanIdInput = document.createElement('input');
+            let vlanTagInput = document.createElement('input');
+            let vlanIpInput = document.createElement('input');
+
+            // Set input types on inputs
+            vlanIdInput.setAttribute("type", "number");
+            vlanTagInput.setAttribute("type", "number");
+            vlanIpInput.setAttribute("type", "text");
+
+            // Set classes on inputs
+            vlanIdInput.setAttribute("class", "form-control");
+            vlanTagInput.setAttribute("class", "form-control");
+            vlanIpInput.setAttribute("class", "form-control");
+
+            // Set Input IDs
+            vlanIdInput.setAttribute("id", "vlanId" + i);
+            vlanTagInput.setAttribute("id", "vlanTag" + i);
+            vlanIpInput.setAttribute("id", "vlanIp" + i);
+
+            // Add all to div
+            vlanForm.appendChild(sectionBreak);
+            vlanForm.appendChild(sampleParagraph);
+            vlanForm.appendChild(vlanIdLabel);
+            vlanForm.appendChild(vlanIdInput);
+            vlanForm.appendChild(vlanTagLabel);
+            vlanForm.appendChild(vlanTagInput);
+            vlanForm.appendChild(vlanIpLabel);
+            vlanForm.appendChild(vlanIpInput);
+            vlanIdxDiv.appendChild(vlanForm);
         }
 
         if (!(vlanDiv.getElementsByClassName("vlanlist")[0])) {
-            vlanDiv.appendChild(vlanIdxDiv)
+            vlanDiv.appendChild(vlanIdxDiv);
         } else {
             vlanDiv.getElementsByClassName("vlanlist")[0].replaceWith(vlanIdxDiv);
         }
