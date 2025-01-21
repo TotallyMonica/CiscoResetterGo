@@ -38,11 +38,11 @@
             let transportMethodLabel = document.createElement("label");
             let passwordLabel = document.createElement("label");
 
-            let portTypeInput = document.createElement("select");        // Could probably turn this into a dropdown, should be required
+            let portTypeInput = document.createElement("select");
             let portNumStartInput = document.createElement("input");
             let portNumEndInput = document.createElement("input");
-            let loginMethodInput = document.createElement("select");     // Make a dropdown for regular login (PW Only) or local login (Local auth)
-            let transportMethodInput = document.createElement("select"); // Dropdown for SSH or Telnet (only relevant if line is a vty)
+            let loginMethodInput = document.createElement("select");
+            let transportMethodInput = document.createElement("select");
             let passwordInput = document.createElement("input");
 
             // Breaks for the console line
@@ -131,6 +131,10 @@
             loginMethodInput.setAttribute("id", "loginPort" + i);
             transportMethodInput.setAttribute("id", "transportPort" + i);
             passwordInput.setAttribute("id", "passwordPort" + i);
+
+            // Make required fields required
+            portNumStartInput.required = true;
+            portNumEndInput.required = true;
 
             // Add all to the form
             physicalPortForm.appendChild(startConfBr);
