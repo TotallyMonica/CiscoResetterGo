@@ -38,11 +38,11 @@
             let transportMethodLabel = document.createElement("label");
             let passwordLabel = document.createElement("label");
 
-            let portTypeInput = document.createElement("input");        // Could probably turn this into a dropdown, should be required
+            let portTypeInput = document.createElement("select");        // Could probably turn this into a dropdown, should be required
             let portNumStartInput = document.createElement("input");
             let portNumEndInput = document.createElement("input");
-            let loginMethodInput = document.createElement("input");     // Make a dropdown for regular login (PW Only) or local login (Local auth)
-            let transportMethodInput = document.createElement("input"); // Dropdown for SSH or Telnet (only relevant if line is a vty)
+            let loginMethodInput = document.createElement("select");     // Make a dropdown for regular login (PW Only) or local login (Local auth)
+            let transportMethodInput = document.createElement("select"); // Dropdown for SSH or Telnet (only relevant if line is a vty)
             let passwordInput = document.createElement("input");
 
             // Breaks for the console line
@@ -64,7 +64,45 @@
             transportMethodLabel.setAttribute("for", "transportPort" + i);
             passwordLabel.setAttribute("for", "passwordPort" + i);
 
-            // Set form types appropriately
+            // Create dropdown options for console type
+            let consoleLine = document.createElement("option");
+            let vtyLine = document.createElement("option");
+            consoleLine.setAttribute("value", "console");
+            vtyLine.setAttribute("value", "vty");
+            consoleLine.textContent = "Console";
+            vtyLine.textContent = "VTY";
+            portTypeInput.appendChild(consoleLine);
+            portTypeInput.appendChild(vtyLine);
+
+            // Set login method type options
+            let localAuthLogin = document.createElement("option");
+            let passwordLogin = document.createElement("option");
+            let noAuthLogin = document.createElement("option");
+            localAuthLogin.setAttribute("value", "local");
+            passwordLogin.setAttribute("value", "passwd");
+            noAuthLogin.setAttribute("value", "noAuth");
+            localAuthLogin.textContent = "Local Auth (login local)";
+            passwordLogin.textContent = "Password Auth (login)";
+            noAuthLogin.textContent = "No auth";
+            loginMethodInput.appendChild(localAuthLogin);
+            loginMethodInput.appendChild(passwordLogin);
+            loginMethodInput.appendChild(noAuthLogin);
+
+            // Set transport options
+            let transportSsh = document.createElement("option");
+            let transportTelnet = document.createElement("option");
+            let transportDefault = document.createElement("option");
+            transportSsh.setAttribute("value", "ssh");
+            transportTelnet.setAttribute("value", "telnet");
+            transportDefault.setAttribute("value", "ssh&telnet");
+            transportSsh.textContent = "SSH";
+            transportTelnet.textContent = "Telnet";
+            transportDefault.textContent = "Default (SSH & Telnet)";
+            transportMethodInput.appendChild(transportSsh);
+            transportMethodInput.appendChild(transportTelnet);
+            transportMethodInput.appendChild(transportDefault);
+
+            // Set input form types appropriately
             portTypeInput.setAttribute("type", "text");
             portNumStartInput.setAttribute("type", "number");
             portNumEndInput.setAttribute("type", "number");
