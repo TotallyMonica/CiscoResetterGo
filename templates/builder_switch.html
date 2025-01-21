@@ -39,14 +39,15 @@
             let passwordLabel = document.createElement("label");
 
             let portTypeInput = document.createElement("input");        // Could probably turn this into a dropdown, should be required
-            let portNumStartInput = document.createElement("input");    // Make a number, should be required, legal range 0 <= n <= 15 && start <= end
-            let portNumEndInput = document.createElement("input");      // Make a number, only necessary if type is vty, legal range 0 <= n <= 15 && start <= end
+            let portNumStartInput = document.createElement("input");
+            let portNumEndInput = document.createElement("input");
             let loginMethodInput = document.createElement("input");     // Make a dropdown for regular login (PW Only) or local login (Local auth)
             let transportMethodInput = document.createElement("input"); // Dropdown for SSH or Telnet (only relevant if line is a vty)
-            let passwordInput = document.createElement("input");        // Should be a password type
+            let passwordInput = document.createElement("input");
 
             // Breaks for the console line
             let startConfBr = document.createElement("br");
+            let sectionHeader = document.createElement("h4");
             let endConfBr = document.createElement("br");
 
             portTypeLabel.textContent = "Console line " + (i + 1);
@@ -63,6 +64,7 @@
             transportMethodLabel.setAttribute("for", "transportPort" + i);
             passwordLabel.setAttribute("for", "passwordPort" + i);
 
+            // Set form types appropriately
             portTypeInput.setAttribute("type", "text");
             portNumStartInput.setAttribute("type", "number");
             portNumEndInput.setAttribute("type", "number");
@@ -70,6 +72,13 @@
             transportMethodInput.setAttribute("type", "text");
             passwordInput.setAttribute("type", "password");
 
+            // Port numbers: set appropriate ranges
+            portNumStartInput.setAttribute("min", "0");
+            portNumStartInput.setAttribute("max", "15");
+            portNumEndInput.setAttribute("min", "0");
+            portNumEndInput.setAttribute("max", "15");
+
+            // Set the appropriate classes
             portTypeInput.setAttribute("class", "form-control");
             portNumStartInput.setAttribute("class", "form-control");
             portNumEndInput.setAttribute("class", "form-control");
@@ -77,6 +86,7 @@
             transportMethodInput.setAttribute("class", "form-control");
             passwordInput.setAttribute("class", "form-control");
 
+            // Set IDs
             portTypeInput.setAttribute("id", "portType" + i);
             portNumStartInput.setAttribute("id", "portRangeStart" + i);
             portNumEndInput.setAttribute("id", "portRangeEnd" + i);
@@ -84,6 +94,9 @@
             transportMethodInput.setAttribute("id", "transportPort" + i);
             passwordInput.setAttribute("id", "passwordPort" + i);
 
+            // Add all to the form
+            physicalPortForm.appendChild(startConfBr);
+            physicalPortForm.appendChild(sectionHeader);
             physicalPortForm.appendChild(portTypeLabel);
             physicalPortForm.appendChild(portTypeInput);
             physicalPortForm.appendChild(portNumStartLabel);
@@ -96,8 +109,8 @@
             physicalPortForm.appendChild(transportMethodInput);
             physicalPortForm.appendChild(passwordLabel);
             physicalPortForm.appendChild(passwordInput);
+            physicalPortForm.appendChild(endConfBr);
             physPortIdxDiv.appendChild(physicalPortForm);
-            physPortIdxDiv.appendChild(document.createElement("br"));
         }
 
         if (!(physPortDiv.getElementsByClassName("portlist")[0])) {
@@ -111,8 +124,11 @@
         let vlansDiv = document.getElementsByClassName("vlangrp")[0];
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
 
-        vlansDiv.addEventListener("change", adjustVlans);
-        physicalPortsDiv.addEventListener("change", physicalPorts);
+        let vlanCount = vlansDiv.getElementsByClassName("count")[0]
+        let physicalPortCount = physicalPortsDiv.getElementsByClassName("count")[0];
+
+        vlanCount.addEventListener("change", adjustVlans);
+        physicalPortCount.addEventListener("change", physicalPorts);
     }, 10)
 </script>
 
