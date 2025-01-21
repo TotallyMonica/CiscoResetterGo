@@ -18,51 +18,42 @@
             sampleParagraph.textContent = "Vlan ID " + i;
 
             // Create form labels
-            let vlanIdLabel = document.createElement('label');
             let vlanTagLabel = document.createElement('label');
             let vlanIpLabel = document.createElement('label');
 
             // Associate labels to inputs
-            vlanIdLabel.setAttribute("for", "vlanId" + i);
             vlanTagLabel.setAttribute("for", "vlanTag" + i);
             vlanIpLabel.setAttribute("for", "vlanIp" + i);
 
-            vlanIdLabel.textContent = "Vlan ID";
+            // Set labels for labels
             vlanTagLabel.textContent = "Vlan Tag";
             vlanIpLabel.textContent = "Vlan IP";
 
             // Create form inputs
-            let vlanIdInput = document.createElement('input');
-            let vlanTagInput = document.createElement('input');
             let vlanIpInput = document.createElement('input');
+            let vlanTagInput = document.createElement('input');
 
             // Set input types on inputs
-            vlanIdInput.setAttribute("type", "number");
             vlanTagInput.setAttribute("type", "number");
             vlanIpInput.setAttribute("type", "text");
 
             // Set logical minimums for number inputs
-            vlanIdInput.setAttribute("min", "0");
             vlanTagInput.setAttribute("min", "0");
 
             // Set logical maximums for number inputs
             vlanTagInput.setAttribute("max", "4094");
 
             // Set classes on inputs
-            vlanIdInput.setAttribute("class", "form-control");
             vlanTagInput.setAttribute("class", "form-control");
             vlanIpInput.setAttribute("class", "form-control");
 
             // Set Input IDs
-            vlanIdInput.setAttribute("id", "vlanId" + i);
             vlanTagInput.setAttribute("id", "vlanTag" + i);
             vlanIpInput.setAttribute("id", "vlanIp" + i);
 
             // Add all to div
             vlanForm.appendChild(startingSectionBreak);
             vlanForm.appendChild(sampleParagraph);
-            vlanForm.appendChild(vlanIdLabel);
-            vlanForm.appendChild(vlanIdInput);
             vlanForm.appendChild(vlanTagLabel);
             vlanForm.appendChild(vlanTagInput);
             vlanForm.appendChild(vlanIpLabel);
