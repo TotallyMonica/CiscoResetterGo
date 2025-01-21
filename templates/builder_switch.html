@@ -12,7 +12,8 @@
         for (let i = 0; i < numVlans; i++) {
             // Create div for elements
             let vlanForm = document.createElement('div');
-            let sectionBreak = document.createElement('br');
+            let startingSectionBreak = document.createElement('br');
+            let endingSectionBreak = document.createElement('br');
             let sampleParagraph = document.createElement('h4');
             sampleParagraph.textContent = "Vlan ID " + i;
 
@@ -40,6 +41,13 @@
             vlanTagInput.setAttribute("type", "number");
             vlanIpInput.setAttribute("type", "text");
 
+            // Set logical minimums for number inputs
+            vlanIdInput.setAttribute("min", "0");
+            vlanTagInput.setAttribute("min", "0");
+
+            // Set logical maximums for number inputs
+            vlanTagInput.setAttribute("max", "4094");
+
             // Set classes on inputs
             vlanIdInput.setAttribute("class", "form-control");
             vlanTagInput.setAttribute("class", "form-control");
@@ -51,7 +59,7 @@
             vlanIpInput.setAttribute("id", "vlanIp" + i);
 
             // Add all to div
-            vlanForm.appendChild(sectionBreak);
+            vlanForm.appendChild(startingSectionBreak);
             vlanForm.appendChild(sampleParagraph);
             vlanForm.appendChild(vlanIdLabel);
             vlanForm.appendChild(vlanIdInput);
@@ -59,6 +67,7 @@
             vlanForm.appendChild(vlanTagInput);
             vlanForm.appendChild(vlanIpLabel);
             vlanForm.appendChild(vlanIpInput);
+            vlanForm.appendChild(endingSectionBreak);
             vlanIdxDiv.appendChild(vlanForm);
         }
 
