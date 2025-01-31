@@ -179,6 +179,14 @@
             transportMethodInput.setAttribute("id", "transportPort" + i);
             passwordInput.setAttribute("id", "passwordPort" + i);
 
+            // Set names for inputs
+            portTypeInput.setAttribute("name", "portType" + i);
+            portNumStartInput.setAttribute("name", "portRangeStart" + i);
+            portNumEndInput.setAttribute("name", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("name", "loginPort" + i);
+            transportMethodInput.setAttribute("name", "transportPort" + i);
+            passwordInput.setAttribute("name", "passwordPort" + i);
+
             // Make required fields required
             portNumStartInput.required = true;
             portNumEndInput.required = true;
@@ -221,42 +229,42 @@
     }, 10)
 </script>
 
-<form>
+<form method='post' enctype='application/x-www-form-urlencoded' action='/builder/switch/'>
     <div class="form-group vlangrp">
         <label for="vlan">Vlans</label>
-        <input type="number" class="form-control count" id="vlan">
+        <input type="number" class="form-control count" id="vlan" name="vlan">
     </div>
 
     <div class="form-group physportsgrp">
         <label for="physports">Console lines</label>
-        <input type="number" class="form-control count" id="physports">
+        <input type="number" class="form-control count" id="physports" name="physports">
     </div>
 
     <div class="form-group gateway">
         <label for="gateway">Default gateway</label>
-        <input type="text" class="form-control" id="gateway">
+        <input type="text" class="form-control" id="gateway" name="gateway">
     </div>
 
     <div class="form-group enablepw">
         <label for="enablepw">Enable password</label>
-        <input type="text" class="form-control" id="enablepw">
+        <input type="text" class="form-control" id="enablepw" name="enablepw">
     </div>
 
     <div class="form-group domainname">
         <label for="domainname">Domain Name</label>
-        <input type="text" class="form-control" id="domainname">
+        <input type="text" class="form-control" id="domainname" name="domainname">
     </div>
 
     <div class="form-group hostname">
         <label for="hostname">Host Name</label>
-        <input type="text" class="form-control" id="hostname">
+        <input type="text" class="form-control" id="hostname" name="hostname">
     </div>
 
     <div class="form-group banner">
         <label for="banner">Banner</label>
-        <input type="text" class="form-control" id="banner">
+        <input type="text" class="form-control" id="banner" name="banner">
     </div>
 
-    <button type="submit" class="btn btn-primary">Submit</button>
+    <button type="submit">Submit</button>
 </form>
 {{end}}

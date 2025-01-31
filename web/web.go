@@ -659,6 +659,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func builderHome(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("builderHome: Client %s requested %s with method %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path), r.Method)
 	var builderPage *template.Template
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
@@ -671,33 +672,81 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 
-	switch strings.ToLower(params["device"]) {
-	case "router":
-		builderPage, err = layoutTemplate.Parse(templates.BuilderRouter)
-		break
-	case "switch":
-		builderPage, err = layoutTemplate.Parse(templates.BuilderSwitch)
-		break
-	default:
-		builderPage, err = layoutTemplate.Parse(templates.BuilderHome)
-		break
-	}
-	if err != nil {
-		// Log the detailed error
-		log.Info(err.Error())
-		// Return a generic "Internal Server Error" message
-		http.Error(w, http.StatusText(500), 500)
+	devType := params["device"]
+
+	if r.Method == "POST" {
+		w.Header().Set("Content-Type", "application/json")
+
+		err = r.ParseForm()
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		fmt.Printf("Form values:\n")
+		for key, value := range r.Form {
+			fmt.Printf("\t%s: %s\n", key, value)
+		}
+
+		fmt.Printf("Post form values:\n")
+		for key, value := range r.PostForm {
+			fmt.Printf("\t%s: %s\n", key, value)
+		}
+
+		// Build out json file
+		var createdTemplate switches.SwitchConfig
+		createdTemplate.Version = 0.02
+
+		// Root level values
+		createdTemplate.DefaultGateway = r.PostFormValue("gateway")
+		createdTemplate.EnablePassword = r.PostFormValue("enablepw")
+		createdTemplate.Hostname = r.PostFormValue("hostname")
+		createdTemplate.Banner = r.PostFormValue("banner")
+		createdTemplate.DomainName = r.PostFormValue("domainname")
+
+		formattedJson, err := json.Marshal(createdTemplate)
+		if err != nil {
+			log.Infof("%s\n", err.Error())
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		fmt.Fprintf(w, string(formattedJson))
+
 		return
-	}
+	} else if r.Method == "GET" {
+		switch strings.ToLower(devType) {
+		case "router":
+			builderPage, err = layoutTemplate.Parse(templates.BuilderRouter)
+			break
+		case "switch":
+			builderPage, err = layoutTemplate.Parse(templates.BuilderSwitch)
+			break
+		default:
+			builderPage, err = layoutTemplate.Parse(templates.BuilderHome)
+			break
+		}
+		if err != nil {
+			// Log the detailed error
+			log.Info(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
 
-	fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+		fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
-	err = builderPage.ExecuteTemplate(w, "layout", nil)
-	if err != nil {
-		// Log the detailed error
-		log.Info(err.Error())
-		// Return a generic "Internal Server Error" message
-		http.Error(w, http.StatusText(500), 500)
+		err = builderPage.ExecuteTemplate(w, "layout", nil)
+		if err != nil {
+			// Log the detailed error
+			log.Info(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+	} else {
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
 }
@@ -761,7 +810,7 @@ func ServeWeb() {
 	muxer.HandleFunc("/api/client/{client}/", newClientApi).Methods("GET", "POST")
 	muxer.HandleFunc("/api/jobs/{job}/", clientJobApi).Methods("GET", "POST")
 	muxer.HandleFunc("/builder/", builderHome).Methods("GET")
-	muxer.HandleFunc("/builder/{device}/", builderHome).Methods("GET")
+	muxer.HandleFunc("/builder/{device}/", builderHome).Methods("GET", "POST")
 
 	server := &http.Server{
 		Handler:      muxer,
