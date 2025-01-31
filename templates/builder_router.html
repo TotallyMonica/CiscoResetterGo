@@ -1,28 +1,259 @@
 {{define "title"}}Router default settings configurator{{end}}
 {{define "body"}}
-<!-- JavaScript for dynamically adding data -->
+<script>
+    function adjustPhysicalPorts() {
+        let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
+        let physicalPortsCount = physicalPortsDiv.getElementsByClassName("count")[0].value;
+
+        physicalPortsIdxDiv = document.createElement('div');
+        physicalPortsIdxDiv.setAttribute("class", "portlist");
+
+        for (let i = 0; i < physicalPortsCount; i++) {
+            // Create group and labels
+            let physicalPortForm = document.createElement("div");
+            let portNameLabel = document.createElement("label");
+            let portIpLabel = document.createElement("label");
+            let portSubnetMaskLabel = document.createElement("label");
+            let portShutdownLabel = document.createElement("label");
+
+            // Create input variables
+            let portNameInput = document.createElement("input");
+            let portIpInput = document.createElement("input");
+            let portSubnetMaskInput = document.createElement("input");
+            let portShutdownInput = document.createInput("input");
+
+            // Associate labels to inputs
+            portNameLabel.setAttribute("for", "portName" + i);
+            portIpLabel.setAttribute("for", "portIp" + i);
+            portSubnetMaskLabel.setAttribute("for", "portSubnetMask" + i);
+            portShutdownLabel.setAttribute("for", "portShutdown" + i);
+
+            // Set label text
+            portNameLabel.textContent = "Port"
+            portIpLabel.textContent = "IP Address"
+            portSubnetMaskLabel.textContent = "Subnet mask"
+            portShutdownLabel.setAttribute = "Shutdown? "
+
+            // Set input types
+            portNameInput.setAttribute("type", "text");
+            portIpInput.setAttribute("type", "text");
+            portSubnetMaskInput.setAttribute("type", "text");
+            portShutdownInput.setAttribute("type", "checkbox");
+
+            // Set IDs and names
+            portNameInput.setAttribute("id", "portName" + i);
+            portIpInput.setAttribute("id", "portIp" + i);
+            portSubnetMaskInput.setAttribute("id", "portSubnetMask" + i);
+            portShutdownInput.setAttribute("id", "portShutdown" + i);
+            portNameInput.setAttribute("name", "portName" + i);
+            portIpInput.setAttribute("name", "portIp" + i);
+            portSubnetMaskInput.setAttribute("name", "portSubnetMask" + i);
+            portShutdownInput.setAttribute("name", "portShutdown" + i);
+
+            // Set input classes
+            portNameInput.setAttribute("class", "form-control");
+            portIpInput.setAttribute("class", "form-control");
+            portSubnetMaskInput.setAttribute("class", "form-control");
+            portShutdownInput.setAttribute("class", "form-check-input");
+
+            // Add all to form
+            physicalPortForm.appendChild(portNameLabel);
+            physicalPortForm.appendChild(portNameInput);
+            physicalPortForm.appendChild(portIpLabel);
+            physicalPortForm.appendChild(portIpInput);
+            physicalPortForm.appendChild(portSubnetMaskLabel);
+            physicalPortForm.appendChild(portSubnetMaskInput);
+            physicalPortForm.appendChild(portShutdownLabel);
+            physicalPortForm.appendChild(portShutdownInput);
+            physicalPortsIdxDiv.append(physicalPortForm);
+        }
+
+        if (!(physicalPortsDiv.getElementsByClassName("portlist")[0])) {
+            physicalPortsDiv.appendChild(physicalPortsIdxDiv);
+        } else {
+            physicalPortsDiv.getElementsByClassName("portlist")[0].replaceWith(physicalPortsIdxDiv);
+        }
+    }
+
+    function adjustConsolePorts() {
+        let consolePortsDiv = document.getElementsByClassName("consolePortsGrp")[0];
+        let consolePortsCount = consolePortsDiv.getElementsByClassName("count")[0].value;
+
+        consolePortIdxDiv = document.createElement('div');
+        consolePortIdxDiv.setAttribute("class", "portlist");
+
+        for (let i = 0; i < consolePortsCount; i++) {
+            let consolePortForm = document.createElement("div");
+            let portTypeLabel = document.createElement("label");
+            let portNumStartLabel = document.createElement("label");
+            let portNumEndLabel = document.createElement("label");
+            let loginMethodLabel = document.createElement("label");
+            let transportMethodLabel = document.createElement("label");
+            let passwordLabel = document.createElement("label");
+
+            let portTypeInput = document.createElement("select");
+            let portNumStartInput = document.createElement("input");
+            let portNumEndInput = document.createElement("input");
+            let loginMethodInput = document.createElement("select");
+            let transportMethodInput = document.createElement("select");
+            let passwordInput = document.createElement("input");
+
+            // Breaks for the console line
+            let startConfBr = document.createElement("br");
+            let sectionHeader = document.createElement("h4");
+            let endConfBr = document.createElement("br");
+
+            portTypeLabel.textContent = "Console line " + (i + 1);
+            portNumStartLabel.textContent = "Starting line number";
+            portNumEndLabel.textContent = "Ending line number";
+            loginMethodLabel.textContent = "Login method";
+            transportMethodLabel.textContent = "Transport";
+            passwordLabel.textContent = "Password";
+
+            portTypeLabel.setAttribute("for", "portType" + i);
+            portNumStartLabel.setAttribute("for", "portRangeStart" + i);
+            portNumEndLabel.setAttribute("for", "portRangeEnd" + i);
+            loginMethodLabel.setAttribute("for", "loginPort" + i);
+            transportMethodLabel.setAttribute("for", "transportPort" + i);
+            passwordLabel.setAttribute("for", "passwordPort" + i);
+
+            // Create dropdown options for console type
+            let consoleLine = document.createElement("option");
+            let vtyLine = document.createElement("option");
+            consoleLine.setAttribute("value", "console");
+            vtyLine.setAttribute("value", "vty");
+            consoleLine.textContent = "Console";
+            vtyLine.textContent = "VTY";
+            portTypeInput.appendChild(consoleLine);
+            portTypeInput.appendChild(vtyLine);
+
+            // Set login method type options
+            let localAuthLogin = document.createElement("option");
+            let passwordLogin = document.createElement("option");
+            let noAuthLogin = document.createElement("option");
+            localAuthLogin.setAttribute("value", "local");
+            passwordLogin.setAttribute("value", "passwd");
+            noAuthLogin.setAttribute("value", "noAuth");
+            localAuthLogin.textContent = "Local Auth (login local)";
+            passwordLogin.textContent = "Password Auth (login)";
+            noAuthLogin.textContent = "No auth";
+            loginMethodInput.appendChild(localAuthLogin);
+            loginMethodInput.appendChild(passwordLogin);
+            loginMethodInput.appendChild(noAuthLogin);
+
+            // Set transport options
+            let transportSsh = document.createElement("option");
+            let transportTelnet = document.createElement("option");
+            let transportDefault = document.createElement("option");
+            transportSsh.setAttribute("value", "ssh");
+            transportTelnet.setAttribute("value", "telnet");
+            transportDefault.setAttribute("value", "ssh&telnet");
+            transportSsh.textContent = "SSH";
+            transportTelnet.textContent = "Telnet";
+            transportDefault.textContent = "Default (SSH & Telnet)";
+            transportMethodInput.appendChild(transportSsh);
+            transportMethodInput.appendChild(transportTelnet);
+            transportMethodInput.appendChild(transportDefault);
+
+            // Set input form types appropriately
+            portTypeInput.setAttribute("type", "text");
+            portNumStartInput.setAttribute("type", "number");
+            portNumEndInput.setAttribute("type", "number");
+            loginMethodInput.setAttribute("type", "text");
+            transportMethodInput.setAttribute("type", "text");
+            passwordInput.setAttribute("type", "password");
+
+            // Port numbers: set appropriate ranges
+            portNumStartInput.setAttribute("min", "0");
+            portNumStartInput.setAttribute("max", "4");
+            portNumEndInput.setAttribute("min", "0");
+            portNumEndInput.setAttribute("max", "4");
+
+            // Set the appropriate classes
+            portTypeInput.setAttribute("class", "form-control");
+            portNumStartInput.setAttribute("class", "form-control");
+            portNumEndInput.setAttribute("class", "form-control");
+            loginMethodInput.setAttribute("class", "form-control");
+            transportMethodInput.setAttribute("class", "form-control");
+            passwordInput.setAttribute("class", "form-control");
+
+            // Set IDs
+            portTypeInput.setAttribute("id", "portType" + i);
+            portNumStartInput.setAttribute("id", "portRangeStart" + i);
+            portNumEndInput.setAttribute("id", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("id", "loginPort" + i);
+            transportMethodInput.setAttribute("id", "transportPort" + i);
+            passwordInput.setAttribute("id", "passwordPort" + i);
+
+            // Set names for inputs
+            portTypeInput.setAttribute("name", "portType" + i);
+            portNumStartInput.setAttribute("name", "portRangeStart" + i);
+            portNumEndInput.setAttribute("name", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("name", "loginPort" + i);
+            transportMethodInput.setAttribute("name", "transportPort" + i);
+            passwordInput.setAttribute("name", "passwordPort" + i);
+
+            // Make required fields required
+            portNumStartInput.required = true;
+            portNumEndInput.required = true;
+
+            // Add all to the form
+            consolePortForm.appendChild(startConfBr);
+            consolePortForm.appendChild(sectionHeader);
+            consolePortForm.appendChild(portTypeLabel);
+            consolePortForm.appendChild(portTypeInput);
+            consolePortForm.appendChild(portNumStartLabel);
+            consolePortForm.appendChild(portNumStartInput);
+            consolePortForm.appendChild(portNumEndLabel);
+            consolePortForm.appendChild(portNumEndInput);
+            consolePortForm.appendChild(loginMethodLabel);
+            consolePortForm.appendChild(loginMethodInput);
+            consolePortForm.appendChild(transportMethodLabel);
+            consolePortForm.appendChild(transportMethodInput);
+            consolePortForm.appendChild(passwordLabel);
+            consolePortForm.appendChild(passwordInput);
+            consolePortForm.appendChild(endConfBr);
+            consolePortIdxDiv.appendChild(consolePortForm);
+        }
+
+        if (!(consolePortsDiv.getElementsByClassName("portlist")[0])) {
+            consolePortsDiv.appendChild(consolePortIdxDiv);
+        } else {
+            consolePortsDiv.getElementsByClassName("portlist")[0].replaceWith(consolePortIdxDiv);
+        }
+    }
+
+    setTimeout(function() {
+        let routesDiv = document.getElementsByClassname("routesgrp")[0];
+        let physicalPortsDiv = document.getElementsByClassName("physicalportsgrp")[0];
+        let consolePortsDiv = document.getElementsByClassName("consoleportsgrp")[0];
+
+        let routesCount = routesDiv.getElementsByClassname("count")[0];
+        let physicalPortsCount = physicalPortsDiv.getElementsByClassname("count")[0];
+        let consolePortsCount = consolePortsDiv.getElementsByClassName("count")[0];
+
+        vlanCount.addEventListener("change", adjustVlans);
+        physicalPortCount.addEventListener("change", adjustPhysicalPorts);
+        consolePortsCount.addEventListener("change", adjustConsolePorts);
+    }, 10)
+</script>
 
 <form>
-    <div class="form-group">
+    <div class="form-group routesgrp">
         <label for="routes">Routes</label>
-        <input type="number" class="form-control" id="routes">
+        <input type="number" class="form-control count" id="routes">
     </div>
 
-    <div class="form-group">
-        <label for="physports">Physical ports</label>
-        <input type="number" class="form-control" id="physports">
+    <div class="form-group physicalportsgrp">
+        <label for="physportcount">Physical ports</label>
+        <input type="number" class="form-control count" id="physportcount" name="physportcount">
     </div>
 
-    <div class="form-group">
-        <label class="form-check-label" for="console">Configure local console line?</label>
-        <input type="checkbox" class="form-check-input" id="console">
+    <div class="form-group consoleportsgrp">
+        <label for="consoleportcount">Console ports</label>
+        <input type="number" class="form-control count" id="consoleportcount" name="consoleportcount">
     </div>
 
-    <div class="form-group">
-        <label class="form-check-label" for="vtycfg">Configure virtual terminal lines</label>
-        <input type="checkbox" class="form-check-input" id="vtycfg">
-    </div>
-SA
     <div class="form-group">
         <label for="enablepw">Enable password</label>
         <input type="text" class="form-control" id="enablepw">
