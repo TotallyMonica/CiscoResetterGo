@@ -705,6 +705,31 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 		createdTemplate.Banner = r.PostFormValue("banner")
 		createdTemplate.DomainName = r.PostFormValue("domainname")
 
+		// VLAN parsing
+		vlans := make([]switches.VlanConfig, 0)
+		vlanCount, err := strconv.Atoi(r.PostFormValue("vlan"))
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		for i := 0; i < vlanCount; i++ {
+			var vlan switches.VlanConfig
+			vlan.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("vlanTag%d", i)))
+			if err != nil {
+				log.Info(err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			vlan.IpAddress = r.PostFormValue(fmt.Sprintf("vlanIp%d", i))
+
+			vlans = append(vlans, vlan)
+		}
+
+		createdTemplate.Vlans = vlans
+
 		formattedJson, err := json.Marshal(createdTemplate)
 		if err != nil {
 			log.Infof("%s\n", err.Error())
