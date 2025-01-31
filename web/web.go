@@ -771,6 +771,9 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Add("Content-Disposition", "attachment; filename=\"switch_defaults.json\"")
+		w.Header().Add("Content-Length", fmt.Sprintf("%d", len(string(formattedJson))))
+
 		fmt.Fprintf(w, string(formattedJson))
 
 		return
