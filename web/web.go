@@ -759,6 +759,10 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				consoleLine.Password = r.PostFormValue(fmt.Sprintf("passwordPort%d", i))
 			}
 
+			if consoleLine.Type == "vty" {
+				consoleLine.Transport = r.PostFormValue(fmt.Sprintf("transportPort%d", i))
+			}
+
 			consoleLines = append(consoleLines, consoleLine)
 		}
 
