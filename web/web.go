@@ -684,11 +684,6 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("Form values:\n")
-		for key, value := range r.Form {
-			fmt.Printf("\t%s: %s\n", key, value)
-		}
-
 		fmt.Printf("Post form values:\n")
 		for key, value := range r.PostForm {
 			fmt.Printf("\t%s: %s\n", key, value)
@@ -708,8 +703,8 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 		// VLAN parsing
 		vlans := make([]switches.VlanConfig, 0)
 		vlanCount, err := strconv.Atoi(r.PostFormValue("vlan"))
-		if err != nil {
-			log.Info(err.Error())
+		if err != nil && r.PostFormValue("vlan") != "" {
+			log.Infof("Error while getting the number of vlans: %s\n", err.Error())
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
@@ -718,17 +713,56 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			var vlan switches.VlanConfig
 			vlan.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("vlanTag%d", i)))
 			if err != nil {
-				log.Info(err.Error())
+				log.Infof("Error while getting the vlan tag on key %s: %s\n", fmt.Sprintf("vlanTag%d", i), err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
 
 			vlan.IpAddress = r.PostFormValue(fmt.Sprintf("vlanIp%d", i))
+			vlan.SubnetMask = r.PostFormValue(fmt.Sprintf("vlanSubnetMask%d", i))
+			vlan.Shutdown = r.PostFormValue(fmt.Sprintf("vlanShutdown%d", i)) == "shutdown"
 
 			vlans = append(vlans, vlan)
 		}
 
 		createdTemplate.Vlans = vlans
+
+		// Console line parsing
+		consoleLines := make([]switches.LineConfig, 0)
+		consoleLineCount, err := strconv.Atoi(r.PostFormValue("physports"))
+		if err != nil && r.PostFormValue("physports") != "" {
+			log.Infof("Error while getting the number of console lines: %s\n", err.Error())
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		for i := 0; i < consoleLineCount; i++ {
+			var consoleLine switches.LineConfig
+			consoleLine.StartLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeStart%d", i)))
+			if err != nil {
+				log.Infof("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			consoleLine.EndLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeEnd%d", i)))
+			if err != nil {
+				log.Infof("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			consoleLine.Type = r.PostFormValue(fmt.Sprintf("portType%d", i))
+			consoleLine.Password = r.PostFormValue(fmt.Sprintf("portPassword%d", i))
+
+			if r.PostFormValue(fmt.Sprintf("loginPort%d", i)) == "passwd" {
+				consoleLine.Password = r.PostFormValue(fmt.Sprintf("passwordPort%d", i))
+			}
+
+			consoleLines = append(consoleLines, consoleLine)
+		}
+
+		createdTemplate.Lines = consoleLines
 
 		formattedJson, err := json.Marshal(createdTemplate)
 		if err != nil {
@@ -752,6 +786,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			builderPage, err = layoutTemplate.Parse(templates.BuilderHome)
 			break
 		}
+
 		if err != nil {
 			// Log the detailed error
 			log.Info(err.Error())

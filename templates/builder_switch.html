@@ -20,22 +20,32 @@
             // Create form labels
             let vlanTagLabel = document.createElement('label');
             let vlanIpLabel = document.createElement('label');
+            let vlanSubnetMaskLabel = document.createElement('label');
+            let vlanShutdownLabel = document.createElement('label');
 
             // Associate labels to inputs
             vlanTagLabel.setAttribute("for", "vlanTag" + i);
             vlanIpLabel.setAttribute("for", "vlanIp" + i);
+            vlanSubnetMaskLabel.setAttribute("for", "vlanSubnetMask" + i);
+            vlanShutdownLabel.setAttribute("for", "vlanShutdown" + i);
 
             // Set labels for labels
             vlanTagLabel.textContent = "Vlan Tag";
             vlanIpLabel.textContent = "Vlan IP";
+            vlanSubnetMaskLabel.textContent = "Vlan Subnet mask";
+            vlanShutdownLabel.textContent = "Vlan shut down? ";
 
             // Create form inputs
             let vlanIpInput = document.createElement('input');
             let vlanTagInput = document.createElement('input');
+            let vlanSubnetMaskInput = document.createElement('input');
+            let vlanShutdownInput = document.createElement('input');
 
             // Set input types on inputs
             vlanTagInput.setAttribute("type", "number");
             vlanIpInput.setAttribute("type", "text");
+            vlanSubnetMaskInput.setAttribute("type", "text");
+            vlanShutdownInput.setAttribute("type", "checkbox");
 
             // Set logical minimums for number inputs
             vlanTagInput.setAttribute("min", "0");
@@ -43,17 +53,26 @@
             // Set logical maximums for number inputs
             vlanTagInput.setAttribute("max", "4094");
 
+            // Set value for shutdown checkbox
+            vlanShutdownInput.setAttribute("value", "shutdown")
+
             // Set classes on inputs
             vlanTagInput.setAttribute("class", "form-control");
             vlanIpInput.setAttribute("class", "form-control");
+            vlanSubnetMaskInput.setAttribute("class", "form-control");
+            vlanShutdownInput.setAttribute("class", "form-check-label");
 
             // Set Input IDs
             vlanTagInput.setAttribute("id", "vlanTag" + i);
             vlanIpInput.setAttribute("id", "vlanIp" + i);
+            vlanSubnetMaskInput.setAttribute("id", "vlanSubnetMask" + i);
+            vlanShutdownInput.setAttribute("id", "vlanShutdown" + i);
 
             // Set Input names
             vlanTagInput.setAttribute("name", "vlanTag" + i);
             vlanIpInput.setAttribute("name", "vlanIp" + i);
+            vlanSubnetMaskInput.setAttribute("name", "vlanSubnetMask" + i);
+            vlanShutdownInput.setAttribute("name", "vlanShutdown" + i);
 
             // Add all to div
             vlanForm.appendChild(startingSectionBreak);
@@ -62,6 +81,10 @@
             vlanForm.appendChild(vlanTagInput);
             vlanForm.appendChild(vlanIpLabel);
             vlanForm.appendChild(vlanIpInput);
+            vlanForm.appendChild(vlanSubnetMaskLabel);
+            vlanForm.appendChild(vlanSubnetMaskInput);
+            vlanForm.appendChild(vlanShutdownLabel);
+            vlanForm.appendChild(vlanShutdownInput);
             vlanForm.appendChild(endingSectionBreak);
             vlanIdxDiv.appendChild(vlanForm);
         }
