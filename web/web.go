@@ -719,7 +719,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				switchPort.Port = r.PostFormValue(fmt.Sprintf("switchPortName%d", i))
 				switchPort.SwitchportMode = r.PostFormValue(fmt.Sprintf("switchPortType%d", i))
 				switchPort.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)))
-				if err != nil {
+				if err != nil && r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)) != "" {
 					log.Infof("Error while getting the vlan tag for port %s: %s\n", switchPort.Port, err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
