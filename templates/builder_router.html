@@ -1,9 +1,6 @@
 {{define "title"}}Router default settings configurator{{end}}
 {{define "body"}}
 <script>
-    function adjustRoutes() {
-        console.log("Route adjust");
-    }
     function adjustPhysicalPorts() {
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
         let physicalPortsCount = physicalPortsDiv.getElementsByClassName("count")[0].value;
@@ -58,6 +55,9 @@
             portIpInput.setAttribute("class", "form-control");
             portSubnetMaskInput.setAttribute("class", "form-control");
             portShutdownInput.setAttribute("class", "form-check-input");
+
+            // Set value for shutdown checkbox
+            portShutdownInput.setAttribute("value", "shutdown")
 
             // Add all to form
             physicalPortForm.appendChild(portNameLabel);
@@ -227,26 +227,18 @@
     }
 
     setTimeout(function() {
-        let routesDiv = document.getElementsByClassName("routesgrp")[0];
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
         let consolePortsDiv = document.getElementsByClassName("consoleportsgrp")[0];
 
-        let routesCount = routesDiv.getElementsByClassName("count")[0];
         let physicalPortsCount = physicalPortsDiv.getElementsByClassName("count")[0];
         let consolePortsCount = consolePortsDiv.getElementsByClassName("count")[0];
 
         physicalPortsCount.addEventListener("change", adjustPhysicalPorts);
         consolePortsCount.addEventListener("change", adjustConsolePorts);
-        routesCount.addEventListener("change", adjustRoutes);
     }, 10)
 </script>
 
-<form>
-    <div class="form-group routesgrp">
-        <label for="routes">Routes</label>
-        <input type="number" class="form-control count" id="routes">
-    </div>
-
+<form method='post' enctype='application/x-www-form-urlencoded' action='/builder/router/'>
     <div class="form-group physportsgrp">
         <label for="physportcount">Physical ports</label>
         <input type="number" class="form-control count" id="physportcount" name="physportcount">
@@ -259,22 +251,27 @@
 
     <div class="form-group">
         <label for="enablepw">Enable password</label>
-        <input type="text" class="form-control" id="enablepw">
+        <input type="text" class="form-control" id="enablepw" name="enablepw">
     </div>
 
     <div class="form-group">
         <label for="domainname">Domain Name</label>
-        <input type="text" class="form-control" id="domainname">
+        <input type="text" class="form-control" id="domainname" name="domainname">
     </div>
 
     <div class="form-group">
         <label for="hostname">Host Name</label>
-        <input type="text" class="form-control" id="hostname">
+        <input type="text" class="form-control" id="hostname" name="hostname">
     </div>
 
     <div class="form-group">
         <label for="banner">Banner</label>
-        <input type="text" class="form-control" id="banner">
+        <input type="text" class="form-control" id="banner" name="banner">
+    </div>
+
+    <div class="form-group">
+        <label for="defaultroute">Default Route</label>
+        <input type="text" class="form-control" id="defaultroute" name="defaultroute">
     </div>
 
     <button type="submit" class="btn btn-primary">Submit</button>
