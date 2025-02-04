@@ -274,6 +274,24 @@
         <input type="text" class="form-control" id="defaultroute" name="defaultroute">
     </div>
 
+    <h4>SSH Config</h4>
+    <div class="form-group sshbits">
+        <label for="sshbits">SSH key bit size</label>
+        <input type="number" class="form-control" id="sshbits" name="sshbits" min="360" max="2048">
+    </div>
+    <div class="form-group sshuser">
+        <label for="sshuser">SSH User</label>
+        <input type="text" class="form-control" id="sshuser" name="sshuser">
+    </div>
+    <div class="form-group sshpasswd">
+        <label for="sshpasswd">SSH Password</label>
+        <input type="text" class="form-control" id="sshpasswd" name="sshpasswd">
+    </div>
+    <div class="form-group sshenable">
+        <label for="sshenable">SSH enabled?</label>
+        <input type="checkbox" class="form-check-input" id="sshenable" name="sshenable" value="enablessh">
+    </div>
+
     <button type="submit" class="btn btn-primary">Submit</button>
 </form>
 {{end}}
