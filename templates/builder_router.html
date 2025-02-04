@@ -1,11 +1,14 @@
 {{define "title"}}Router default settings configurator{{end}}
 {{define "body"}}
 <script>
+    function adjustRoutes() {
+        console.log("Route adjust");
+    }
     function adjustPhysicalPorts() {
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
         let physicalPortsCount = physicalPortsDiv.getElementsByClassName("count")[0].value;
 
-        physicalPortsIdxDiv = document.createElement('div');
+        let physicalPortsIdxDiv = document.createElement('div');
         physicalPortsIdxDiv.setAttribute("class", "portlist");
 
         for (let i = 0; i < physicalPortsCount; i++) {
@@ -20,7 +23,7 @@
             let portNameInput = document.createElement("input");
             let portIpInput = document.createElement("input");
             let portSubnetMaskInput = document.createElement("input");
-            let portShutdownInput = document.createInput("input");
+            let portShutdownInput = document.createElement("input");
 
             // Associate labels to inputs
             portNameLabel.setAttribute("for", "portName" + i);
@@ -32,7 +35,7 @@
             portNameLabel.textContent = "Port"
             portIpLabel.textContent = "IP Address"
             portSubnetMaskLabel.textContent = "Subnet mask"
-            portShutdownLabel.setAttribute = "Shutdown? "
+            portShutdownLabel.textContent = "Shutdown? "
 
             // Set input types
             portNameInput.setAttribute("type", "text");
@@ -76,10 +79,10 @@
     }
 
     function adjustConsolePorts() {
-        let consolePortsDiv = document.getElementsByClassName("consolePortsGrp")[0];
+        let consolePortsDiv = document.getElementsByClassName("consoleportsgrp")[0];
         let consolePortsCount = consolePortsDiv.getElementsByClassName("count")[0].value;
 
-        consolePortIdxDiv = document.createElement('div');
+        let consolePortIdxDiv = document.createElement('div');
         consolePortIdxDiv.setAttribute("class", "portlist");
 
         for (let i = 0; i < consolePortsCount; i++) {
@@ -224,17 +227,17 @@
     }
 
     setTimeout(function() {
-        let routesDiv = document.getElementsByClassname("routesgrp")[0];
-        let physicalPortsDiv = document.getElementsByClassName("physicalportsgrp")[0];
+        let routesDiv = document.getElementsByClassName("routesgrp")[0];
+        let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
         let consolePortsDiv = document.getElementsByClassName("consoleportsgrp")[0];
 
-        let routesCount = routesDiv.getElementsByClassname("count")[0];
-        let physicalPortsCount = physicalPortsDiv.getElementsByClassname("count")[0];
+        let routesCount = routesDiv.getElementsByClassName("count")[0];
+        let physicalPortsCount = physicalPortsDiv.getElementsByClassName("count")[0];
         let consolePortsCount = consolePortsDiv.getElementsByClassName("count")[0];
 
-        vlanCount.addEventListener("change", adjustVlans);
-        physicalPortCount.addEventListener("change", adjustPhysicalPorts);
+        physicalPortsCount.addEventListener("change", adjustPhysicalPorts);
         consolePortsCount.addEventListener("change", adjustConsolePorts);
+        routesCount.addEventListener("change", adjustRoutes);
     }, 10)
 </script>
 
@@ -244,7 +247,7 @@
         <input type="number" class="form-control count" id="routes">
     </div>
 
-    <div class="form-group physicalportsgrp">
+    <div class="form-group physportsgrp">
         <label for="physportcount">Physical ports</label>
         <input type="number" class="form-control count" id="physportcount" name="physportcount">
     </div>
