@@ -794,6 +794,11 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 					consoleLine.Transport = r.PostFormValue(fmt.Sprintf("transportPort%d", i))
 				}
 
+				consoleLine.Login = r.PostFormValue(fmt.Sprintf("loginPort%d", i))
+				if consoleLine.Login == "passwd" || consoleLine.Login == "noAuth" {
+					consoleLine.Login = ""
+				}
+
 				consoleLines = append(consoleLines, consoleLine)
 			}
 
@@ -880,6 +885,11 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 				if r.PostFormValue(fmt.Sprintf("loginPort%d", i)) == "passwd" {
 					consoleLine.Password = r.PostFormValue(fmt.Sprintf("passwordPort%d", i))
+				}
+
+				consoleLine.Login = r.PostFormValue(fmt.Sprintf("loginPort%d", i))
+				if consoleLine.Login == "passwd" || consoleLine.Login == "noAuth" {
+					consoleLine.Login = ""
 				}
 
 				if consoleLine.Type == "vty" {
