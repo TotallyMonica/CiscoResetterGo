@@ -244,15 +244,120 @@
         }
     }
 
+    function adjustSwitchPorts() {
+        let switchPortDiv = document.getElementsByClassName("switchportgrp")[0];
+        let numSwitchPorts = switchPortDiv.getElementsByClassName("count")[0].value;
+
+        let switchPortIdxDiv = document.createElement('div');
+        switchPortIdxDiv.setAttribute("class", "portlist");
+
+        for (let i = 0; i < numSwitchPorts; i++) {
+            let switchPortForm = document.createElement("div");
+
+            let switchPortHeader = document.createElement("p");
+            switchPortHeader.textContent = "Switch port " + (i + 1);
+
+            // Create elements for fields
+            let switchPortNameLabel = document.createElement("label");
+            let switchPortTypeLabel = document.createElement("label");
+            let switchPortVlanLabel = document.createElement("label");
+            let switchPortShutdownLabel = document.createElement("label");
+
+            // Set text content for labels
+            switchPortNameLabel.textContent = "Port name";
+            switchPortTypeLabel.textContent = "Type";
+            switchPortVlanLabel.textContent = "Vlan Tag";
+            switchPortShutdownLabel.textContent = "Shutdown? ";
+
+            // Bind label to input
+            switchPortNameLabel.setAttribute("for", "switchPortName" + i);
+            switchPortTypeLabel.setAttribute("for", "switchPortType" + i);
+            switchPortVlanLabel.setAttribute("for", "switchPortVlan" + i);
+            switchPortShutdownLabel.setAttribute("for", "switchPortShutdown" + i);
+
+            // Create elements for inputs
+            let switchPortNameInput = document.createElement("input");
+            let switchPortTypeInput = document.createElement("select");
+            let switchPortVlanInput = document.createElement("input");
+            let switchPortShutdownInput = document.createElement("input");
+
+            // Set IDs and Names
+            switchPortNameInput.setAttribute("id", "switchPortName" + i);
+            switchPortTypeInput.setAttribute("id", "switchPortType" + i);
+            switchPortVlanInput.setAttribute("id", "switchPortVlan" + i);
+            switchPortShutdownInput.setAttribute("id", "switchPortShutdown" + i);
+            switchPortNameInput.setAttribute("name", "switchPortName" + i);
+            switchPortTypeInput.setAttribute("name", "switchPortType" + i);
+            switchPortVlanInput.setAttribute("name", "switchPortVlan" + i);
+            switchPortShutdownInput.setAttribute("name", "switchPortShutdown" + i);
+
+            // Set class for inputs
+            switchPortNameInput.setAttribute("class", "form-control");
+            switchPortTypeInput.setAttribute("class", "form-control");
+            switchPortVlanInput.setAttribute("class", "form-control");
+            switchPortShutdownInput.setAttribute("class", "form-control-input");
+
+            // Set input types
+            switchPortNameInput.setAttribute("type", "text");
+            switchPortVlanInput.setAttribute("type", "number");
+            switchPortShutdownInput.setAttribute("type", "checkbox");
+
+            // Set checkbox vlaue
+            switchPortShutdownInput.setAttribute("value", "shutdown");
+
+            // Set minimum and maximum for vlans
+            switchPortVlanInput.setAttribute("min", "1");
+            switchPortVlanInput.setAttribute("max", "4094");
+
+            // Create dropdown options for switchport type
+            let switchPortAccessType = document.createElement("option");
+            let switchPortTrunkType = document.createElement("option");
+
+            // Set user-friendly names for options
+            switchPortAccessType.textContent = "Access";
+            switchPortTrunkType.textContent = "Trunk";
+
+            // Set values for options
+            switchPortAccessType.setAttribute("value", "access");
+            switchPortTrunkType.setAttribute("value", "trunk");
+
+            // Add options to dropdown
+            switchPortTypeInput.appendChild(switchPortAccessType);
+            switchPortTypeInput.appendChild(switchPortTrunkType);
+
+            // Add all to form
+            switchPortForm.appendChild(switchPortHeader);
+            switchPortForm.appendChild(switchPortNameLabel);
+            switchPortForm.appendChild(switchPortNameInput);
+            switchPortForm.appendChild(switchPortTypeLabel);
+            switchPortForm.appendChild(switchPortTypeInput);
+            switchPortForm.appendChild(switchPortVlanLabel);
+            switchPortForm.appendChild(switchPortVlanInput);
+            switchPortForm.appendChild(switchPortShutdownLabel);
+            switchPortForm.appendChild(switchPortShutdownInput);
+            switchPortIdxDiv.appendChild(switchPortForm);
+        }
+
+        if (!(switchPortDiv.getElementsByClassName("portlist")[0])) {
+            switchPortDiv.appendChild(switchPortIdxDiv);
+        } else {
+            switchPortDiv.getElementsByClassName("portlist")[0].replaceWith(switchPortIdxDiv);
+        }
+
+    }
+
     setTimeout(function() {
         let vlansDiv = document.getElementsByClassName("vlangrp")[0];
         let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
+        let switchPortsDiv = document.getElementsByClassName("switchportgrp")[0];
 
         let vlanCount = vlansDiv.getElementsByClassName("count")[0]
         let physicalPortCount = physicalPortsDiv.getElementsByClassName("count")[0];
+        let switchPortCount = switchPortsDiv.getElementsByClassName("count")[0];
 
         vlanCount.addEventListener("change", adjustVlans);
         physicalPortCount.addEventListener("change", physicalPorts);
+        switchPortCount.addEventListener("change", adjustSwitchPorts);
     }, 10)
 </script>
 
@@ -260,6 +365,11 @@
     <div class="form-group vlangrp">
         <label for="vlan">Vlans</label>
         <input type="number" class="form-control count" id="vlan" name="vlan">
+    </div>
+
+    <div class="form-group switchportgrp">
+        <label for="switchports">Switch ports</label>
+        <input type="number" class="form-control count" id="switchports" name="switchports">
     </div>
 
     <div class="form-group physportsgrp">
