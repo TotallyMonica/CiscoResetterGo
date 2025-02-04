@@ -703,6 +703,34 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			createdTemplate.Banner = r.PostFormValue("banner")
 			createdTemplate.DomainName = r.PostFormValue("domainname")
 
+			// Switchport parsing
+			switchPorts := make([]switches.SwitchPortConfig, 0)
+			switchPortCount, err := strconv.Atoi(r.PostFormValue("switchports"))
+			if err != nil && r.PostFormValue("switchports") != "" {
+				log.Infof("Error while getting the number of switchports: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			// Add switch ports to list
+			for i := 0; i < switchPortCount; i++ {
+				var switchPort switches.SwitchPortConfig
+
+				switchPort.Port = r.PostFormValue(fmt.Sprintf("switchPortName%d", i))
+				switchPort.SwitchportMode = r.PostFormValue(fmt.Sprintf("switchPortType%d", i))
+				switchPort.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the vlan tag for port %s: %s\n", switchPort.Port, err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+				switchPort.Shutdown = r.PostFormValue(fmt.Sprintf("switchPortShutdown%d", i)) == "shutdown"
+
+				switchPorts = append(switchPorts, switchPort)
+			}
+
+			createdTemplate.Ports = switchPorts
+
 			// VLAN parsing
 			vlans := make([]switches.VlanConfig, 0)
 			vlanCount, err := strconv.Atoi(r.PostFormValue("vlan"))
