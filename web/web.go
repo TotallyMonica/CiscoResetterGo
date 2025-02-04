@@ -771,6 +771,20 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 			createdTemplate.Lines = consoleLines
 
+			// Parse SSH config
+			var sshConfig switches.SshConfig
+			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
+			if err != nil && r.PostFormValue("sshbits") != "" {
+				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			sshConfig.Username = r.PostFormValue("sshuser")
+			sshConfig.Password = r.PostFormValue("sshpasswd")
+			sshConfig.Enable = r.PostFormValue("sshenable") == "enablessh"
+
+			createdTemplate.Ssh = sshConfig
+
 			formattedJson, err = json.Marshal(createdTemplate)
 			if err != nil {
 				log.Infof("%s\n", err.Error())
@@ -847,6 +861,20 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				consoleLines = append(consoleLines, consoleLine)
 			}
 			createdTemplate.Lines = consoleLines
+
+			// Parse SSH settings
+			var sshConfig routers.SshConfig
+			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
+			if err != nil {
+				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			sshConfig.Username = r.PostFormValue("sshuser")
+			sshConfig.Password = r.PostFormValue("sshpasswd")
+			sshConfig.Enable = r.PostFormValue("sshenable") == "enablessh"
+
+			createdTemplate.Ssh = sshConfig
 
 			formattedJson, err = json.Marshal(createdTemplate)
 			if err != nil {
