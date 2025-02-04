@@ -1,0 +1,425 @@
+{{define "title"}}Switch default settings configurator{{end}}
+{{define "body"}}
+
+<script>
+    function adjustVlans() {
+        let vlanDiv = document.getElementsByClassName("vlangrp")[0];
+        let numVlans = vlanDiv.getElementsByClassName("count")[0].value;
+
+        vlanIdxDiv = document.createElement('div');
+        vlanIdxDiv.setAttribute("class", "vlanlist")
+
+        for (let i = 0; i < numVlans; i++) {
+            // Create div for elements
+            let vlanForm = document.createElement('div');
+            let startingSectionBreak = document.createElement('br');
+            let endingSectionBreak = document.createElement('br');
+            let sampleParagraph = document.createElement('h4');
+            sampleParagraph.textContent = "Vlan ID " + i;
+
+            // Create form labels
+            let vlanTagLabel = document.createElement('label');
+            let vlanIpLabel = document.createElement('label');
+            let vlanSubnetMaskLabel = document.createElement('label');
+            let vlanShutdownLabel = document.createElement('label');
+
+            // Associate labels to inputs
+            vlanTagLabel.setAttribute("for", "vlanTag" + i);
+            vlanIpLabel.setAttribute("for", "vlanIp" + i);
+            vlanSubnetMaskLabel.setAttribute("for", "vlanSubnetMask" + i);
+            vlanShutdownLabel.setAttribute("for", "vlanShutdown" + i);
+
+            // Set labels for labels
+            vlanTagLabel.textContent = "Vlan Tag";
+            vlanIpLabel.textContent = "Vlan IP";
+            vlanSubnetMaskLabel.textContent = "Vlan Subnet mask";
+            vlanShutdownLabel.textContent = "Vlan shut down? ";
+
+            // Create form inputs
+            let vlanIpInput = document.createElement('input');
+            let vlanTagInput = document.createElement('input');
+            let vlanSubnetMaskInput = document.createElement('input');
+            let vlanShutdownInput = document.createElement('input');
+
+            // Set input types on inputs
+            vlanTagInput.setAttribute("type", "number");
+            vlanIpInput.setAttribute("type", "text");
+            vlanSubnetMaskInput.setAttribute("type", "text");
+            vlanShutdownInput.setAttribute("type", "checkbox");
+
+            // Set logical minimums for number inputs
+            vlanTagInput.setAttribute("min", "0");
+
+            // Set logical maximums for number inputs
+            vlanTagInput.setAttribute("max", "4094");
+
+            // Set value for shutdown checkbox
+            vlanShutdownInput.setAttribute("value", "shutdown")
+
+            // Set classes on inputs
+            vlanTagInput.setAttribute("class", "form-control");
+            vlanIpInput.setAttribute("class", "form-control");
+            vlanSubnetMaskInput.setAttribute("class", "form-control");
+            vlanShutdownInput.setAttribute("class", "form-check-label");
+
+            // Set Input IDs
+            vlanTagInput.setAttribute("id", "vlanTag" + i);
+            vlanIpInput.setAttribute("id", "vlanIp" + i);
+            vlanSubnetMaskInput.setAttribute("id", "vlanSubnetMask" + i);
+            vlanShutdownInput.setAttribute("id", "vlanShutdown" + i);
+
+            // Set Input names
+            vlanTagInput.setAttribute("name", "vlanTag" + i);
+            vlanIpInput.setAttribute("name", "vlanIp" + i);
+            vlanSubnetMaskInput.setAttribute("name", "vlanSubnetMask" + i);
+            vlanShutdownInput.setAttribute("name", "vlanShutdown" + i);
+
+            // Add all to div
+            vlanForm.appendChild(startingSectionBreak);
+            vlanForm.appendChild(sampleParagraph);
+            vlanForm.appendChild(vlanTagLabel);
+            vlanForm.appendChild(vlanTagInput);
+            vlanForm.appendChild(vlanIpLabel);
+            vlanForm.appendChild(vlanIpInput);
+            vlanForm.appendChild(vlanSubnetMaskLabel);
+            vlanForm.appendChild(vlanSubnetMaskInput);
+            vlanForm.appendChild(vlanShutdownLabel);
+            vlanForm.appendChild(vlanShutdownInput);
+            vlanForm.appendChild(endingSectionBreak);
+            vlanIdxDiv.appendChild(vlanForm);
+        }
+
+        if (!(vlanDiv.getElementsByClassName("vlanlist")[0])) {
+            vlanDiv.appendChild(vlanIdxDiv);
+        } else {
+            vlanDiv.getElementsByClassName("vlanlist")[0].replaceWith(vlanIdxDiv);
+        }
+    }
+
+    function physicalPorts() {
+        let physPortDiv = document.getElementsByClassName("physportsgrp")[0];
+        let numPhysPorts = physPortDiv.getElementsByClassName("count")[0].value;
+
+        physPortIdxDiv = document.createElement('div');
+        physPortIdxDiv.setAttribute("class", "portlist");
+
+        for (let i = 0; i < numPhysPorts; i++) {
+            let physicalPortForm = document.createElement("div");
+            let portTypeLabel = document.createElement("label");
+            let portNumStartLabel = document.createElement("label");
+            let portNumEndLabel = document.createElement("label");
+            let loginMethodLabel = document.createElement("label");
+            let transportMethodLabel = document.createElement("label");
+            let passwordLabel = document.createElement("label");
+
+            let portTypeInput = document.createElement("select");
+            let portNumStartInput = document.createElement("input");
+            let portNumEndInput = document.createElement("input");
+            let loginMethodInput = document.createElement("select");
+            let transportMethodInput = document.createElement("select");
+            let passwordInput = document.createElement("input");
+
+            // Breaks for the console line
+            let startConfBr = document.createElement("br");
+            let sectionHeader = document.createElement("h4");
+            let endConfBr = document.createElement("br");
+
+            portTypeLabel.textContent = "Console line " + (i + 1);
+            portNumStartLabel.textContent = "Starting line number";
+            portNumEndLabel.textContent = "Ending line number";
+            loginMethodLabel.textContent = "Login method";
+            transportMethodLabel.textContent = "Transport";
+            passwordLabel.textContent = "Password";
+
+            portTypeLabel.setAttribute("for", "portType" + i);
+            portNumStartLabel.setAttribute("for", "portRangeStart" + i);
+            portNumEndLabel.setAttribute("for", "portRangeEnd" + i);
+            loginMethodLabel.setAttribute("for", "loginPort" + i);
+            transportMethodLabel.setAttribute("for", "transportPort" + i);
+            passwordLabel.setAttribute("for", "passwordPort" + i);
+
+            // Create dropdown options for console type
+            let consoleLine = document.createElement("option");
+            let vtyLine = document.createElement("option");
+            consoleLine.setAttribute("value", "console");
+            vtyLine.setAttribute("value", "vty");
+            consoleLine.textContent = "Console";
+            vtyLine.textContent = "VTY";
+            portTypeInput.appendChild(consoleLine);
+            portTypeInput.appendChild(vtyLine);
+
+            // Set login method type options
+            let localAuthLogin = document.createElement("option");
+            let passwordLogin = document.createElement("option");
+            let noAuthLogin = document.createElement("option");
+            localAuthLogin.setAttribute("value", "local");
+            passwordLogin.setAttribute("value", "passwd");
+            noAuthLogin.setAttribute("value", "noAuth");
+            localAuthLogin.textContent = "Local Auth (login local)";
+            passwordLogin.textContent = "Password Auth (login)";
+            noAuthLogin.textContent = "No auth";
+            loginMethodInput.appendChild(localAuthLogin);
+            loginMethodInput.appendChild(passwordLogin);
+            loginMethodInput.appendChild(noAuthLogin);
+
+            // Set transport options
+            let transportSsh = document.createElement("option");
+            let transportTelnet = document.createElement("option");
+            let transportDefault = document.createElement("option");
+            transportSsh.setAttribute("value", "ssh");
+            transportTelnet.setAttribute("value", "telnet");
+            transportDefault.setAttribute("value", "ssh&telnet");
+            transportSsh.textContent = "SSH";
+            transportTelnet.textContent = "Telnet";
+            transportDefault.textContent = "Default (SSH & Telnet)";
+            transportMethodInput.appendChild(transportSsh);
+            transportMethodInput.appendChild(transportTelnet);
+            transportMethodInput.appendChild(transportDefault);
+
+            // Set input form types appropriately
+            portTypeInput.setAttribute("type", "text");
+            portNumStartInput.setAttribute("type", "number");
+            portNumEndInput.setAttribute("type", "number");
+            loginMethodInput.setAttribute("type", "text");
+            transportMethodInput.setAttribute("type", "text");
+            passwordInput.setAttribute("type", "password");
+
+            // Port numbers: set appropriate ranges
+            portNumStartInput.setAttribute("min", "0");
+            portNumStartInput.setAttribute("max", "15");
+            portNumEndInput.setAttribute("min", "0");
+            portNumEndInput.setAttribute("max", "15");
+
+            // Set the appropriate classes
+            portTypeInput.setAttribute("class", "form-control");
+            portNumStartInput.setAttribute("class", "form-control");
+            portNumEndInput.setAttribute("class", "form-control");
+            loginMethodInput.setAttribute("class", "form-control");
+            transportMethodInput.setAttribute("class", "form-control");
+            passwordInput.setAttribute("class", "form-control");
+
+            // Set IDs
+            portTypeInput.setAttribute("id", "portType" + i);
+            portNumStartInput.setAttribute("id", "portRangeStart" + i);
+            portNumEndInput.setAttribute("id", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("id", "loginPort" + i);
+            transportMethodInput.setAttribute("id", "transportPort" + i);
+            passwordInput.setAttribute("id", "passwordPort" + i);
+
+            // Set names for inputs
+            portTypeInput.setAttribute("name", "portType" + i);
+            portNumStartInput.setAttribute("name", "portRangeStart" + i);
+            portNumEndInput.setAttribute("name", "portRangeEnd" + i);
+            loginMethodInput.setAttribute("name", "loginPort" + i);
+            transportMethodInput.setAttribute("name", "transportPort" + i);
+            passwordInput.setAttribute("name", "passwordPort" + i);
+
+            // Make required fields required
+            portNumStartInput.required = true;
+            portNumEndInput.required = true;
+
+            // Add all to the form
+            physicalPortForm.appendChild(startConfBr);
+            physicalPortForm.appendChild(sectionHeader);
+            physicalPortForm.appendChild(portTypeLabel);
+            physicalPortForm.appendChild(portTypeInput);
+            physicalPortForm.appendChild(portNumStartLabel);
+            physicalPortForm.appendChild(portNumStartInput);
+            physicalPortForm.appendChild(portNumEndLabel);
+            physicalPortForm.appendChild(portNumEndInput);
+            physicalPortForm.appendChild(loginMethodLabel);
+            physicalPortForm.appendChild(loginMethodInput);
+            physicalPortForm.appendChild(transportMethodLabel);
+            physicalPortForm.appendChild(transportMethodInput);
+            physicalPortForm.appendChild(passwordLabel);
+            physicalPortForm.appendChild(passwordInput);
+            physicalPortForm.appendChild(endConfBr);
+            physPortIdxDiv.appendChild(physicalPortForm);
+        }
+
+        if (!(physPortDiv.getElementsByClassName("portlist")[0])) {
+            physPortDiv.appendChild(physPortIdxDiv);
+        } else {
+            physPortDiv.getElementsByClassName("portlist")[0].replaceWith(physPortIdxDiv);
+        }
+    }
+
+    function adjustSwitchPorts() {
+        let switchPortDiv = document.getElementsByClassName("switchportgrp")[0];
+        let numSwitchPorts = switchPortDiv.getElementsByClassName("count")[0].value;
+
+        let switchPortIdxDiv = document.createElement('div');
+        switchPortIdxDiv.setAttribute("class", "portlist");
+
+        for (let i = 0; i < numSwitchPorts; i++) {
+            let switchPortForm = document.createElement("div");
+
+            let switchPortHeader = document.createElement("p");
+            switchPortHeader.textContent = "Switch port " + (i + 1);
+
+            // Create elements for fields
+            let switchPortNameLabel = document.createElement("label");
+            let switchPortTypeLabel = document.createElement("label");
+            let switchPortVlanLabel = document.createElement("label");
+            let switchPortShutdownLabel = document.createElement("label");
+
+            // Set text content for labels
+            switchPortNameLabel.textContent = "Port name";
+            switchPortTypeLabel.textContent = "Type";
+            switchPortVlanLabel.textContent = "Vlan Tag";
+            switchPortShutdownLabel.textContent = "Shutdown? ";
+
+            // Bind label to input
+            switchPortNameLabel.setAttribute("for", "switchPortName" + i);
+            switchPortTypeLabel.setAttribute("for", "switchPortType" + i);
+            switchPortVlanLabel.setAttribute("for", "switchPortVlan" + i);
+            switchPortShutdownLabel.setAttribute("for", "switchPortShutdown" + i);
+
+            // Create elements for inputs
+            let switchPortNameInput = document.createElement("input");
+            let switchPortTypeInput = document.createElement("select");
+            let switchPortVlanInput = document.createElement("input");
+            let switchPortShutdownInput = document.createElement("input");
+
+            // Set IDs and Names
+            switchPortNameInput.setAttribute("id", "switchPortName" + i);
+            switchPortTypeInput.setAttribute("id", "switchPortType" + i);
+            switchPortVlanInput.setAttribute("id", "switchPortVlan" + i);
+            switchPortShutdownInput.setAttribute("id", "switchPortShutdown" + i);
+            switchPortNameInput.setAttribute("name", "switchPortName" + i);
+            switchPortTypeInput.setAttribute("name", "switchPortType" + i);
+            switchPortVlanInput.setAttribute("name", "switchPortVlan" + i);
+            switchPortShutdownInput.setAttribute("name", "switchPortShutdown" + i);
+
+            // Set class for inputs
+            switchPortNameInput.setAttribute("class", "form-control");
+            switchPortTypeInput.setAttribute("class", "form-control");
+            switchPortVlanInput.setAttribute("class", "form-control");
+            switchPortShutdownInput.setAttribute("class", "form-control-input");
+
+            // Set input types
+            switchPortNameInput.setAttribute("type", "text");
+            switchPortVlanInput.setAttribute("type", "number");
+            switchPortShutdownInput.setAttribute("type", "checkbox");
+
+            // Set checkbox vlaue
+            switchPortShutdownInput.setAttribute("value", "shutdown");
+
+            // Set minimum and maximum for vlans
+            switchPortVlanInput.setAttribute("min", "1");
+            switchPortVlanInput.setAttribute("max", "4094");
+
+            // Create dropdown options for switchport type
+            let switchPortAccessType = document.createElement("option");
+            let switchPortTrunkType = document.createElement("option");
+
+            // Set user-friendly names for options
+            switchPortAccessType.textContent = "Access";
+            switchPortTrunkType.textContent = "Trunk";
+
+            // Set values for options
+            switchPortAccessType.setAttribute("value", "access");
+            switchPortTrunkType.setAttribute("value", "trunk");
+
+            // Add options to dropdown
+            switchPortTypeInput.appendChild(switchPortAccessType);
+            switchPortTypeInput.appendChild(switchPortTrunkType);
+
+            // Add all to form
+            switchPortForm.appendChild(switchPortHeader);
+            switchPortForm.appendChild(switchPortNameLabel);
+            switchPortForm.appendChild(switchPortNameInput);
+            switchPortForm.appendChild(switchPortTypeLabel);
+            switchPortForm.appendChild(switchPortTypeInput);
+            switchPortForm.appendChild(switchPortVlanLabel);
+            switchPortForm.appendChild(switchPortVlanInput);
+            switchPortForm.appendChild(switchPortShutdownLabel);
+            switchPortForm.appendChild(switchPortShutdownInput);
+            switchPortIdxDiv.appendChild(switchPortForm);
+        }
+
+        if (!(switchPortDiv.getElementsByClassName("portlist")[0])) {
+            switchPortDiv.appendChild(switchPortIdxDiv);
+        } else {
+            switchPortDiv.getElementsByClassName("portlist")[0].replaceWith(switchPortIdxDiv);
+        }
+
+    }
+
+    setTimeout(function() {
+        let vlansDiv = document.getElementsByClassName("vlangrp")[0];
+        let physicalPortsDiv = document.getElementsByClassName("physportsgrp")[0];
+        let switchPortsDiv = document.getElementsByClassName("switchportgrp")[0];
+
+        let vlanCount = vlansDiv.getElementsByClassName("count")[0]
+        let physicalPortCount = physicalPortsDiv.getElementsByClassName("count")[0];
+        let switchPortCount = switchPortsDiv.getElementsByClassName("count")[0];
+
+        vlanCount.addEventListener("change", adjustVlans);
+        physicalPortCount.addEventListener("change", physicalPorts);
+        switchPortCount.addEventListener("change", adjustSwitchPorts);
+    }, 10)
+</script>
+
+<form method='post' enctype='application/x-www-form-urlencoded' action='/builder/switch/'>
+    <div class="form-group vlangrp">
+        <label for="vlan">Vlans</label>
+        <input type="number" class="form-control count" id="vlan" name="vlan">
+    </div>
+
+    <div class="form-group switchportgrp">
+        <label for="switchports">Switch ports</label>
+        <input type="number" class="form-control count" id="switchports" name="switchports">
+    </div>
+
+    <div class="form-group physportsgrp">
+        <label for="physports">Console lines</label>
+        <input type="number" class="form-control count" id="physports" name="physports">
+    </div>
+
+    <div class="form-group gateway">
+        <label for="gateway">Default gateway</label>
+        <input type="text" class="form-control" id="gateway" name="gateway">
+    </div>
+
+    <div class="form-group enablepw">
+        <label for="enablepw">Enable password</label>
+        <input type="text" class="form-control" id="enablepw" name="enablepw">
+    </div>
+
+    <div class="form-group domainname">
+        <label for="domainname">Domain Name</label>
+        <input type="text" class="form-control" id="domainname" name="domainname">
+    </div>
+
+    <div class="form-group hostname">
+        <label for="hostname">Host Name</label>
+        <input type="text" class="form-control" id="hostname" name="hostname">
+    </div>
+
+    <div class="form-group banner">
+        <label for="banner">Banner</label>
+        <input type="text" class="form-control" id="banner" name="banner">
+    </div>
+
+    <h4>SSH Config</h4>
+    <div class="form-group sshbits">
+        <label for="sshbits">SSH key bit size</label>
+        <input type="number" class="form-control" id="sshbits" name="sshbits" min="360" max="2048">
+    </div>
+    <div class="form-group sshuser">
+        <label for="sshuser">SSH User</label>
+        <input type="text" class="form-control" id="sshuser" name="sshuser">
+    </div>
+    <div class="form-group sshpasswd">
+        <label for="sshpasswd">SSH Password</label>
+        <input type="text" class="form-control" id="sshpasswd" name="sshpasswd">
+    </div>
+    <div class="form-group sshenable">
+        <label for="sshenable">SSH enabled?</label>
+        <input type="checkbox" class="form-check-input" id="sshenable" name="sshenable" value="enablessh">
+    </div>
+
+    <button type="submit">Submit</button>
+</form>
+{{end}}

@@ -658,6 +658,303 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func builderHome(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("builderHome: Client %s requested %s with method %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path), r.Method)
+	var builderPage *template.Template
+	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
+	if err != nil {
+		// Log the detailed error
+		log.Info(err.Error())
+		// Return a generic "Internal Server Error" message
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	params := mux.Vars(r)
+
+	devType := params["device"]
+
+	if r.Method == "POST" {
+		w.Header().Set("Content-Type", "application/json")
+
+		err = r.ParseForm()
+		if err != nil {
+			log.Info(err.Error())
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		fmt.Printf("Post form values:\n")
+		for key, value := range r.PostForm {
+			fmt.Printf("\t%s: %s\n", key, value)
+		}
+
+		var formattedJson []byte
+
+		if devType == "switch" {
+			// Build out json file
+			var createdTemplate switches.SwitchConfig
+			createdTemplate.Version = 0.02
+
+			// Root level values
+			createdTemplate.DefaultGateway = r.PostFormValue("gateway")
+			createdTemplate.EnablePassword = r.PostFormValue("enablepw")
+			createdTemplate.Hostname = r.PostFormValue("hostname")
+			createdTemplate.Banner = r.PostFormValue("banner")
+			createdTemplate.DomainName = r.PostFormValue("domainname")
+
+			// Switchport parsing
+			switchPorts := make([]switches.SwitchPortConfig, 0)
+			switchPortCount, err := strconv.Atoi(r.PostFormValue("switchports"))
+			if err != nil && r.PostFormValue("switchports") != "" {
+				log.Infof("Error while getting the number of switchports: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			// Add switch ports to list
+			for i := 0; i < switchPortCount; i++ {
+				var switchPort switches.SwitchPortConfig
+
+				switchPort.Port = r.PostFormValue(fmt.Sprintf("switchPortName%d", i))
+				switchPort.SwitchportMode = r.PostFormValue(fmt.Sprintf("switchPortType%d", i))
+				switchPort.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the vlan tag for port %s: %s\n", switchPort.Port, err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+				switchPort.Shutdown = r.PostFormValue(fmt.Sprintf("switchPortShutdown%d", i)) == "shutdown"
+
+				switchPorts = append(switchPorts, switchPort)
+			}
+
+			createdTemplate.Ports = switchPorts
+
+			// VLAN parsing
+			vlans := make([]switches.VlanConfig, 0)
+			vlanCount, err := strconv.Atoi(r.PostFormValue("vlan"))
+			if err != nil && r.PostFormValue("vlan") != "" {
+				log.Infof("Error while getting the number of vlans: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			for i := 0; i < vlanCount; i++ {
+				var vlan switches.VlanConfig
+				vlan.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("vlanTag%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the vlan tag on key %s: %s\n", fmt.Sprintf("vlanTag%d", i), err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				vlan.IpAddress = r.PostFormValue(fmt.Sprintf("vlanIp%d", i))
+				vlan.SubnetMask = r.PostFormValue(fmt.Sprintf("vlanSubnetMask%d", i))
+				vlan.Shutdown = r.PostFormValue(fmt.Sprintf("vlanShutdown%d", i)) == "shutdown"
+
+				vlans = append(vlans, vlan)
+			}
+
+			createdTemplate.Vlans = vlans
+
+			// Console line parsing
+			consoleLines := make([]switches.LineConfig, 0)
+			consoleLineCount, err := strconv.Atoi(r.PostFormValue("physports"))
+			if err != nil && r.PostFormValue("physports") != "" {
+				log.Infof("Error while getting the number of console lines: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			for i := 0; i < consoleLineCount; i++ {
+				var consoleLine switches.LineConfig
+				consoleLine.StartLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeStart%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				consoleLine.EndLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeEnd%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				consoleLine.Type = r.PostFormValue(fmt.Sprintf("portType%d", i))
+				consoleLine.Password = r.PostFormValue(fmt.Sprintf("portPassword%d", i))
+
+				if r.PostFormValue(fmt.Sprintf("loginPort%d", i)) == "passwd" {
+					consoleLine.Password = r.PostFormValue(fmt.Sprintf("passwordPort%d", i))
+				}
+
+				if consoleLine.Type == "vty" {
+					consoleLine.Transport = r.PostFormValue(fmt.Sprintf("transportPort%d", i))
+				}
+
+				consoleLines = append(consoleLines, consoleLine)
+			}
+
+			createdTemplate.Lines = consoleLines
+
+			// Parse SSH config
+			var sshConfig switches.SshConfig
+			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
+			if err != nil && r.PostFormValue("sshbits") != "" {
+				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			sshConfig.Username = r.PostFormValue("sshuser")
+			sshConfig.Password = r.PostFormValue("sshpasswd")
+			sshConfig.Enable = r.PostFormValue("sshenable") == "enablessh"
+
+			createdTemplate.Ssh = sshConfig
+
+			formattedJson, err = json.Marshal(createdTemplate)
+			if err != nil {
+				log.Infof("%s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			w.Header().Add("Content-Disposition", "attachment; filename=\"switch_defaults.json\"")
+		} else if devType == "router" {
+			var createdTemplate routers.RouterDefaults
+			createdTemplate.Version = 0.02
+
+			createdTemplate.EnablePassword = r.PostFormValue("enablepw")
+			createdTemplate.DomainName = r.PostFormValue("domainname")
+			createdTemplate.Banner = r.PostFormValue("banner")
+			createdTemplate.Hostname = r.PostFormValue("hostname")
+			createdTemplate.DefaultRoute = r.PostFormValue("defaultroute")
+
+			// Build out the list of ports available
+			routerPorts := make([]routers.RouterPorts, 0)
+			routerPortCount, err := strconv.Atoi(r.PostFormValue("physportcount"))
+			if err != nil && r.PostFormValue("physportcount") != "" {
+				log.Infof("Error while getting the number of router ports: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			for i := 0; i < routerPortCount; i++ {
+				var routerPort routers.RouterPorts
+				routerPort.Port = r.PostFormValue(fmt.Sprintf("portName%d", i))
+				routerPort.IpAddress = r.PostFormValue(fmt.Sprintf("portIp%d", i))
+				routerPort.SubnetMask = r.PostFormValue(fmt.Sprintf("portSubnetMask%d", i))
+				routerPort.Shutdown = r.PostFormValue(fmt.Sprintf("portShutdown%d", i)) == "shutdown"
+
+				routerPorts = append(routerPorts, routerPort)
+			}
+
+			// Build out the list of console lines
+			consoleLines := make([]routers.LineConfig, 0)
+			consoleLineCount, err := strconv.Atoi(r.PostFormValue("consoleportcount"))
+			if err != nil && r.PostFormValue("consoleportcount") != "" {
+				log.Infof("Error while getting the number of console lines: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			// Parse the console lines
+			for i := 0; i < consoleLineCount; i++ {
+				var consoleLine routers.LineConfig
+				consoleLine.StartLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeStart%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				consoleLine.EndLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeEnd%d", i)))
+				if err != nil {
+					log.Infof("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				consoleLine.Type = r.PostFormValue(fmt.Sprintf("portType%d", i))
+				consoleLine.Password = r.PostFormValue(fmt.Sprintf("portPassword%d", i))
+
+				if r.PostFormValue(fmt.Sprintf("loginPort%d", i)) == "passwd" {
+					consoleLine.Password = r.PostFormValue(fmt.Sprintf("passwordPort%d", i))
+				}
+
+				if consoleLine.Type == "vty" {
+					consoleLine.Transport = r.PostFormValue(fmt.Sprintf("transportPort%d", i))
+				}
+
+				consoleLines = append(consoleLines, consoleLine)
+			}
+			createdTemplate.Lines = consoleLines
+
+			// Parse SSH settings
+			var sshConfig routers.SshConfig
+			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
+			if err != nil {
+				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			sshConfig.Username = r.PostFormValue("sshuser")
+			sshConfig.Password = r.PostFormValue("sshpasswd")
+			sshConfig.Enable = r.PostFormValue("sshenable") == "enablessh"
+
+			createdTemplate.Ssh = sshConfig
+
+			formattedJson, err = json.Marshal(createdTemplate)
+			if err != nil {
+				log.Infof("Error while formatting json: %s\n", err.Error())
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			w.Header().Add("Content-Disposition", "attachment; filename=\"router_defaults.json\"")
+		}
+
+		w.Header().Add("Content-Length", fmt.Sprintf("%d", len(string(formattedJson))))
+
+		fmt.Fprintf(w, string(formattedJson))
+
+		return
+	} else if r.Method == "GET" {
+		switch strings.ToLower(devType) {
+		case "router":
+			builderPage, err = layoutTemplate.Parse(templates.BuilderRouter)
+			break
+		case "switch":
+			builderPage, err = layoutTemplate.Parse(templates.BuilderSwitch)
+			break
+		default:
+			builderPage, err = layoutTemplate.Parse(templates.BuilderHome)
+			break
+		}
+
+		if err != nil {
+			// Log the detailed error
+			log.Info(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+
+		err = builderPage.ExecuteTemplate(w, "layout", nil)
+		if err != nil {
+			// Log the detailed error
+			log.Info(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+	} else {
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
+	}
+}
+
 func serveIndex(w http.ResponseWriter, r *http.Request) {
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
@@ -716,6 +1013,8 @@ func ServeWeb() {
 	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
 	muxer.HandleFunc("/api/client/{client}/", newClientApi).Methods("GET", "POST")
 	muxer.HandleFunc("/api/jobs/{job}/", clientJobApi).Methods("GET", "POST")
+	muxer.HandleFunc("/builder/", builderHome).Methods("GET")
+	muxer.HandleFunc("/builder/{device}/", builderHome).Methods("GET", "POST")
 
 	server := &http.Server{
 		Handler:      muxer,
