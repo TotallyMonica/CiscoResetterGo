@@ -50,7 +50,7 @@ type RouterDefaults struct {
 var redirectedOutput chan string
 var consoleOutput [][]byte
 
-func WriteConsoleOutput(loggerName string) error {
+func WriteConsoleOutput() error {
 	dumpFile := os.Getenv("DumpConsoleOutput")
 	if dumpFile != "" {
 		file, err := os.OpenFile(dumpFile, os.O_RDWR|os.O_CREATE, 0644)
@@ -162,7 +162,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			}
 		}
 	}
-	WriteConsoleOutput(loggerName)
+	WriteConsoleOutput()
 
 	// In ROMMON
 	outputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
@@ -210,7 +210,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		resetterLog.Fatal(err)
 	}
 	outputInfo("We've finished with ROMMON, going back into the regular console\n")
-	WriteConsoleOutput(loggerName)
+	WriteConsoleOutput()
 	if debug {
 		outputInfo(fmt.Sprintf("TO DEVICE: %s\n", "\\r\\n"))
 	}
@@ -260,7 +260,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	}
 
 	outputInfo("We've made it into the regular console\n")
-	WriteConsoleOutput(loggerName)
+	WriteConsoleOutput()
 
 	closeTftpServer := make(chan bool)
 
@@ -363,7 +363,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 		}
 		consoleOutput = append(consoleOutput, output)
-		WriteConsoleOutput(loggerName)
+		WriteConsoleOutput()
 
 		for common.IsSyslog(string(output)) || // Disregard syslog messages
 			!(strings.HasSuffix(strings.ToLower(strings.TrimSpace(string(output))), prefix) || // Disregard lines that don't have the prompt we're looking for
@@ -386,7 +386,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 				outputInfo(fmt.Sprintf("FROM DEVICE: %s\n", output))
 			}
 			consoleOutput = append(consoleOutput, output)
-			WriteConsoleOutput(loggerName)
+			WriteConsoleOutput()
 		}
 	}
 
@@ -452,7 +452,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		closeTftpServer <- true
 	}
 
-	WriteConsoleOutput(loggerName)
+	WriteConsoleOutput()
 	outputInfo("Successfully reset!\n")
 	outputInfo("---EOF---")
 }
