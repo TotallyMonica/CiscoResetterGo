@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"io"
 	"main/common"
+	crglogging "main/crglogging"
 	"main/routers"
 	"main/switches"
 	"main/web"
@@ -17,11 +17,12 @@ import (
 	"strings"
 )
 
-var log = logging.MustGetLogger("")
-
 func SetupSerial() (string, serial.Mode) {
 	var userInput string
 	var chosenPort string
+
+	log := crglogging.Instances[0].Instance
+
 	isValid := false
 	for !isValid {
 		ports, err := enumerator.GetDetailedPortsList()
@@ -170,6 +171,8 @@ func main() {
 	var version bool
 	var portSettings serial.Mode
 
+	log := crglogging.New("main")
+
 	flag.BoolVar(&verboseOutput, "verboseOutput", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
@@ -282,6 +285,6 @@ func main() {
 		}
 		switches.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
-		fmt.Println("File path not provided, not setting defaults on switch")
+		log.Warnln("File path not provided, not setting defaults on switch")
 	}
 }
