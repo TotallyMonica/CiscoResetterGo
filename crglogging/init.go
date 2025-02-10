@@ -29,7 +29,7 @@ type Instance struct {
 	Instance *Crglogging
 }
 
-func New(name string) Crglogging {
+func New(name string) *Crglogging {
 	l := Crglogging{}
 
 	// Create backend
@@ -58,7 +58,7 @@ func New(name string) Crglogging {
 		Instance: &l,
 	})
 
-	return l
+	return *l
 }
 
 func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
