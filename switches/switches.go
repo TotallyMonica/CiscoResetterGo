@@ -133,6 +133,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
 	redirectedOutput = progressDest
 
+	if redirectedOutput != nil {
+		// TODO: Logic for adding logger for channels
+	}
+
 	var progress common.Progress
 	progress.TotalSteps = 10
 	progress.CurrentStep = 0
@@ -722,6 +726,10 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	}
 
 	redirectedOutput = progressDest
+	if redirectedOutput != nil {
+		// TODO: Logic for adding logger for channels
+	}
+
 	hostname := "Switch"
 	prompt := hostname + ">"
 

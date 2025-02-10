@@ -101,6 +101,10 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	const SHELL_CUE = "press return to get started!"
 
 	redirectedOutput = progressDest
+	if redirectedOutput != nil {
+		// TODO: Logic for adding logger for channels
+	}
+
 	currentTime := time.Now()
 	backup.Prefix = currentTime.Format(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", currentTime.Year(), currentTime.Month(),
 		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
@@ -462,6 +466,9 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	defaultsLogger := crglogging.New(loggerName)
 
 	redirectedOutput = progressDest
+	if redirectedOutput != nil {
+		// TODO: Logic for adding logger for channels
+	}
 
 	hostname := "Router"
 	prompt := hostname + ">"
