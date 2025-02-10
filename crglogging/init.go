@@ -30,7 +30,7 @@ type Instance struct {
 }
 
 func New(name string) *Crglogging {
-	l := Crglogging{}
+	l := &Crglogging{}
 
 	// Create backend
 	logger := logging.MustGetLogger("CiscoResetterGo")
@@ -55,10 +55,10 @@ func New(name string) *Crglogging {
 	l.logger = logger
 	Instances = append(Instances, Instance{
 		Name:     name,
-		Instance: &l,
+		Instance: l,
 	})
 
-	return *l
+	return l
 }
 
 func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
