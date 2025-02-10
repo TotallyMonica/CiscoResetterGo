@@ -18,3 +18,15 @@ func (l Crglogging) Warn(format ...interface{}) {
 	l.logger.Warning(format)
 	l.WarnCount += 1
 }
+
+func (l Crglogging) Warningf(format string, args ...interface{}) {
+	l.Warnf(format, args...)
+}
+
+func (l Crglogging) Warningln(format string) {
+	l.Warnln(format)
+}
+
+func (l Crglogging) Warning(format ...interface{}) {
+	l.Warn(format)
+}
