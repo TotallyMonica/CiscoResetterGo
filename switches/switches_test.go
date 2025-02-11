@@ -315,7 +315,7 @@ func TestResetAndDefaults(t *testing.T) {
 		}{
 			name: "Reset and apply defaults with limited output",
 			resetArgs: resetArgs{
-				SerialPort:   dev,
+				SerialPort:   getPortType(),
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				backup: common.Backup{
 					Backup: false,
@@ -324,7 +324,7 @@ func TestResetAndDefaults(t *testing.T) {
 				progressDest: make(chan string),
 			},
 			defaultsArgs: defaultsArgs{
-				SerialPort:   dev,
+				SerialPort:   getPortType(),
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				config:       defaultsStruct,
 				progressDest: make(chan string),
