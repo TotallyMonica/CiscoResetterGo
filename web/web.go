@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -23,6 +24,7 @@ import (
 )
 
 var log = logging.MustGetLogger("")
+var server = &http.Server{}
 
 type Job struct {
 	Number    int
@@ -1007,6 +1009,21 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func debugTools(w http.ResponseWriter, r *http.Request) {
+	// Immediately exit if we're not allowing debug tools
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		http.Error(w, http.StatusText(404), 404)
+		return
+	}
+
+	params := mux.Vars(r)
+	function := params["function"]
+
+	if function == "shutdown" {
+		server.Shutdown(context.TODO())
+	}
+}
+
 func ServeWeb() {
 	// Gorilla muxer to support Windows 7
 	muxer := mux.NewRouter()
@@ -1025,8 +1042,9 @@ func ServeWeb() {
 	muxer.HandleFunc("/api/jobs/{job}/", clientJobApi).Methods("GET", "POST")
 	muxer.HandleFunc("/builder/", builderHome).Methods("GET")
 	muxer.HandleFunc("/builder/{device}/", builderHome).Methods("GET", "POST")
+	muxer.HandleFunc("/api/debug/{function}/", debugTools).Methods("GET")
 
-	server := &http.Server{
+	server = &http.Server{
 		Handler:      muxer,
 		Addr:         "0.0.0.0:8080",
 		ReadTimeout:  60 * time.Second,
