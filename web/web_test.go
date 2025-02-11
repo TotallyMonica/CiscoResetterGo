@@ -93,18 +93,9 @@ func closeWebServer() {
 	}
 }
 
-func TestIndex(t *testing.T) {
-	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
-		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
-		t.FailNow()
-	}
-
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
-
+func index(t *testing.T) {
 	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
-		t.Logf("Testing full path: %s %s://%s%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.path)
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
 			client := &http.Client{
@@ -125,22 +116,11 @@ func TestIndex(t *testing.T) {
 			}
 		})
 	}
-
-	t.Logf("Finishing index tests...")
 }
 
-func TestPortList(t *testing.T) {
-	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
-		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
-		t.FailNow()
-	}
-
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
-
+func portList(t *testing.T) {
 	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
-		t.Logf("Testing full path: %s %s://%s%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.path)
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
 			client := &http.Client{
@@ -161,4 +141,17 @@ func TestPortList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEndpoints(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+	index(t)
+	portList(t)
 }
