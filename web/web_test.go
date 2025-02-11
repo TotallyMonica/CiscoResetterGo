@@ -93,7 +93,7 @@ func closeWebServer() {
 	}
 }
 
-func index(t *testing.T) {
+func indexTests(t *testing.T) {
 	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,8 +118,167 @@ func index(t *testing.T) {
 	}
 }
 
-func portList(t *testing.T) {
+func portConfigTests(t *testing.T) {
 	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Legal methods: GET
+// Legal paths: /list/ports/
+func listPortsTests(t *testing.T) {
+	for _, tt := range buildConditions([]string{"/list/ports/", "/list/ports"}, []string{"GET"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Legal methods: GET, POST
+// Legal paths: /device/, /device/{port}/, /device/{port}/{baud}/{data}/{parity}/{stop}/
+func deviceConfigTests(t *testing.T) {
+	return
+}
+
+// Legal methods: GET, POST
+// Legal paths: /reset/
+func resetTests(t *testing.T) {
+	for _, tt := range buildConditions([]string{"/reset/", "/reset"}, []string{"GET", "POST"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Legal methods: GET
+// Legal paths: /list/jobs/
+func listJobsTests(t *testing.T) {
+	for _, tt := range buildConditions([]string{"/list/jobs/", "/list/jobs"}, []string{"GET"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Legal methods: GET
+// Legal paths: /jobs/{id}/
+func jobAccessTests(t *testing.T) {
+	return
+}
+
+// Legal methods: GET, POST
+// Legal paths: /api/client/{client}/
+func apiClientTests(t *testing.T) {
+	return
+}
+
+// Legal methods: GET, POST
+// Legal paths: /api/jobs/{job}/
+func apiJobsTests(t *testing.T) {
+	return
+}
+
+// Legal methods: GET
+// Legal paths: /builder/
+func builderTests(t *testing.T) {
+	for _, tt := range buildConditions([]string{"/builder/", "/builder"}, []string{"GET"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Legal methods: GET, POST
+// Legal paths: /builder/{device}/
+func builderDeviceTests(t *testing.T) {
+	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/", "/builder/switch", "/builder/router"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -152,6 +311,15 @@ func TestEndpoints(t *testing.T) {
 	t.Cleanup(closeWebServer)
 
 	startWebServer()
-	index(t)
-	portList(t)
+	indexTests(t)
+	portConfigTests(t)
+	listPortsTests(t)
+	deviceConfigTests(t)
+	resetTests(t)
+	listJobsTests(t)
+	jobAccessTests(t)
+	apiClientTests(t)
+	apiJobsTests(t)
+	builderTests(t)
+	builderDeviceTests(t)
 }
