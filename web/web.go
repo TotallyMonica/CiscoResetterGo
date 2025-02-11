@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/op/go-logging"
@@ -1053,7 +1054,7 @@ func ServeWeb() {
 	fmt.Printf("Listening on %s\n", server.Addr)
 	err := server.ListenAndServe()
 	log.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
-	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" && errors.Is(err, http.ErrServerClosed) {
 		log.Error(err.Error())
 	} else {
 		log.Fatal(err.Error())
