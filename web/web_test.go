@@ -23,7 +23,7 @@ type testParams struct {
 	want int
 }
 
-func buildConditions(path string, allowedMethods []string) []testParams {
+func buildConditions(paths []string, allowedMethods []string) []testParams {
 	methodList := []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
 	hostList := []string{"localhost", "127.0.0.1", "[::1]"}
 	protoList := []string{"http"}
@@ -31,35 +31,37 @@ func buildConditions(path string, allowedMethods []string) []testParams {
 
 	tests := make([]testParams, 0)
 
-	for _, method := range methodList {
-		for _, host := range hostList {
-			for _, proto := range protoList {
-				for _, port := range portList {
-					added := false
-					params := parameters{
-						proto:  proto,
-						host:   host,
-						port:   port,
-						path:   path,
-						method: method,
-					}
-					for _, allowed := range allowedMethods {
-						if method == allowed {
+	for _, path := range paths {
+		for _, method := range methodList {
+			for _, host := range hostList {
+				for _, proto := range protoList {
+					for _, port := range portList {
+						added := false
+						params := parameters{
+							proto:  proto,
+							host:   host,
+							port:   port,
+							path:   path,
+							method: method,
+						}
+						for _, allowed := range allowedMethods {
+							if method == allowed {
+								tests = append(tests, testParams{
+									name: fmt.Sprintf("%s %s://%s:%d%s", method, proto, host, port, path),
+									want: http.StatusOK,
+									args: params,
+								})
+								added = true
+							}
+						}
+
+						if !added {
 							tests = append(tests, testParams{
 								name: fmt.Sprintf("%s %s://%s:%d%s", method, proto, host, port, path),
-								want: http.StatusOK,
+								want: http.StatusMethodNotAllowed,
 								args: params,
 							})
-							added = true
 						}
-					}
-
-					if !added {
-						tests = append(tests, testParams{
-							name: fmt.Sprintf("%s %s://%s:%d%s", method, proto, host, port, path),
-							want: http.StatusMethodNotAllowed,
-							args: params,
-						})
 					}
 				}
 			}
@@ -101,7 +103,7 @@ func TestIndex(t *testing.T) {
 
 	startWebServer()
 
-	for _, tt := range buildConditions("/", []string{"GET"}) {
+	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -125,4 +127,38 @@ func TestIndex(t *testing.T) {
 	}
 
 	t.Logf("Finishing index tests...")
+}
+
+func TestPortList(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
+	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
+		t.Logf("Testing full path: %s %s://%s%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.path)
+		t.Run(tt.name, func(t *testing.T) {
+			// Build client
+			client := &http.Client{
+				Timeout: time.Second * 10,
+			}
+
+			// Build out request
+			req, err := http.NewRequest(tt.args.method, fmt.Sprintf("%s://%s:%d%s", tt.args.proto, tt.args.host, tt.args.port, tt.args.path), nil)
+			if err != nil {
+				t.Errorf("Test %s failed while creating request with error: %s", tt.name, err)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("Test %s failed with error: %s", tt.name, err)
+			} else if resp.StatusCode != tt.want {
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+			}
+		})
+	}
 }
