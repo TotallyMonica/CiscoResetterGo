@@ -1052,6 +1052,7 @@ func ServeWeb() {
 	}
 	fmt.Printf("Listening on %s\n", server.Addr)
 	err := server.ListenAndServe()
+	defer server.Close()
 	log.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
 	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" && errors.Is(err, http.ErrServerClosed) {
 		log.Error(err.Error())
