@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1021,7 +1020,7 @@ func debugTools(w http.ResponseWriter, r *http.Request) {
 	function := params["function"]
 
 	if function == "shutdown" {
-		server.Shutdown(context.TODO())
+		server.Close()
 	}
 }
 
