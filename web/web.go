@@ -1051,5 +1051,11 @@ func ServeWeb() {
 		WriteTimeout: 60 * time.Second,
 	}
 	fmt.Printf("Listening on %s\n", server.Addr)
-	log.Fatal(server.ListenAndServe())
+	err := server.ListenAndServe()
+	log.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
+	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" {
+		log.Error(err.Error())
+	} else {
+		log.Fatal(err.Error())
+	}
 }
