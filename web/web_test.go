@@ -138,21 +138,21 @@ func startWebServer() {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func closeWebServer() {
+func closeWebServer(t *testing.T) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}
 
 	req, err := http.NewRequest("GET", "http://localhost:8080", nil)
 	if err != nil {
-		log.Errorf("Couldn't create request: %v", err)
+		t.Errorf("Couldn't create request: %v", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		log.Errorf("Couldn't call close web server: %v", err)
+		t.Errorf("Couldn't call close web server: %v", err)
 	} else if resp.StatusCode != http.StatusOK {
-		log.Errorf("Received unexpected status code %d from web server", resp.StatusCode)
+		t.Errorf("Received unexpected status code %d from web server", resp.StatusCode)
 	}
 }
 
@@ -167,7 +167,9 @@ func TestIndex(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
@@ -205,7 +207,9 @@ func TestPortConfig(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/port/"}, []string{"GET"}) {
@@ -245,7 +249,9 @@ func TestListPorts(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/list/ports/"}, []string{"GET"}) {
@@ -291,7 +297,9 @@ func TestReset(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/reset/"}, []string{"POST"}) {
@@ -362,7 +370,9 @@ func TestListJobs(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/list/jobs/"}, []string{"GET"}) {
@@ -420,9 +430,10 @@ func TestBuilder(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
-
 	for _, tt := range buildConditions([]string{"/builder/"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -460,7 +471,9 @@ func TestBuilderDevice(t *testing.T) {
 	}
 	currentTest += 1
 	if currentTest == TOTAL_TESTS {
-		t.Cleanup(closeWebServer)
+		t.Cleanup(func() {
+			closeWebServer(t)
+		})
 	}
 
 	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/"}, []string{"GET", "POST"}) {
