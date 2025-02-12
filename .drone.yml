@@ -1,5 +1,5 @@
 kind: pipeline
-name: Go Linux amd64
+name: linux_amd64
 
 platform:
   os: linux
@@ -16,3 +16,30 @@ steps:
     commands:
       - go build
       - go test ./...
+
+---
+kind: pipeline
+name: Go Linux i386
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: Build Latest Go
+    image: golang:latest
+    commands:
+      - go build
+      - go test ./...
+    environment:
+      GOOS: linux
+      GOARCH: 386
+  - name: Build Go 1.20
+    image: golang:1.20
+    commands:
+      - go build
+      - go test ./...
+    environment:
+      GOOS: linux
+      GOARCH: 386
+depends_on:
+  - linux_amd64
