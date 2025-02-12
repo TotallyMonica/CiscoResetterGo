@@ -23,6 +23,10 @@ type testParams struct {
 	want int
 }
 
+const TOTAL_TESTS = 7
+
+var currentTest = 0
+
 func buildConditions(paths []string, allowedMethods []string) []testParams {
 	methodList := []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
 	hostList := []string{"localhost", "127.0.0.1", "[::1]"}
@@ -92,7 +96,7 @@ func closeWebServer() {
 		log.Fatalf("Received unexpected status code %d from web server", resp.StatusCode)
 	}
 
-	time.Sleep(1 * time.Minute)
+	time.Sleep(60 * time.Second)
 }
 
 func TestIndex(t *testing.T) {
@@ -101,9 +105,13 @@ func TestIndex(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -125,6 +133,8 @@ func TestIndex(t *testing.T) {
 			} else if resp.StatusCode != tt.want {
 				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
+
+			time.Sleep(1 * time.Second)
 		})
 	}
 }
@@ -135,9 +145,13 @@ func TestPortConfig(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -171,9 +185,13 @@ func TestListPorts(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/list/ports/", "/list/ports"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -213,9 +231,13 @@ func TestReset(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/reset/", "/reset"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -249,9 +271,13 @@ func TestListJobs(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/list/jobs/", "/list/jobs"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -303,9 +329,13 @@ func TestBuilder(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/builder/", "/builder"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
@@ -339,9 +369,13 @@ func TestBuilderDevice(t *testing.T) {
 		t.FailNow()
 	}
 
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
+	if currentTest == 0 {
+		startWebServer()
+	}
+	currentTest += 1
+	if currentTest == TOTAL_TESTS {
+		t.Cleanup(closeWebServer)
+	}
 
 	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/", "/builder/switch", "/builder/router"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
