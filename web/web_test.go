@@ -135,6 +135,7 @@ func buildConditions(paths []string, allowedMethods []string) []testParams {
 
 func startWebServer() {
 	go ServeWeb()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func closeWebServer() {
