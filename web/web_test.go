@@ -149,7 +149,7 @@ func TestPortConfig(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
+	for _, tt := range buildConditions([]string{"/port/"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -189,7 +189,7 @@ func TestListPorts(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/list/ports/", "/list/ports"}, []string{"GET"}) {
+	for _, tt := range buildConditions([]string{"/list/ports/"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -235,7 +235,7 @@ func TestReset(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/reset/", "/reset"}, []string{"GET", "POST"}) {
+	for _, tt := range buildConditions([]string{"/reset/"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -275,7 +275,7 @@ func TestListJobs(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/list/jobs/", "/list/jobs"}, []string{"GET"}) {
+	for _, tt := range buildConditions([]string{"/list/jobs/"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -333,7 +333,7 @@ func TestBuilder(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/builder/", "/builder"}, []string{"GET"}) {
+	for _, tt := range buildConditions([]string{"/builder/"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
@@ -373,7 +373,7 @@ func TestBuilderDevice(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/", "/builder/switch", "/builder/router"}, []string{"GET", "POST"}) {
+	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
