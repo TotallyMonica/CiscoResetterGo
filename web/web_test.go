@@ -91,9 +91,20 @@ func closeWebServer() {
 	} else if resp.StatusCode != http.StatusOK {
 		log.Fatalf("Received unexpected status code %d from web server", resp.StatusCode)
 	}
+
+	time.Sleep(1 * time.Minute)
 }
 
-func indexTests(t *testing.T) {
+func TestIndex(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/", ""}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -112,13 +123,22 @@ func indexTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
 }
 
-func portConfigTests(t *testing.T) {
+func TestPortConfig(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/port/", "/port"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,7 +157,7 @@ func portConfigTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
@@ -145,7 +165,16 @@ func portConfigTests(t *testing.T) {
 
 // Legal methods: GET
 // Legal paths: /list/ports/
-func listPortsTests(t *testing.T) {
+func TestListPorts(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/list/ports/", "/list/ports"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -164,7 +193,7 @@ func listPortsTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
@@ -172,13 +201,22 @@ func listPortsTests(t *testing.T) {
 
 // Legal methods: GET, POST
 // Legal paths: /device/, /device/{port}/, /device/{port}/{baud}/{data}/{parity}/{stop}/
-func deviceConfigTests(t *testing.T) {
-	return
+func TestDeviceConfig(t *testing.T) {
+	t.SkipNow()
 }
 
 // Legal methods: GET, POST
 // Legal paths: /reset/
-func resetTests(t *testing.T) {
+func TestReset(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/reset/", "/reset"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -197,7 +235,7 @@ func resetTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
@@ -205,7 +243,16 @@ func resetTests(t *testing.T) {
 
 // Legal methods: GET
 // Legal paths: /list/jobs/
-func listJobsTests(t *testing.T) {
+func TestListJobs(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/list/jobs/", "/list/jobs"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -224,7 +271,7 @@ func listJobsTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
@@ -232,25 +279,34 @@ func listJobsTests(t *testing.T) {
 
 // Legal methods: GET
 // Legal paths: /jobs/{id}/
-func jobAccessTests(t *testing.T) {
-	return
+func TestJobAccess(t *testing.T) {
+	t.SkipNow()
 }
 
 // Legal methods: GET, POST
 // Legal paths: /api/client/{client}/
-func apiClientTests(t *testing.T) {
-	return
+func TestApiClient(t *testing.T) {
+	t.SkipNow()
 }
 
 // Legal methods: GET, POST
 // Legal paths: /api/jobs/{job}/
-func apiJobsTests(t *testing.T) {
-	return
+func TestApiJobs(t *testing.T) {
+	t.SkipNow()
 }
 
 // Legal methods: GET
 // Legal paths: /builder/
-func builderTests(t *testing.T) {
+func TestBuilder(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/builder/", "/builder"}, []string{"GET"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -269,7 +325,7 @@ func builderTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
@@ -277,7 +333,16 @@ func builderTests(t *testing.T) {
 
 // Legal methods: GET, POST
 // Legal paths: /builder/{device}/
-func builderDeviceTests(t *testing.T) {
+func TestBuilderDevice(t *testing.T) {
+	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
+		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
+		t.FailNow()
+	}
+
+	t.Cleanup(closeWebServer)
+
+	startWebServer()
+
 	for _, tt := range buildConditions([]string{"/builder/switch/", "/builder/router/", "/builder/switch", "/builder/router"}, []string{"GET", "POST"}) {
 		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
@@ -296,30 +361,8 @@ func builderDeviceTests(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %s failed with error: %s", tt.name, err)
 			} else if resp.StatusCode != tt.want {
-				t.Errorf("Test %s failed with status code %d, want %d", tt.name, req.Response.StatusCode, tt.want)
+				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
 		})
 	}
-}
-
-func TestEndpoints(t *testing.T) {
-	if os.Getenv("ALLOWDEBUGENDPOINTS") != "1" {
-		t.Errorf("Could not run, debug environment variable for shutting down safely not set properly")
-		t.FailNow()
-	}
-
-	t.Cleanup(closeWebServer)
-
-	startWebServer()
-	indexTests(t)
-	portConfigTests(t)
-	listPortsTests(t)
-	deviceConfigTests(t)
-	resetTests(t)
-	listJobsTests(t)
-	jobAccessTests(t)
-	apiClientTests(t)
-	apiJobsTests(t)
-	builderTests(t)
-	builderDeviceTests(t)
 }
