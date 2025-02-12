@@ -6,23 +6,13 @@ platform:
   arch: amd64
 
 steps:
-  - name: build
+  - name: Build Latest Go
     image: golang:latest
     commands:
       - go build
-      - go test -v
-
----
-kind: pipeline
-name: Go 1.20 validation
-
-platform:
-  os: linux
-  arch: amd64
-
-steps:
-  - name: build
+      - go test ./...
+  - name: Build Go 1.20
     image: golang:1.20
     commands:
       - go build
-      - go test -v
+      - go test ./...
