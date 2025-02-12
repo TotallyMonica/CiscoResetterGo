@@ -106,14 +106,14 @@ func closeWebServer() {
 
 	req, err := http.NewRequest("GET", "http://localhost:8080", nil)
 	if err != nil {
-		log.Fatalf("Couldn't create request: %v", err)
+		log.Errorf("Couldn't create request: %v", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		log.Fatalf("Couldn't call close web server: %v", err)
+		log.Errorf("Couldn't call close web server: %v", err)
 	} else if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Received unexpected status code %d from web server", resp.StatusCode)
+		log.Errorf("Received unexpected status code %d from web server", resp.StatusCode)
 	}
 }
 
@@ -295,12 +295,12 @@ func TestReset(t *testing.T) {
 			for idx, key := range keys {
 				fw, err := w.CreateFormField(key)
 				if err != nil {
-					t.Fatalf("Test failed while creating key values: %s\n", err)
+					t.Errorf("Test failed while creating key values: %s\n", err)
 				}
 
 				_, err = io.Copy(fw, bytes.NewReader([]byte(values[idx])))
 				if err != nil {
-					t.Fatalf("Test failed while adding values to keys: %s\n", err)
+					t.Errorf("Test failed while adding values to keys: %s\n", err)
 				}
 			}
 
