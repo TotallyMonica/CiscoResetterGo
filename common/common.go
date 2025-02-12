@@ -7,7 +7,7 @@ import (
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
 	"io"
-	"log"
+	"main/crglogging"
 	"os"
 	"regexp"
 	"strings"
@@ -56,59 +56,73 @@ func TftpWriteHandler(filename string, wt io.WriterTo) error {
 }
 
 func BuiltInTftpServer(close chan bool) {
+	tftpLogger := crglogging.New("tftpLogger")
+
 	s := tftp.NewServer(nil, TftpWriteHandler)
 	s.SetTimeout(5 * time.Second)
 	err := s.ListenAndServe(":69")
 	defer s.Shutdown()
 	if err != nil {
-		fmt.Printf("server: %v\n", err)
-		os.Exit(1)
+		tftpLogger.Errorf("server: Built in TFTP server encountered an error: %v\n", err)
+		return
 	}
 	for <-close {
 		return
 	}
 }
 
-func WaitForPrefix(port serial.Port, prompt string, debug bool) {
+func WaitForPrefix(port serial.Port, prompt string, debug bool) error {
+	prefixLogger := crglogging.GetLogger("prefixLogger")
+	if prefixLogger == nil {
+		prefixLogger = crglogging.New("prefixLogger")
+	}
+
 	var output []byte
 	if debug {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			fmt.Printf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			fmt.Printf("Expected prefix: %s\n", prompt)
-			fmt.Printf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
-			fmt.Printf("TO DEVICE: %s\n", "\\n")
+			prefixLogger.Debugf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
+			prefixLogger.Debugf("Expected prefix: %s\n", prompt)
+			prefixLogger.Debugf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
+			prefixLogger.Debugf("TO DEVICE: %s\n", "\\n")
 			_, err := port.Write(FormatCommand(""))
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			output, err = ReadLine(port, 500, debug)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
-		fmt.Println(output)
+		prefixLogger.Debugf("%+v\n", output)
 	} else {
 		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 			_, err := port.Write(FormatCommand(""))
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			output, err = ReadLine(port, 500, debug)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
-func WaitForSubstring(port serial.Port, prompt string, debug bool) {
+func WaitForSubstring(port serial.Port, prompt string, debug bool) error {
+	substringLogger := crglogging.GetLogger("SubstringLogger")
+	if substringLogger == nil {
+		substringLogger = crglogging.New("SubstringLogger")
+	}
+
 	WriteLine(port, "", debug)
 	output, err := ReadLine(port, 500, debug)
 	if err != nil && !errors.Is(err, io.ErrNoProgress) {
-		log.Fatalf("Error while waiting for substring: %s\n", err.Error())
+		substringLogger.Fatalf("Error while waiting for substring: %s\n", err.Error())
 	} else if errors.Is(err, io.ErrNoProgress) {
 		if debug {
-			fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
+			substringLogger.Debugf("TO DEVICE: %s\n", "\\r\\n")
 		}
 		WriteLine(port, "", debug)
 		WriteLine(port, "", debug)
@@ -122,7 +136,7 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 		}
 		output, err = ReadLine(port, 500, debug)
 		if err != nil && !errors.Is(err, io.ErrNoProgress) {
-			log.Fatalf("Error while waiting for substring: %s\n", err.Error())
+			return err
 		} else if errors.Is(err, io.ErrNoProgress) {
 			if debug {
 				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
@@ -132,6 +146,8 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) {
 			WriteLine(port, "", debug)
 		}
 	}
+
+	return nil
 }
 
 func FormatCommand(cmd string) []byte {
@@ -142,18 +158,25 @@ func FormatCommand(cmd string) []byte {
 	return formattedString
 }
 
-func WriteLine(port serial.Port, line string, debug bool) {
+func WriteLine(port serial.Port, line string, debug bool) error {
+	writeLineLogger := crglogging.GetLogger("WriteLineLogger")
+	if writeLineLogger == nil {
+		writeLineLogger = crglogging.New("WriteLineLogger")
+	}
+
 	if line == "\r\n" || line == "\r" || line == "\n" || line == "" || line == "\n\r" {
-		//log.Printf("Note: quietly discarding command\n")
+		//writeLineLogger.Debugf("Note: quietly discarding command\n")
 		//return
 	}
 	bytes, err := port.Write(FormatCommand(line))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if debug {
-		fmt.Printf("TO DEVICE: sent %d bytes: %s\n", bytes, line+"\\n")
+		writeLineLogger.Infof("TO DEVICE: sent %d bytes: %s\n", bytes, line+"\\n")
 	}
+
+	return nil
 }
 
 func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
@@ -168,9 +191,14 @@ func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
 }
 
 func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]byte, error) {
+	readLinesLogger := crglogging.GetLogger("ReadLinesLogger")
+	if readLinesLogger == nil {
+		readLinesLogger = crglogging.New("ReadLinesLogger")
+	}
+
 	output := make([][]byte, maxLines)
 	if debug {
-		fmt.Printf("\n======================================\nDEBUG: \n")
+		readLinesLogger.Debugf("\n======================================\nDEBUG: \n")
 	}
 	for i := 0; i < maxLines; i++ {
 		//scanner := bufio.NewScanner(port)
@@ -190,7 +218,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]by
 		//}
 
 		if debug {
-			fmt.Printf("DEBUG: parsed %s\n", output[i])
+			readLinesLogger.Debugf("DEBUG: parsed %s\n", output[i])
 		}
 	}
 
@@ -219,9 +247,14 @@ func IsEmpty(output []byte) bool {
 }
 
 func IsSyslog(output string) bool {
+	syslogParserLogger := crglogging.GetLogger("SyslogParserLogger")
+	if syslogParserLogger == nil {
+		syslogParserLogger = crglogging.New("SyslogParserLogger")
+	}
+
 	compile, err := regexp.Compile(`\w{3}\s((\s\d|\d{2})\s)((\s\d|\d{2}):){2}\d{2}\.\d{3}:\s%(\w|-)*:\s.*`)
 	if err != nil {
-		log.Fatalf("common.IsSyslog: Could not compile Syslog regexp: %s\n", err)
+		syslogParserLogger.Fatalf("common.IsSyslog: Could not compile Syslog regexp: %s\n", err)
 	}
 
 	return compile.MatchString(output)
