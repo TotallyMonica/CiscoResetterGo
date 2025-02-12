@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -46,6 +49,41 @@ type testParams struct {
 const TOTAL_TESTS = 7
 
 var currentTest = 0
+
+func makeDummySerial(stdout chan string, term chan bool) {
+	reader, writer := io.Pipe()
+
+	go func() {
+		sentAlready := false
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			fmt.Println(scanner.Text())
+			if strings.Contains(scanner.Text(), "/dev/") && !sentAlready {
+				delimited := strings.Split(scanner.Text(), " ")
+				for _, word := range delimited {
+					if strings.Contains(word, "/dev/") {
+						stdout <- word
+						sentAlready = true
+						break
+					}
+				}
+			}
+		}
+	}()
+
+	cmd := exec.Command("socat", "-d", "-d", "pty,raw,echo=0", "pty,raw,echo=0")
+	cmd.Stderr = writer
+	_ = cmd.Start()
+
+	go func() {
+		switch {
+		case <-term:
+			fmt.Printf("Terminating\n")
+			cmd.Process.Kill()
+		}
+	}()
+}
 
 func buildConditions(paths []string, allowedMethods []string) []testParams {
 	methodList := []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
@@ -234,7 +272,7 @@ func TestListPorts(t *testing.T) {
 }
 
 // Legal methods: GET, POST
-// Legal paths: /device/, /device/{port}/, /device/{port}/{baud}/{data}/{parity}/{stop}/
+// Legal paths: /device/, /device/{port}/, /device/{port}/{baud}/{{data}/{parity}/{stop}/
 func TestDeviceConfig(t *testing.T) {
 	t.SkipNow()
 }
@@ -255,31 +293,17 @@ func TestReset(t *testing.T) {
 		t.Cleanup(closeWebServer)
 	}
 
-	portList := []portsAvailable{{
-		used: false,
-		port: "/dev/pts/5",
-	}, {
-		used: false,
-		port: "/dev/pts/9",
-	}, {
-		used: false,
-		port: "/dev/pts/11",
-	},
-	}
-
 	for _, tt := range buildConditions([]string{"/reset/"}, []string{"POST"}) {
+		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
+
 		devUsed := "/dev/ttyS0"
+		stdoutChan := make(chan string)
+		killSwitch := make(chan bool)
 		if tt.want == http.StatusOK {
-			for idx, dev := range portList {
-				if !dev.used {
-					portList[idx].used = true
-					devUsed = dev.port
-					break
-				}
-			}
+			go makeDummySerial(stdoutChan, killSwitch)
+			devUsed = <-stdoutChan
 		}
 
-		t.Logf("Testing full path: %s %s://%s:%d%s", tt.args.method, tt.args.proto, tt.args.host, tt.args.port, tt.args.path)
 		t.Run(tt.name, func(t *testing.T) {
 			// Build client
 			client := &http.Client{
