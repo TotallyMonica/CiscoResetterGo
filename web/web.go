@@ -1035,7 +1035,7 @@ func ServeWeb() {
 	muxer.HandleFunc("/device/{port}/", deviceConfig).Methods("POST")
 	muxer.HandleFunc("/device/{port}/{baud}/", deviceConfig).Methods("POST")
 	muxer.HandleFunc("/device/{port}/{baud}/{data}/{parity}/{stop}/", deviceConfig).Methods("POST")
-	muxer.HandleFunc("/reset/", resetDevice).Methods("POST", "GET")
+	muxer.HandleFunc("/reset/", resetDevice).Methods("POST")
 	muxer.HandleFunc("/list/jobs/", jobListHandler).Methods("GET")
 	muxer.HandleFunc("/jobs/{id}/", jobHandler).Methods("GET")
 	muxer.HandleFunc("/api/client/{client}/", newClientApi).Methods("GET", "POST")
