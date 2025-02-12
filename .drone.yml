@@ -11,11 +11,16 @@ steps:
     commands:
       - go build
       - go test ./...
+    environment:
+      ALLOWDEBUGENDPOINTS: 1
+
   - name: Build Go 1.20
     image: golang:1.20
     commands:
       - go build
       - go test ./...
+    environment:
+      ALLOWDEBUGENDPOINTS: 1
 
 ---
 kind: pipeline
@@ -33,6 +38,7 @@ steps:
     environment:
       GOOS: linux
       GOARCH: 386
+      ALLOWDEBUGENDPOINTS: 1
   - name: Build Go 1.20
     image: golang:1.20
     commands:
@@ -41,5 +47,6 @@ steps:
     environment:
       GOOS: linux
       GOARCH: 386
+      ALLOWDEBUGENDPOINTS: 1
 depends_on:
   - linux_amd64
