@@ -95,8 +95,6 @@ func closeWebServer() {
 	} else if resp.StatusCode != http.StatusOK {
 		log.Fatalf("Received unexpected status code %d from web server", resp.StatusCode)
 	}
-
-	time.Sleep(60 * time.Second)
 }
 
 func TestIndex(t *testing.T) {
@@ -133,8 +131,6 @@ func TestIndex(t *testing.T) {
 			} else if resp.StatusCode != tt.want {
 				t.Errorf("Test %s failed with status code %d, want %d", tt.name, resp.StatusCode, tt.want)
 			}
-
-			time.Sleep(1 * time.Second)
 		})
 	}
 }
