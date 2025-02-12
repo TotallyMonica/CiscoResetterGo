@@ -1,28 +1,60 @@
 kind: pipeline
-name: Go latest validation
+name: linux_amd64
 
 platform:
   os: linux
   arch: amd64
 
 steps:
-  - name: build
+  - name: Build Latest Go
     image: golang:latest
     commands:
+      - apt update
+      - apt install socat -y
       - go build
-      - go test -v
+      - go test ./...
+    environment:
+      ALLOWDEBUGENDPOINTS: 1
+
+  - name: Build Go 1.20
+    image: golang:1.20
+    commands:
+      - apt update
+      - apt install socat -y
+      - go build
+      - go test ./...
+    environment:
+      ALLOWDEBUGENDPOINTS: 1
 
 ---
 kind: pipeline
-name: Go 1.20 validation
-
+name: Go Linux i386
 platform:
   os: linux
   arch: amd64
 
 steps:
-  - name: build
+  - name: Build Latest Go
+    image: golang:latest
+    commands:
+      - apt update
+      - apt install socat -y
+      - go build
+      - go test ./...
+    environment:
+      GOOS: linux
+      GOARCH: 386
+      ALLOWDEBUGENDPOINTS: 1
+  - name: Build Go 1.20
     image: golang:1.20
     commands:
+      - apt update
+      - apt install socat -y
       - go build
-      - go test -v
+      - go test ./...
+    environment:
+      GOOS: linux
+      GOARCH: 386
+      ALLOWDEBUGENDPOINTS: 1
+depends_on:
+  - linux_amd64
