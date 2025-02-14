@@ -28,6 +28,20 @@ type Backup struct {
 	UseBuiltIn  bool
 }
 
+var redirectedOutput chan string
+
+func SetOutputChannel(c chan string) {
+	redirectedOutput = c
+}
+
+func OutputInfo(data string) {
+	if redirectedOutput == nil {
+		fmt.Printf(data)
+	} else {
+		redirectedOutput <- data
+	}
+}
+
 var LineTimeout time.Duration = 10 * time.Second
 
 var reader *bufio.Reader
