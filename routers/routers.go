@@ -51,6 +51,12 @@ var redirectedOutput chan string
 var consoleOutput [][]byte
 var LoggerName string
 
+func GetLoggerName() string {
+	logger := crglogging.GetLogger(LoggerName)
+	logger.Debugf("Logger name: %s\n", LoggerName)
+	return LoggerName
+}
+
 func WriteConsoleOutput() error {
 	dumpFile := os.Getenv("DumpConsoleOutput")
 	if dumpFile != "" {

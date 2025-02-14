@@ -81,10 +81,20 @@ func snitchOutput(c chan string, job int) {
 	if jobIdx == -1 {
 		webLogger.Errorf("snitchOutput: Could not find job %d\n", job)
 	}
+
+	serialOutput := <-c
+	jobLogger := crglogging.GetLogger(jobs[jobIdx].LoggerName)
+
 	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
-		jobs[jobIdx].Output += serialOutput
+		contents, err := jobLogger.GetMemLogContents("WebHandler")
+		if err != nil {
+			webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
+		}
+
+		jobs[jobIdx].Output += string(contents)
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
+		jobLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, serialOutput)
 		serialOutput = <-c
 	}
 	jobs[jobIdx].Status = "EOF"
@@ -129,6 +139,7 @@ func runJob(rules RunParams, jobNum int) {
 			} else {
 				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
 				jobs[jobIdx].Status = "Resetting"
+				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = switches.LoggerName
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
@@ -148,6 +159,7 @@ func runJob(rules RunParams, jobNum int) {
 			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
+			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = switches.LoggerName
 			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
@@ -165,7 +177,8 @@ func runJob(rules RunParams, jobNum int) {
 				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
 			} else {
 				jobs[jobIdx].Status = "Applying defaults"
-				jobs[jobIdx].LoggerName = routers.LoggerName
+				time.Sleep(5 * time.Second)
+				jobs[jobIdx].LoggerName = routers.GetLoggerName()
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)

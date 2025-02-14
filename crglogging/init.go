@@ -20,6 +20,7 @@ type Crglogging struct {
 	Backends   []Backend
 	logger     *logging.Logger
 	MemBuffers []MemBuffer
+	name       string
 }
 
 type Backend struct {
@@ -61,6 +62,7 @@ func New(name string) *Crglogging {
 
 	// Add logger to instance and save it
 	l.logger = logger
+	l.name = name
 	Instances = append(Instances, Instance{
 		Name:     name,
 		Instance: l,
@@ -106,7 +108,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 				buff: bytes.Buffer{},
 				name: name,
 			}
-			l.MemBuffers = append(l.MemBuffers)
+			l.MemBuffers = append(l.MemBuffers, memLog)
 			fileBackend = logging.NewLogBackend(&memLog.buff, name, 0)
 		default:
 			l.Errorf("Unknown target type: %T", target)
@@ -149,4 +151,8 @@ func GetLogger(name string) *Crglogging {
 	}
 
 	return nil
+}
+
+func (l *Crglogging) GetLoggerName() string {
+	return l.name
 }
