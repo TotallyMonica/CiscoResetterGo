@@ -29,13 +29,17 @@ type Backup struct {
 }
 
 var logger *crglogging.Crglogging
+var redirectedOutput chan string
 
 func SetOutputChannel(c chan string, loggerName string) {
+	redirectedOutput = c
+
 	logger = crglogging.GetLogger(loggerName)
 	logger.NewLogTarget("WebHandler", c, false)
 }
 
 func OutputInfo(data string) {
+	redirectedOutput <- data
 	logger.Info(data)
 }
 
