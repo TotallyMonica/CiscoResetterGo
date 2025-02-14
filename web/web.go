@@ -84,6 +84,7 @@ func snitchOutput(c chan string, job int) {
 
 	serialOutput := <-c
 	jobLogger := crglogging.GetLogger(jobs[jobIdx].LoggerName)
+	jobLogger.Infof(serialOutput)
 
 	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
 		contents, err := jobLogger.GetMemLogContents("WebHandler")
@@ -91,10 +92,11 @@ func snitchOutput(c chan string, job int) {
 			webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
 		}
 
-		jobs[jobIdx].Output += string(contents)
+		jobs[jobIdx].Output += serialOutput
+		jobLogger.Info(serialOutput)
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
-		jobLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, serialOutput)
+		jobLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, contents)
 		serialOutput = <-c
 	}
 	jobs[jobIdx].Status = "EOF"

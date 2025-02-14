@@ -29,8 +29,9 @@ type Backend struct {
 }
 
 type MemBuffer struct {
-	buff bytes.Buffer
-	name string
+	buff     bytes.Buffer
+	contents []byte
+	name     string
 }
 
 type Instance struct {
@@ -104,9 +105,13 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			if l.MemBuffers == nil || len(l.MemBuffers) == 0 {
 				l.MemBuffers = make([]MemBuffer, 0)
 			}
+
+			buffContents := make([]byte, 0)
+
 			memLog := MemBuffer{
-				buff: bytes.Buffer{},
-				name: name,
+				buff:     *bytes.NewBuffer(buffContents),
+				name:     name,
+				contents: buffContents,
 			}
 			l.MemBuffers = append(l.MemBuffers, memLog)
 			fileBackend = logging.NewLogBackend(&memLog.buff, name, 0)
