@@ -128,7 +128,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	redirectedOutput = progressDest
 
 	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput)
+		common.SetOutputChannel(redirectedOutput, LoggerName)
 	}
 
 	var progress common.Progress
@@ -721,7 +721,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	redirectedOutput = progressDest
 	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput)
+		common.SetOutputChannel(redirectedOutput, LoggerName)
 	}
 
 	hostname := "Switch"

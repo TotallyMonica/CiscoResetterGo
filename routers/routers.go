@@ -92,7 +92,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	redirectedOutput = progressDest
 	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput)
+		common.SetOutputChannel(redirectedOutput, LoggerName)
 	}
 
 	currentTime := time.Now()
@@ -457,7 +457,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	redirectedOutput = progressDest
 	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput)
+		common.SetOutputChannel(redirectedOutput, LoggerName)
 	}
 
 	hostname := "Router"

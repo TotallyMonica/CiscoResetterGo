@@ -28,18 +28,15 @@ type Backup struct {
 	UseBuiltIn  bool
 }
 
-var redirectedOutput chan string
+var logger *crglogging.Crglogging
 
-func SetOutputChannel(c chan string) {
-	redirectedOutput = c
+func SetOutputChannel(c chan string, loggerName string) {
+	logger = crglogging.GetLogger(loggerName)
+	logger.NewLogTarget("WebHandler", c, false)
 }
 
 func OutputInfo(data string) {
-	if redirectedOutput == nil {
-		fmt.Printf(data)
-	} else {
-		redirectedOutput <- data
-	}
+	logger.Info(data)
 }
 
 var LineTimeout time.Duration = 10 * time.Second

@@ -45,11 +45,11 @@ func New(name string) *Crglogging {
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, format)
 	leveledBackend := logging.AddModuleLevel(backendFormatter)
-	logging.SetBackend(leveledBackend)
+	logger.SetBackend(leveledBackend)
 
 	// Retain backend to allow for modification later
-	backends := make([]Backend, 0)
-	backends = append(backends, Backend{
+	l.Backends = make([]Backend, 0)
+	l.Backends = append(l.Backends, Backend{
 		backend: leveledBackend,
 		name:    "Standard Error",
 	})
@@ -70,9 +70,9 @@ func New(name string) *Crglogging {
 }
 
 func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
-	if file {
-		var fileBackend logging.Backend
+	var fileBackend logging.Backend
 
+	if file {
 		// Check if a file name or file pointer was passed
 		switch v := target.(type) {
 		case string:
@@ -87,8 +87,19 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		case io.Writer:
 			fileBackend = logging.NewLogBackend(v, name, 0)
 			break
+		default:
+			l.Errorf("Unknown target type: %T", target)
+			return
+		}
+	} else {
+		// Ensure only a writer object was passed
+		switch v := target.(type) {
+		case io.Writer:
+			// Create writer and add to backend list
+			fileBackend = logging.NewLogBackend(v, name, 0)
+			break
 		case chan string:
-			if len(l.MemBuffers) != 0 {
+			if l.MemBuffers == nil || len(l.MemBuffers) == 0 {
 				l.MemBuffers = make([]MemBuffer, 0)
 			}
 			memLog := MemBuffer{
@@ -101,32 +112,15 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			l.Errorf("Unknown target type: %T", target)
 			return
 		}
-
-		backendFormatter := logging.NewBackendFormatter(fileBackend, format)
-		leveledBackend := logging.AddModuleLevel(backendFormatter)
-
-		l.Backends = append(l.Backends, Backend{
-			backend: leveledBackend,
-			name:    name,
-		})
-	} else {
-		// Ensure only a writer object was passed
-		switch v := target.(type) {
-		case io.Writer:
-			// Create writer and add to backend list
-			backend := logging.NewLogBackend(v, name, 0)
-			backendFormatter := logging.NewBackendFormatter(backend, format)
-			leveledBackend := logging.AddModuleLevel(backendFormatter)
-			l.Backends = append(l.Backends, Backend{
-				backend: leveledBackend,
-				name:    name,
-			})
-			break
-		default:
-			l.Errorf("Unknown target type: %T", target)
-			return
-		}
 	}
+
+	backendFormatter := logging.NewBackendFormatter(fileBackend, format)
+	leveledBackend := logging.AddModuleLevel(backendFormatter)
+
+	l.Backends = append(l.Backends, Backend{
+		backend: leveledBackend,
+		name:    name,
+	})
 
 	backends := make([]logging.Backend, 0)
 
@@ -134,7 +128,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		backends = append(backends, backend.backend)
 	}
 
-	logging.SetBackend(backends...)
+	l.logger.SetBackend(logging.MultiLogger(backends...))
 }
 
 func (l *Crglogging) GetMemLogContents(name string) ([]byte, error) {
