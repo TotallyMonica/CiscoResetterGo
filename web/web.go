@@ -32,6 +32,7 @@ type Job struct {
 	Initiator  string
 	Params     RunParams
 	LoggerName string
+	MemLog     string
 }
 
 type IndexHelper struct {
@@ -76,7 +77,6 @@ func findJob(num int) int {
 func snitchOutput(c chan string, job int) {
 	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
 
-	serialOutput := <-c
 	jobIdx := findJob(job)
 	if jobIdx == -1 {
 		webLogger.Errorf("snitchOutput: Could not find job %d\n", job)
@@ -196,7 +196,8 @@ func runJob(rules RunParams, jobNum int) {
 			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
-			jobs[jobIdx].LoggerName = routers.LoggerName
+			time.Sleep(5 * time.Second)
+			jobs[jobIdx].LoggerName = routers.GetLoggerName()
 			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
