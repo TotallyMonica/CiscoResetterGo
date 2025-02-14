@@ -10,7 +10,6 @@ import (
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
-	"log"
 	"main/common"
 	"main/crglogging"
 	"main/routers"
@@ -74,10 +73,12 @@ func findJob(num int) int {
 }
 
 func snitchOutput(c chan string, job int) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	serialOutput := <-c
 	jobIdx := findJob(job)
 	if jobIdx == -1 {
-		log.Fatalf("snitchOutput: Could not find job %d\n", job)
+		webLogger.Errorf("snitchOutput: Could not find job %d\n", job)
 	}
 	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
 		jobs[jobIdx].Output += serialOutput
