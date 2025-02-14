@@ -26,11 +26,12 @@ import (
 var server = &http.Server{}
 
 type Job struct {
-	Number    int
-	Output    string
-	Status    string
-	Initiator string
-	Params    RunParams
+	Number     int
+	Output     string
+	Status     string
+	Initiator  string
+	Params     RunParams
+	LoggerName string
 }
 
 type IndexHelper struct {
@@ -128,6 +129,7 @@ func runJob(rules RunParams, jobNum int) {
 			} else {
 				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
 				jobs[jobIdx].Status = "Resetting"
+				jobs[jobIdx].LoggerName = switches.LoggerName
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
@@ -146,6 +148,7 @@ func runJob(rules RunParams, jobNum int) {
 			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
+			jobs[jobIdx].LoggerName = switches.LoggerName
 			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
@@ -162,6 +165,7 @@ func runJob(rules RunParams, jobNum int) {
 				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
 			} else {
 				jobs[jobIdx].Status = "Applying defaults"
+				jobs[jobIdx].LoggerName = routers.LoggerName
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
@@ -179,6 +183,7 @@ func runJob(rules RunParams, jobNum int) {
 			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
+			jobs[jobIdx].LoggerName = routers.LoggerName
 			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)

@@ -49,6 +49,7 @@ type RouterDefaults struct {
 
 var redirectedOutput chan string
 var consoleOutput [][]byte
+var LoggerName string
 
 func WriteConsoleOutput() error {
 	dumpFile := os.Getenv("DumpConsoleOutput")
@@ -77,8 +78,8 @@ func WriteConsoleOutput() error {
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
-	loggerName := fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
-	resetterLog := crglogging.New(loggerName)
+	LoggerName = fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
+	resetterLog := crglogging.New(LoggerName)
 
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
@@ -451,8 +452,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 }
 
 func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool, progressDest chan string) {
-	loggerName := fmt.Sprintf("RouterDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
-	defaultsLogger := crglogging.New(loggerName)
+	LoggerName = fmt.Sprintf("RouterDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
+	defaultsLogger := crglogging.New(LoggerName)
 
 	redirectedOutput = progressDest
 	if redirectedOutput != nil {

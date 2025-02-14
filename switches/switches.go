@@ -73,8 +73,10 @@ const INITIAL_CONFIG_PROMPT = "Would you like to enter the initial configuration
 var redirectedOutput chan string
 var consoleOutput [][]byte
 
-func ParseFilesToDelete(files [][]byte, loggerName string, debug bool) []string {
-	logger := crglogging.GetLogger(loggerName)
+var LoggerName string
+
+func ParseFilesToDelete(files [][]byte, debug bool) []string {
+	logger := crglogging.GetLogger(LoggerName)
 
 	commonPrefixes := []string{"config", "vlan"}
 	filesToDelete := make([]string, 0)
@@ -116,8 +118,8 @@ func ParseFilesToDelete(files [][]byte, loggerName string, debug bool) []string 
 }
 
 func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
-	loggerName := fmt.Sprintf("SwitchResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
-	resetLogger := crglogging.New(loggerName)
+	LoggerName = fmt.Sprintf("SwitchResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
+	resetLogger := crglogging.New(LoggerName)
 
 	var files []string
 	currentTime := time.Now()
@@ -396,7 +398,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			common.OutputInfo("Parsing files to delete...\n")
 		}
 		progress.CurrentStep += 1
-		files = ParseFilesToDelete(listing, loggerName, debug)
+		files = ParseFilesToDelete(listing, debug)
 
 		common.WaitForSubstring(port, RECOVERY_PROMPT, debug)
 
@@ -691,8 +693,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 }
 
 func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, debug bool, progressDest chan string) {
-	loggerName := fmt.Sprintf("SwitchDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
-	defaultsLogger := crglogging.New(loggerName)
+	LoggerName = fmt.Sprintf("SwitchDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
+	defaultsLogger := crglogging.New(LoggerName)
 
 	var progress common.Progress
 	progress.TotalSteps = 2

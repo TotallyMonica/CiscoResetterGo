@@ -1,6 +1,8 @@
 package crglogging
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/op/go-logging"
 	"io"
 	"os"
@@ -17,11 +19,17 @@ type Crglogging struct {
 	FatalCount int
 	Backends   []Backend
 	logger     *logging.Logger
+	MemBuffers []MemBuffer
 }
 
 type Backend struct {
 	backend logging.LeveledBackend
 	name    string
+}
+
+type MemBuffer struct {
+	buff bytes.Buffer
+	name string
 }
 
 type Instance struct {
@@ -79,6 +87,16 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		case io.Writer:
 			fileBackend = logging.NewLogBackend(v, name, 0)
 			break
+		case chan string:
+			if len(l.MemBuffers) != 0 {
+				l.MemBuffers = make([]MemBuffer, 0)
+			}
+			memLog := MemBuffer{
+				buff: bytes.Buffer{},
+				name: name,
+			}
+			l.MemBuffers = append(l.MemBuffers)
+			fileBackend = logging.NewLogBackend(&memLog.buff, name, 0)
 		default:
 			l.Errorf("Unknown target type: %T", target)
 			return
@@ -117,6 +135,16 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 	}
 
 	logging.SetBackend(backends...)
+}
+
+func (l *Crglogging) GetMemLogContents(name string) ([]byte, error) {
+	for _, backend := range l.MemBuffers {
+		if backend.name == name {
+			return backend.buff.Bytes(), nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not find mem log for %s", name)
 }
 
 func GetLogger(name string) *Crglogging {
