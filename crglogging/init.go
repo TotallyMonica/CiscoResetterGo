@@ -28,8 +28,8 @@ type Backend struct {
 }
 
 type MemBuffer struct {
-	buff logging.Backend
-	name string
+	Buff *logging.MemoryBackend
+	Name string
 }
 
 type Instance struct {
@@ -100,11 +100,12 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			fileBackend = logging.NewLogBackend(v, name, 0)
 			break
 		case chan string:
-			fileBackend = logging.NewMemoryBackend(2 << 16)
-			l.MemBuffers = append(l.MemBuffers, MemBuffer{
-				name: name,
-				buff: fileBackend,
-			})
+			buff := MemBuffer{
+				Name: name,
+				Buff: logging.NewMemoryBackend(2 << 16),
+			}
+			fileBackend = buff.Buff
+			l.MemBuffers = append(l.MemBuffers, buff)
 			break
 		default:
 			l.Errorf("Unknown target type: %T", target)
@@ -131,7 +132,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 
 func (l *Crglogging) GetMemLogContents(name string) (MemBuffer, error) {
 	for _, backend := range l.MemBuffers {
-		if backend.name == name {
+		if backend.Name == name {
 			return backend, nil
 		}
 	}
