@@ -82,22 +82,25 @@ func snitchOutput(c chan string, job int) {
 		webLogger.Errorf("snitchOutput: Could not find job %d\n", job)
 	}
 
-	serialOutput := <-c
 	jobLogger := crglogging.GetLogger(jobs[jobIdx].LoggerName)
-	jobLogger.Infof(serialOutput)
 
-	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
+	for !strings.HasSuffix(strings.TrimSpace(jobs[jobIdx].Output), "---EOF---") {
 		contents, err := jobLogger.GetMemLogContents("WebHandler")
 		if err != nil {
 			webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
 		}
 
-		jobs[jobIdx].Output += serialOutput
-		jobLogger.Info(serialOutput)
+		jobs[jobIdx].Output = ""
+
+		for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
+			if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
+				jobs[jobIdx].Output = fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+			}
+		}
+
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
-		jobLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, contents)
-		serialOutput = <-c
+		webLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, jobs[jobIdx].Output)
 	}
 	jobs[jobIdx].Status = "EOF"
 }
@@ -178,9 +181,9 @@ func runJob(rules RunParams, jobNum int) {
 			if jobIdx == -1 {
 				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
 			} else {
-				jobs[jobIdx].Status = "Applying defaults"
+				jobs[jobIdx].Status = "Resetting"
 				time.Sleep(5 * time.Second)
-				jobs[jobIdx].LoggerName = routers.GetLoggerName()
+				jobs[jobIdx].LoggerName = routers.LoggerName
 				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
@@ -199,7 +202,7 @@ func runJob(rules RunParams, jobNum int) {
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
 			time.Sleep(5 * time.Second)
-			jobs[jobIdx].LoggerName = routers.GetLoggerName()
+			jobs[jobIdx].LoggerName = routers.LoggerName
 			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
