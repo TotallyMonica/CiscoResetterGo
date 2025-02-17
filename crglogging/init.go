@@ -1,7 +1,6 @@
 package crglogging
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/op/go-logging"
 	"io"
@@ -29,9 +28,8 @@ type Backend struct {
 }
 
 type MemBuffer struct {
-	buff     bytes.Buffer
-	contents []byte
-	name     string
+	buff logging.Backend
+	name string
 }
 
 type Instance struct {
@@ -102,19 +100,12 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			fileBackend = logging.NewLogBackend(v, name, 0)
 			break
 		case chan string:
-			if l.MemBuffers == nil || len(l.MemBuffers) == 0 {
-				l.MemBuffers = make([]MemBuffer, 0)
-			}
-
-			buffContents := make([]byte, 0)
-
-			memLog := MemBuffer{
-				buff:     *bytes.NewBuffer(buffContents),
-				name:     name,
-				contents: buffContents,
-			}
-			l.MemBuffers = append(l.MemBuffers, memLog)
-			fileBackend = logging.NewLogBackend(&memLog.buff, name, 0)
+			fileBackend = logging.NewMemoryBackend(2 << 16)
+			l.MemBuffers = append(l.MemBuffers, MemBuffer{
+				name: name,
+				buff: fileBackend,
+			})
+			break
 		default:
 			l.Errorf("Unknown target type: %T", target)
 			return
@@ -138,14 +129,14 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 	l.logger.SetBackend(logging.MultiLogger(backends...))
 }
 
-func (l *Crglogging) GetMemLogContents(name string) ([]byte, error) {
+func (l *Crglogging) GetMemLogContents(name string) (MemBuffer, error) {
 	for _, backend := range l.MemBuffers {
 		if backend.name == name {
-			return backend.buff.Bytes(), nil
+			return backend, nil
 		}
 	}
 
-	return nil, fmt.Errorf("could not find mem log for %s", name)
+	return MemBuffer{}, fmt.Errorf("could not find mem log for %s", name)
 }
 
 func GetLogger(name string) *Crglogging {
