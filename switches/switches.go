@@ -117,7 +117,7 @@ func ParseFilesToDelete(files [][]byte, debug bool) []string {
 	return filesToDelete
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
+func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, updateChan chan bool) {
 	LoggerName = fmt.Sprintf("SwitchResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	resetLogger := crglogging.New(LoggerName)
 
@@ -125,10 +125,9 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	currentTime := time.Now()
 	backup.Prefix = currentTime.Format(fmt.Sprintf("%d%02d%02d_%02d%02d%02d", currentTime.Year(), currentTime.Month(),
 		currentTime.Day(), currentTime.Hour(), currentTime.Minute(), currentTime.Second()))
-	redirectedOutput = progressDest
 
-	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput, LoggerName)
+	if updateChan != nil {
+		common.SetOutputChannel(updateChan, LoggerName)
 	}
 
 	var progress common.Progress
@@ -187,7 +186,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	common.OutputInfo("Release the mode button now\n")
 	// Assumption being made: we are being ran as a CLI app rather than the web gui
 	// Allow the user to have time to release the button
-	if progressDest == nil {
+	if updateChan == nil {
 		common.OutputInfo("Press enter once you've released it")
 		_, err := fmt.Scanln()
 		if err != nil {
@@ -224,7 +223,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 			common.OutputInfo("Backing up the config is impossible as password recovery is disabled.\n")
 
 			// Assumption being made: we're being ran from the CLI rather than the web gui, so prompt if we want to continue
-			if progressDest == nil {
+			if updateChan == nil {
 				common.OutputInfo("Would you like to continue? (y/N)\n")
 				var userInput string
 				_, err := fmt.Scanln(&userInput)
@@ -692,7 +691,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	common.OutputInfo("---EOF---")
 }
 
-func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, debug bool, progressDest chan string) {
+func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, debug bool, updateChan chan bool) {
 	LoggerName = fmt.Sprintf("SwitchDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	defaultsLogger := crglogging.New(LoggerName)
 
@@ -719,9 +718,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		progress.TotalSteps += 3
 	}
 
-	redirectedOutput = progressDest
-	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput, LoggerName)
+	if updateChan != nil {
+		common.SetOutputChannel(updateChan, LoggerName)
 	}
 
 	hostname := "Switch"

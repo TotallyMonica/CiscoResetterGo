@@ -63,7 +63,7 @@ type SerialConfiguration struct {
 const WEB_LOGGER_NAME = "WebLogger"
 
 var jobs []Job
-var output = make(chan string)
+var updateChan = make(chan bool)
 
 func findJob(num int) int {
 	for i, job := range jobs {
@@ -143,11 +143,11 @@ func runJob(rules RunParams, jobNum int) {
 				webLogger.Errorf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
 				jobs[jobIdx].Status = "Errored"
 			} else {
-				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
+				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, updateChan)
 				jobs[jobIdx].Status = "Resetting"
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = switches.LoggerName
-				go snitchOutput(output, jobNum)
+				go snitchOutput(updateChan, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -162,12 +162,12 @@ func runJob(rules RunParams, jobNum int) {
 				return
 			}
 
-			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = switches.LoggerName
-			go snitchOutput(output, jobNum)
+			go snitchOutput(updateChan, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
@@ -177,7 +177,7 @@ func runJob(rules RunParams, jobNum int) {
 		jobs[jobIdx].Status = "Done"
 	} else if rules.DeviceType == "router" {
 		if rules.Reset {
-			go routers.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
+			go routers.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
 			if jobIdx == -1 {
 				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
@@ -185,7 +185,7 @@ func runJob(rules RunParams, jobNum int) {
 				jobs[jobIdx].Status = "Resetting"
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = routers.LoggerName
-				go snitchOutput(output, jobNum)
+				go snitchOutput(updateChan, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -199,12 +199,12 @@ func runJob(rules RunParams, jobNum int) {
 				return
 			}
 
-			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = routers.LoggerName
-			go snitchOutput(output, jobNum)
+			go snitchOutput(updateChan, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
@@ -494,6 +494,21 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job = jobs[jobIdx]
+
+	// Get job output from log buffer
+	// TODO: Is getting this at runtime better than storing it in the job contents?
+	jobLogger := crglogging.GetLogger(job.LoggerName)
+	job.Output = ""
+	contents, err := jobLogger.GetMemLogContents("WebHandler")
+	if err != nil {
+		webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
+	}
+
+	for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
+		if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
+			job.Output += fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+		}
+	}
 
 	// Determine the amount of lines to print out if requested
 	if len(r.URL.Query().Get("lines")) != 0 {

@@ -99,7 +99,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			// Create writer and add to backend list
 			fileBackend = logging.NewLogBackend(v, name, 0)
 			break
-		case chan string:
+		case chan bool:
 			buff := MemBuffer{
 				Name: name,
 				Buff: logging.NewMemoryBackend(2 << 16),
