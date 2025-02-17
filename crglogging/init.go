@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-var format = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x}%{color:reset} %{message}`)
+var Format = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x}%{color:reset} %{message}`)
 var Instances []Instance
 
 type Crglogging struct {
@@ -43,7 +43,7 @@ func New(name string) *Crglogging {
 	// Create backend
 	logger := logging.MustGetLogger("CiscoResetterGo")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
+	backendFormatter := logging.NewBackendFormatter(backend, Format)
 	leveledBackend := logging.AddModuleLevel(backendFormatter)
 	logger.SetBackend(leveledBackend)
 
@@ -113,7 +113,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		}
 	}
 
-	backendFormatter := logging.NewBackendFormatter(fileBackend, format)
+	backendFormatter := logging.NewBackendFormatter(fileBackend, Format)
 	leveledBackend := logging.AddModuleLevel(backendFormatter)
 
 	l.Backends = append(l.Backends, Backend{
