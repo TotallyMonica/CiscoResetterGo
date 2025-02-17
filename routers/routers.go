@@ -47,7 +47,6 @@ type RouterDefaults struct {
 	DefaultRoute   string
 }
 
-var redirectedOutput chan string
 var consoleOutput [][]byte
 var LoggerName string
 
@@ -83,7 +82,7 @@ func WriteConsoleOutput() error {
 	return nil
 }
 
-func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, progressDest chan string) {
+func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, debug bool, updateChan chan bool) {
 	LoggerName = fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	resetterLog := crglogging.New(LoggerName)
 
@@ -96,9 +95,8 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	const SAVE_PROMPT = "[yes/no]:"
 	const SHELL_CUE = "press return to get started!"
 
-	redirectedOutput = progressDest
-	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput, LoggerName)
+	if updateChan != nil {
+		common.SetOutputChannel(updateChan, LoggerName)
 	}
 
 	currentTime := time.Now()
@@ -457,13 +455,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	common.OutputInfo("---EOF---")
 }
 
-func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool, progressDest chan string) {
+func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults, debug bool, updateChan chan bool) {
 	LoggerName = fmt.Sprintf("RouterDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	defaultsLogger := crglogging.New(LoggerName)
 
-	redirectedOutput = progressDest
-	if redirectedOutput != nil {
-		common.SetOutputChannel(redirectedOutput, LoggerName)
+	if updateChan != nil {
+		common.SetOutputChannel(updateChan, LoggerName)
 	}
 
 	hostname := "Router"

@@ -74,7 +74,7 @@ func findJob(num int) int {
 	return -1
 }
 
-func snitchOutput(c chan string, job int) {
+func snitchOutput(c chan bool, job int) {
 	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
 
 	jobIdx := findJob(job)
@@ -94,13 +94,14 @@ func snitchOutput(c chan string, job int) {
 
 		for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
 			if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
-				jobs[jobIdx].Output = fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+				jobs[jobIdx].Output += fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
 			}
 		}
 
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
 		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
 		webLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, jobs[jobIdx].Output)
+		<-c
 	}
 	jobs[jobIdx].Status = "EOF"
 }
