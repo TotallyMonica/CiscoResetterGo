@@ -93,34 +93,21 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) error {
 	}
 
 	var output []byte
-	if debug {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			prefixLogger.Debugf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
-			prefixLogger.Debugf("Expected prefix: %s\n", prompt)
-			prefixLogger.Debugf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
-			prefixLogger.Debugf("TO DEVICE: %s\n", "\\n")
-			_, err := port.Write(FormatCommand(""))
-			if err != nil {
-				return err
-			}
-			output, err = ReadLine(port, 500, debug)
-			if err != nil {
-				return err
-			}
+	for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
+		prefixLogger.Debugf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
+		prefixLogger.Debugf("Expected prefix: %s\n", prompt)
+		prefixLogger.Debugf("FROM DEVICE: %s", strings.TrimSpace(string(output)))
+		prefixLogger.Debugf("TO DEVICE: %s\n", "\\n")
+		_, err := port.Write(FormatCommand(""))
+		if err != nil {
+			return err
 		}
-		prefixLogger.Debugf("%+v\n", output)
-	} else {
-		for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
-			_, err := port.Write(FormatCommand(""))
-			if err != nil {
-				return err
-			}
-			output, err = ReadLine(port, 500, debug)
-			if err != nil {
-				return err
-			}
+		output, err = ReadLine(port, 500, debug)
+		if err != nil {
+			return err
 		}
 	}
+	prefixLogger.Debugf("%+v\n", output)
 
 	return nil
 }
@@ -136,26 +123,20 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) error {
 	if err != nil && !errors.Is(err, io.ErrNoProgress) {
 		substringLogger.Fatalf("Error while waiting for substring: %s\n", err.Error())
 	} else if errors.Is(err, io.ErrNoProgress) {
-		if debug {
-			substringLogger.Debugf("TO DEVICE: %s\n", "\\r\\n")
-		}
+		substringLogger.Debugf("TO DEVICE: %s\n", "\\r\\n")
 		WriteLine(port, "", debug)
 		WriteLine(port, "", debug)
 		WriteLine(port, "", debug)
 	}
 	for !strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower(prompt)) {
-		if debug {
-			fmt.Printf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
-			fmt.Printf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
-			fmt.Printf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
-		}
+		substringLogger.Debugf("FROM DEVICE: %s\n", output) // We don't really need all 32k bytes
+		substringLogger.Debugf("FROM DEVICE: Output size: %d\n", len(strings.TrimSpace(string(output))))
+		substringLogger.Debugf("FROM DEVICE: Output empty? %t\n", IsEmpty(output))
 		output, err = ReadLine(port, 500, debug)
 		if err != nil && !errors.Is(err, io.ErrNoProgress) {
 			return err
 		} else if errors.Is(err, io.ErrNoProgress) {
-			if debug {
-				fmt.Printf("TO DEVICE: %s\n", "\\r\\n")
-			}
+			substringLogger.Debugf("TO DEVICE: %s\n", "\\r\\n")
 			WriteLine(port, "", debug)
 			WriteLine(port, "", debug)
 			WriteLine(port, "", debug)
@@ -187,9 +168,7 @@ func WriteLine(port serial.Port, line string, debug bool) error {
 	if err != nil {
 		return err
 	}
-	if debug {
-		writeLineLogger.Infof("TO DEVICE: sent %d bytes: %s\n", bytes, line+"\\n")
-	}
+	writeLineLogger.Debugf("TO DEVICE: sent %d bytes: %s\n", bytes, line+"\\n")
 
 	return nil
 }
@@ -212,9 +191,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]by
 	}
 
 	output := make([][]byte, maxLines)
-	if debug {
-		readLinesLogger.Debugf("\n======================================\nDEBUG: \n")
-	}
+	readLinesLogger.Debugf("\n======================================\nDEBUG: \n")
 	for i := 0; i < maxLines; i++ {
 		//scanner := bufio.NewScanner(port)
 
@@ -232,9 +209,7 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]by
 		//	}
 		//}
 
-		if debug {
-			readLinesLogger.Debugf("DEBUG: parsed %s\n", output[i])
-		}
+		readLinesLogger.Debugf("DEBUG: parsed %s\n", output[i])
 	}
 
 	return output, nil
