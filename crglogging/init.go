@@ -153,3 +153,33 @@ func GetLogger(name string) *Crglogging {
 func (l *Crglogging) GetLoggerName() string {
 	return l.name
 }
+
+func (l *Crglogging) SetLogLevel(level int) {
+	backends := make([]logging.Backend, 0)
+
+	for _, backend := range l.Backends {
+		switch level {
+		case int(logging.DEBUG):
+			backend.backend.SetLevel(logging.DEBUG, "")
+			break
+		case int(logging.INFO):
+			backend.backend.SetLevel(logging.INFO, "")
+			break
+		case int(logging.NOTICE):
+			backend.backend.SetLevel(logging.NOTICE, "")
+			break
+		case int(logging.WARNING):
+			backend.backend.SetLevel(logging.WARNING, "")
+			break
+		case int(logging.ERROR):
+			backend.backend.SetLevel(logging.ERROR, "")
+			break
+		case int(logging.CRITICAL):
+			backend.backend.SetLevel(logging.CRITICAL, "")
+			break
+		}
+		backends = append(backends, backend.backend)
+	}
+
+	l.logger.SetBackend(logging.MultiLogger(backends...))
+}
