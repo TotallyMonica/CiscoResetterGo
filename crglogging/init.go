@@ -83,10 +83,10 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			}
 			defer f.Close()
 
-			fileBackend = logging.NewLogBackend(f, name, 0)
+			fileBackend = logging.NewLogBackend(f, "", 0)
 			break
 		case io.Writer:
-			fileBackend = logging.NewLogBackend(v, name, 0)
+			fileBackend = logging.NewLogBackend(v, "", 0)
 			break
 		default:
 			l.Errorf("Unknown target type: %T", target)
@@ -97,7 +97,7 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		switch v := target.(type) {
 		case io.Writer:
 			// Create writer and add to backend list
-			fileBackend = logging.NewLogBackend(v, name, 0)
+			fileBackend = logging.NewLogBackend(v, "", 0)
 			break
 		case chan bool:
 			buff := MemBuffer{
