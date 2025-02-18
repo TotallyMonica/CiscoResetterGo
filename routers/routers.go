@@ -86,6 +86,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	LoggerName = fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	resetterLog := crglogging.New(LoggerName)
 
+	if debug {
+		resetterLog.SetLogLevel(5)
+	} else {
+		resetterLog.SetLogLevel(4)
+	}
+
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
