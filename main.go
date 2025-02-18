@@ -8,7 +8,7 @@ import (
 	"go.bug.st/serial/enumerator"
 	"io"
 	"main/common"
-	crglogging "main/crglogging"
+	"main/crglogging"
 	"main/routers"
 	"main/switches"
 	"main/web"
@@ -171,7 +171,7 @@ func main() {
 	var version bool
 	var portSettings serial.Mode
 
-	log := crglogging.New("main")
+	logger := crglogging.New("main")
 
 	flag.BoolVar(&verboseOutput, "verboseOutput", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
@@ -191,13 +191,13 @@ func main() {
 		if ok {
 			verboseBuildInfo, err := json.MarshalIndent(buildInfo, "", "\t")
 			if err != nil {
-				log.Fatalf("Couldn't marshal additional build information: %s\n", err)
+				logger.Fatalf("Couldn't marshal additional build information: %s\n", err)
 			}
 
 			var unmarshaledBuild debug.BuildInfo
 			err = json.Unmarshal(verboseBuildInfo, &unmarshaledBuild)
 			if err != nil {
-				log.Fatalf("Couldn't unmarshal additional build information: %s\n", err)
+				logger.Fatalf("Couldn't unmarshal additional build information: %s\n", err)
 			}
 
 			for _, setting := range unmarshaledBuild.Settings {
@@ -217,7 +217,7 @@ func main() {
 	if !(resetRouter || resetSwitch || webServer) {
 		_, err := fmt.Fprintf(os.Stderr, "Usage of %s\n", os.Args[0])
 		if err != nil {
-			log.Fatalf("Error while printing error message to Stderr: %s\n", err)
+			logger.Fatalf("Error while printing error message to Stderr: %s\n", err)
 		}
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -234,12 +234,12 @@ func main() {
 	} else {
 		backupConfigFile, err := os.Open(backupConfig)
 		if err != nil {
-			log.Fatalf("Error while opening file %s: %s\n", backupConfig, err)
+			logger.Fatalf("Error while opening file %s: %s\n", backupConfig, err)
 		}
 
 		err = json.Unmarshal(io.ReadAll(backupConfigFile))
 		if err != nil {
-			log.Fatalf("Error while unmarshalling %s: %s\n", backupConfig, err)
+			logger.Fatalf("Error while unmarshalling %s: %s\n", backupConfig, err)
 		}
 	}
 
@@ -256,14 +256,14 @@ func main() {
 		// Load the provided json file
 		file, err := os.ReadFile(routerDefaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		// Parse the provided json
 		var defaults routers.RouterDefaults
 		err = json.Unmarshal(file, &defaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		routers.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
@@ -274,17 +274,17 @@ func main() {
 		// Load the provided json file
 		file, err := os.ReadFile(switchDefaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		// Parse the provided json
 		var defaults switches.SwitchConfig
 		err = json.Unmarshal(file, &defaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		switches.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
-		log.Warnln("File path not provided, not setting defaults on switch")
+		logger.Warnln("File path not provided, not setting defaults on switch")
 	}
 }

@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
 	"io"
@@ -56,6 +55,8 @@ func SetReadLineTimeout(t time.Duration) {
 }
 
 func TftpWriteHandler(filename string, wt io.WriterTo) error {
+	tftpLogger := crglogging.GetLogger("TftpLogger")
+
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func TftpWriteHandler(filename string, wt io.WriterTo) error {
 		return err
 	}
 
-	fmt.Printf("TftpWriteHandler: Received %d bytes\n", recvd)
+	tftpLogger.Infof("TftpWriteHandler: Received %d bytes\n", recvd)
 
 	return nil
 }
@@ -177,9 +178,6 @@ func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
 	line, err := ReadLines(port, buffSize, 1, debug)
 	if err != nil {
 		return nil, err
-	}
-	if debug {
-		fmt.Printf("FROM DEVICE: %s\n", line[0])
 	}
 	return line[0], err
 }

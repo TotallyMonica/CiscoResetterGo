@@ -99,7 +99,7 @@ func snitchOutput(c chan bool, job int) {
 		}
 
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
-		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
+		webLogger.Infof("Line count on job %d: %d\n", job, len(delimited))
 		webLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, jobs[jobIdx].Output)
 		<-c
 	}
@@ -244,7 +244,7 @@ func newClientApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("clientHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("clientHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	if r.Method == "POST" {
 		ports, err := enumerator.GetDetailedPortsList()
@@ -290,7 +290,7 @@ func clientJobApi(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("clientJobApi: %s sent data to %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+		webLogger.Infof("clientJobApi: %s sent data to %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 		var body Job
 		err = json.Unmarshal(rawBody, &body)
@@ -361,7 +361,7 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	data, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -401,7 +401,7 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	err = jobsTemplate.ExecuteTemplate(w, "layout", jobs)
 	if err != nil {
@@ -432,7 +432,7 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
-	fmt.Printf("port: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("port: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -474,7 +474,7 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	vars := mux.Vars(r)
 
@@ -566,21 +566,21 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	//port := r.PathValue("port")
 	//if port != "" {
-	//	fmt.Printf("%s requested port %s\n", r.RemoteAddr, port)
+	//	webLogger.Infof("%s requested port %s\n", r.RemoteAddr, port)
 	//}
 	//if r.PathValue("baud") != "" {
 	//	baud, err := strconv.Atoi(r.PathValue("baud"))
 	//	if err != nil {
-	//		log.Print(err.Error())
+	//		webLogger.Errorf(err.Error())
 	//		http.Error(w, fmt.Sprintf("Invalid baud %s\n", r.PathValue("baud")), http.StatusBadRequest)
 	//		return
 	//	}
 	//	if port != "" {
-	//		fmt.Printf("%s requested baud %d\n", r.RemoteAddr, baud)
+	//		webLogger.Infof("%s requested baud %d\n", r.RemoteAddr, baud)
 	//	}
 	//}
 
@@ -627,7 +627,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
-	fmt.Printf("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	// Format form results
 	var rules RunParams
@@ -749,9 +749,9 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("Post form values:\n")
+		webLogger.Infof("Post form values:\n")
 		for key, value := range r.PostForm {
-			fmt.Printf("\t%s: %s\n", key, value)
+			webLogger.Infof("\t%s: %s\n", key, value)
 		}
 
 		var formattedJson []byte
@@ -1014,7 +1014,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+		webLogger.Infof("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 		err = builderPage.ExecuteTemplate(w, "layout", nil)
 		if err != nil {
@@ -1051,7 +1051,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("serveIndex: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("serveIndex: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	serialPorts, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -1119,15 +1119,13 @@ func ServeWeb() {
 	webLogger := crglogging.New(WEB_LOGGER_NAME)
 
 	webLogger.Infof("Listening on %s\n", server.Addr)
-	webLogger.Fatalf("An error occurred while serving the web server: %s\n", server.ListenAndServe())
 
-	fmt.Printf("Listening on %s\n", server.Addr)
 	err := server.ListenAndServe()
 	defer server.Close()
 	webLogger.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
 	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" && errors.Is(err, http.ErrServerClosed) {
-		webLogger.Error(err.Error())
+		webLogger.Errorf("An error occurred while serving the web server: %s\n", err)
 	} else {
-		webLogger.Fatal(err.Error())
+		webLogger.Fatalf("An error occurred while serving the web server: %s\n", err)
 	}
 }
