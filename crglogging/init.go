@@ -1,12 +1,13 @@
 package crglogging
 
 import (
+	"fmt"
 	"github.com/op/go-logging"
 	"io"
 	"os"
 )
 
-var format = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x}%{color:reset} %{message}`)
+var Format = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x}%{color:reset} %{message}`)
 var Instances []Instance
 
 type Crglogging struct {
@@ -17,11 +18,18 @@ type Crglogging struct {
 	FatalCount int
 	Backends   []Backend
 	logger     *logging.Logger
+	MemBuffers []MemBuffer
+	name       string
 }
 
 type Backend struct {
 	backend logging.LeveledBackend
 	name    string
+}
+
+type MemBuffer struct {
+	Buff *logging.MemoryBackend
+	Name string
 }
 
 type Instance struct {
@@ -35,13 +43,13 @@ func New(name string) *Crglogging {
 	// Create backend
 	logger := logging.MustGetLogger("CiscoResetterGo")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
+	backendFormatter := logging.NewBackendFormatter(backend, Format)
 	leveledBackend := logging.AddModuleLevel(backendFormatter)
-	logging.SetBackend(leveledBackend)
+	logger.SetBackend(leveledBackend)
 
 	// Retain backend to allow for modification later
-	backends := make([]Backend, 0)
-	backends = append(backends, Backend{
+	l.Backends = make([]Backend, 0)
+	l.Backends = append(l.Backends, Backend{
 		backend: leveledBackend,
 		name:    "Standard Error",
 	})
@@ -53,6 +61,7 @@ func New(name string) *Crglogging {
 
 	// Add logger to instance and save it
 	l.logger = logger
+	l.name = name
 	Instances = append(Instances, Instance{
 		Name:     name,
 		Instance: l,
@@ -62,9 +71,9 @@ func New(name string) *Crglogging {
 }
 
 func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
-	if file {
-		var fileBackend logging.Backend
+	var fileBackend logging.Backend
 
+	if file {
 		// Check if a file name or file pointer was passed
 		switch v := target.(type) {
 		case string:
@@ -83,26 +92,20 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 			l.Errorf("Unknown target type: %T", target)
 			return
 		}
-
-		backendFormatter := logging.NewBackendFormatter(fileBackend, format)
-		leveledBackend := logging.AddModuleLevel(backendFormatter)
-
-		l.Backends = append(l.Backends, Backend{
-			backend: leveledBackend,
-			name:    name,
-		})
 	} else {
 		// Ensure only a writer object was passed
 		switch v := target.(type) {
 		case io.Writer:
 			// Create writer and add to backend list
-			backend := logging.NewLogBackend(v, name, 0)
-			backendFormatter := logging.NewBackendFormatter(backend, format)
-			leveledBackend := logging.AddModuleLevel(backendFormatter)
-			l.Backends = append(l.Backends, Backend{
-				backend: leveledBackend,
-				name:    name,
-			})
+			fileBackend = logging.NewLogBackend(v, name, 0)
+			break
+		case chan bool:
+			buff := MemBuffer{
+				Name: name,
+				Buff: logging.NewMemoryBackend(2 << 16),
+			}
+			fileBackend = buff.Buff
+			l.MemBuffers = append(l.MemBuffers, buff)
 			break
 		default:
 			l.Errorf("Unknown target type: %T", target)
@@ -110,13 +113,31 @@ func (l *Crglogging) NewLogTarget(name string, target interface{}, file bool) {
 		}
 	}
 
+	backendFormatter := logging.NewBackendFormatter(fileBackend, Format)
+	leveledBackend := logging.AddModuleLevel(backendFormatter)
+
+	l.Backends = append(l.Backends, Backend{
+		backend: leveledBackend,
+		name:    name,
+	})
+
 	backends := make([]logging.Backend, 0)
 
 	for _, backend := range l.Backends {
 		backends = append(backends, backend.backend)
 	}
 
-	logging.SetBackend(backends...)
+	l.logger.SetBackend(logging.MultiLogger(backends...))
+}
+
+func (l *Crglogging) GetMemLogContents(name string) (MemBuffer, error) {
+	for _, backend := range l.MemBuffers {
+		if backend.Name == name {
+			return backend, nil
+		}
+	}
+
+	return MemBuffer{}, fmt.Errorf("could not find mem log for %s", name)
 }
 
 func GetLogger(name string) *Crglogging {
@@ -127,4 +148,38 @@ func GetLogger(name string) *Crglogging {
 	}
 
 	return nil
+}
+
+func (l *Crglogging) GetLoggerName() string {
+	return l.name
+}
+
+func (l *Crglogging) SetLogLevel(level int) {
+	backends := make([]logging.Backend, 0)
+
+	for _, backend := range l.Backends {
+		switch level {
+		case int(logging.DEBUG):
+			backend.backend.SetLevel(logging.DEBUG, "")
+			break
+		case int(logging.INFO):
+			backend.backend.SetLevel(logging.INFO, "")
+			break
+		case int(logging.NOTICE):
+			backend.backend.SetLevel(logging.NOTICE, "")
+			break
+		case int(logging.WARNING):
+			backend.backend.SetLevel(logging.WARNING, "")
+			break
+		case int(logging.ERROR):
+			backend.backend.SetLevel(logging.ERROR, "")
+			break
+		case int(logging.CRITICAL):
+			backend.backend.SetLevel(logging.CRITICAL, "")
+			break
+		}
+		backends = append(backends, backend.backend)
+	}
+
+	l.logger.SetBackend(logging.MultiLogger(backends...))
 }
