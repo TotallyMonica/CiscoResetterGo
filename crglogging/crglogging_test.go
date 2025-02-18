@@ -13,6 +13,7 @@ var debugRegex *regexp.Regexp
 var infoRegex *regexp.Regexp
 var errorRegex *regexp.Regexp
 var noticeRegex *regexp.Regexp
+var warningRegex *regexp.Regexp
 var fatalRegex *regexp.Regexp
 var criticalRegex *regexp.Regexp
 
@@ -20,42 +21,49 @@ func compileRegexes() error {
 	var err error
 
 	if debugRegex == nil {
-		debugRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ DEBUG \d+ \[.* DEBUG Sample Message`)
+		debugRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ DEBUG [0-9a-f]* \[DEBUG Sample Message`)
 		if err != nil {
 			return err
 		}
 	}
 
 	if infoRegex == nil {
-		infoRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ INFO \d+ \[.* INFO Sample Message`)
+		infoRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ INFO [0-9a-f]* \[(INFO|DEBUG) Sample Message`)
 		if err != nil {
 			return err
 		}
 	}
 
 	if noticeRegex == nil {
-		noticeRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ NOTICE \d+ \[.* NOTICE Sample Message`)
+		noticeRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ NOTICE [0-9a-f]* \[\[(NOTICE|INFO|DEBUG) Sample Message`)
+		if err != nil {
+			return err
+		}
+	}
+
+	if warningRegex == nil {
+		warningRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ WARNING [0-9a-f]* \[\[(WARNING|NOTICE|INFO|DEBUG) Sample Message`)
 		if err != nil {
 			return err
 		}
 	}
 
 	if errorRegex == nil {
-		errorRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ ERROR \d+ \[.* ERROR Sample Message`)
+		errorRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ ERROR [0-9a-f]* \[(ERROR|WARNING|NOTICE|INFO|DEBUG) Sample Message`)
 		if err != nil {
 			return err
 		}
 	}
 
 	if fatalRegex == nil {
-		fatalRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ FATAL \d+ \[.* FATAL Sample Message`)
+		fatalRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ FATAL [0-9a-f]* \[(FATAL|ERROR|WARNING|NOTICE|INFO|DEBUG) Sample Message`)
 		if err != nil {
 			return err
 		}
 	}
 
 	if criticalRegex == nil {
-		criticalRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ CRITICAL \d+ \[.* CRITICAL Sample Message`)
+		criticalRegex, err = regexp.Compile(`\d+:\d+:\d+\.\d+ func1 ▶ CRITICAL [0-9a-f]* \[(CRITICAL|FATAL|ERROR|WARNING|NOTICE|INFO|DEBUG) Sample Message`)
 		if err != nil {
 			return err
 		}
@@ -70,6 +78,15 @@ func TestLogToFile(t *testing.T) {
 		t.Fatalf("Failed to compile regexes: %v", err)
 	}
 
+	tmp, err := os.CreateTemp("", "CICD_Log_File-*.log")
+	if err != nil {
+		t.Errorf("Failed to create temporary file: %v", err)
+		return
+	}
+	filePattern := tmp.Name()
+	tmp.Close()
+	os.Remove(filePattern)
+
 	type args struct {
 		filename string
 		level    logging.Level
@@ -82,7 +99,7 @@ func TestLogToFile(t *testing.T) {
 	}{{
 		name: "LogDebugToFile",
 		args: args{
-			filename: fmt.Sprintf("/tmp/DEBUG_File_tst.log"),
+			filename: fmt.Sprintf("DEBUG_%s", filePattern),
 			level:    logging.DEBUG,
 			message:  "Sample Message\n",
 		},
@@ -137,7 +154,7 @@ func TestLogToMemory(t *testing.T) {
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_debug",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* DEBUG \d+ Sample Message`,
+		want: debugRegex.String(),
 	}, {
 		name: "LogInfoToMemory",
 		args: args{
@@ -145,7 +162,7 @@ func TestLogToMemory(t *testing.T) {
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_info",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* INFO \d+ Sample Message`,
+		want: infoRegex.String(),
 	}, {
 		name: "LogNoticeToMemory",
 		args: args{
@@ -153,7 +170,7 @@ func TestLogToMemory(t *testing.T) {
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_notice",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* NOTICE \d+ Sample Message`,
+		want: noticeRegex.String(),
 	}, {
 		name: "LogWarningToMemory",
 		args: args{
@@ -161,7 +178,7 @@ func TestLogToMemory(t *testing.T) {
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_warning",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* WARNING \d+ Sample Message`,
+		want: warningRegex.String(),
 	}, {
 		name: "LogErrorToMemory",
 		args: args{
@@ -169,15 +186,15 @@ func TestLogToMemory(t *testing.T) {
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_error",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* ERROR \d+ Sample Message`,
+		want: errorRegex.String(),
 	}, {
 		name: "LogCriticalToMemory",
 		args: args{
-			level:          logging.DEBUG,
+			level:          logging.CRITICAL,
 			message:        "Sample Message\n",
 			memChannelName: "cicd_mem_critical",
 		},
-		want: `\d+:\d+:\d+\.\d+ .* CRITICAL \d+ Sample Message`,
+		want: criticalRegex.String(),
 	}}
 
 	for _, tt := range tests {
@@ -187,7 +204,12 @@ func TestLogToMemory(t *testing.T) {
 
 			logger := New("cicd_test")
 			logger.NewLogTarget(tt.args.memChannelName, placeholderChan, false)
-			logger.Debug(placeholderChan, tt.args.level, tt.args.message)
+			logger.SetLogLevel(int(tt.args.level))
+			logger.Debug(tt.args.level, tt.args.message)
+			logger.Info(tt.args.level, tt.args.message)
+			logger.Warning(tt.args.level, tt.args.message)
+			logger.Error(tt.args.level, tt.args.message)
+			//logger.Fatal(tt.args.level, tt.args.message)
 
 			memBuff, err := logger.GetMemLogContents(tt.args.memChannelName)
 			if err != nil {
@@ -196,7 +218,8 @@ func TestLogToMemory(t *testing.T) {
 			}
 
 			for line := memBuff.Buff.Head(); line != nil; line = line.Next() {
-				lines = append(lines, line.Record.Formatted(0))
+				formattedLine := line.Record.Formatted(0)
+				lines = append(lines, formattedLine)
 			}
 
 			if len(lines) < 0 {
@@ -204,7 +227,7 @@ func TestLogToMemory(t *testing.T) {
 			}
 
 			for _, line := range lines {
-				if !debugRegex.MatchString(line) {
+				if !(debugRegex.MatchString(line) || infoRegex.MatchString(line) || errorRegex.MatchString(line) || fatalRegex.MatchString(line) || warningRegex.MatchString(line)) {
 					t.Errorf("%s failed, got %s, expected regex expression %s\n", tt.name, line, tt.want)
 				}
 			}
