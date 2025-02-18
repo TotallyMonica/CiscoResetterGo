@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-var Format = logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x}%{color:reset} %{message}`)
+var Format = logging.MustStringFormatter(`%{time:15:04:05.000} %{shortfunc} ▶ %{level} %{id:03x} %{message}`)
 var Instances []Instance
 
 type Crglogging struct {
