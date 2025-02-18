@@ -3,76 +3,77 @@ package common
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/pin/tftp/v3"
 	"io"
-	"log"
 	"os"
 	"testing"
 	"time"
 )
 
-func tftpClient(filename string, closeChan chan bool) {
+func tftpClient(filename string, closeChan chan bool) error {
 	// Get test ready
 	err := os.Remove(filename + "_recv")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Fatalf("TFTP Client test while preparing test: %s\n", err)
+		return fmt.Errorf("TFTP Client test while preparing test: %s\n", err)
 	}
 
 	// Initialize test
 	tftpServer := "127.0.0.1:69"
 	c, err := tftp.NewClient(tftpServer)
 	if err != nil {
-		log.Fatalf("TFTP Client test failed while connecting to server %s. Details: %s\n", tftpServer, err)
+		return fmt.Errorf("TFTP Client test failed while connecting to server %s. Details: %s\n", tftpServer, err)
 	}
 	c.SetTimeout(5 * time.Second)
 
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatalf("TFTP Client test failed while opening file. Details: %s\n", err)
+		return fmt.Errorf("TFTP Client test failed while opening file. Details: %s\n", err)
 	}
 	defer file.Close()
 
 	// Send file
 	rf, err := c.Send(filename+"_recv", "octet")
 	if err != nil {
-		log.Fatalf("TFTP Client test failed while sending file. Details: %s\n", err)
+		return fmt.Errorf("TFTP Client test failed while sending file. Details: %s\n", err)
 	}
-	n, err := rf.ReadFrom(file)
+	_, err = rf.ReadFrom(file)
 	if err != nil {
-		log.Fatalf("TFTP Client test failed while reading file. Details: %s\n", err)
+		return fmt.Errorf("TFTP Client test failed while reading file. Details: %s\n", err)
 	}
-	log.Printf("%d bytes sent successfully to server %s\n", n, tftpServer)
 
 	closeChan <- true
-	return
+	return nil
 }
 
-func compareTftpFiles(filename string) {
+func compareTftpFiles(filename string) error {
 	src, err := os.Open(filename)
 	if err != nil {
-		log.Fatalf("TFTP file validation test failed while opening source file %s. Details: %s\n", filename, err)
+		return fmt.Errorf("TFTP file validation test failed while opening source file %s. Details: %s\n", filename, err)
 	}
 	defer src.Close()
 
 	dst, err := os.Open(filename + "_recv")
 	if err != nil {
-		log.Fatalf("TFTP file validation test failed while opening destination file %s_recv. Details: %s\n", filename, err)
+		return fmt.Errorf("TFTP file validation test failed while opening destination file %s_recv. Details: %s\n", filename, err)
 	}
 	defer dst.Close()
 
 	srcContents, err := io.ReadAll(src)
 	if err != nil {
-		log.Fatalf("TFTP file validation test failed while reading source file %s. Details: %s\n", src.Name(), err)
+		return fmt.Errorf("TFTP file validation test failed while reading source file %s. Details: %s\n", src.Name(), err)
 	}
 
 	dstContents, err := io.ReadAll(dst)
 	if err != nil {
-		log.Fatalf("TFTP file validation test failed while reading destination file %s. Details: %s\n", dst.Name(), err)
+		return fmt.Errorf("TFTP file validation test failed while reading destination file %s. Details: %s\n", dst.Name(), err)
 	}
 
 	if bytes.Compare(srcContents, dstContents) != 0 {
-		log.Fatalf("Source contents from file %s differs from destination file %s\n", src.Name(), dst.Name())
+		return fmt.Errorf("Source contents from file %s differs from destination file %s\n", src.Name(), dst.Name())
 	}
+
+	return nil
 }
 
 //func TestBuiltInTftpServer(t *testing.T) {
