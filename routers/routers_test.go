@@ -2,9 +2,9 @@ package routers
 
 import (
 	"encoding/json"
+	"fmt"
 	"go.bug.st/serial"
 	"io"
-	"log"
 	"main/common"
 	"math"
 	"os"
@@ -14,16 +14,14 @@ import (
 	"time"
 )
 
-func getPortType() string {
+func getPortType() (string, error) {
 	if runtime.GOOS == "windows" {
-		return "COM3"
+		return "COM3", nil
 	} else if runtime.GOOS == "linux" {
-		return "/dev/ttyUSB0"
+		return "/dev/ttyUSB0", nil
 	} else {
-		log.Fatalf("Unsupported OS type: %s\n", runtime.GOOS)
+		return "", fmt.Errorf("Unsupported OS type: %s\n", runtime.GOOS)
 	}
-
-	return ""
 }
 
 // TODO: Validate reset/defaults
@@ -50,6 +48,13 @@ func TestReset(t *testing.T) {
 		name string
 		args args
 	}, 0)
+
+	portType, err := getPortType()
+	if err != nil {
+		t.Errorf("Couldn't get port type. Error: %s\n", err)
+		return
+	}
+
 	if os.Getenv("SKIP_VERBOSE_RESET") != "" {
 		t.Skip("Skipping verbose output reset tests")
 	} else {
@@ -59,7 +64,7 @@ func TestReset(t *testing.T) {
 		}{
 			name: "Reset with verbose output",
 			args: args{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				backup: common.Backup{
 					Backup: false,
@@ -79,7 +84,7 @@ func TestReset(t *testing.T) {
 		}{
 			name: "Reset without verbose output",
 			args: args{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				backup: common.Backup{
 					Backup: false,
@@ -156,6 +161,12 @@ func TestDefaults(t *testing.T) {
 		t.Fatalf("Error while parsing defaults file for testing: %s", err)
 	}
 
+	portType, err := getPortType()
+	if err != nil {
+		t.Errorf("Couldn't get port type. Error: %s\n", err)
+		return
+	}
+
 	tests := make([]struct {
 		name string
 		args args
@@ -170,7 +181,7 @@ func TestDefaults(t *testing.T) {
 		}{
 			name: "Apply defaults with verbose output",
 			args: args{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				config:       defaultsStruct,
 				debug:        true,
@@ -188,7 +199,7 @@ func TestDefaults(t *testing.T) {
 		}{
 			name: "Apply defaults with limited output",
 			args: args{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				config:       defaultsStruct,
 				progressDest: make(chan string),
@@ -267,6 +278,12 @@ func TestResetAndDefaults(t *testing.T) {
 		t.Fatalf("Error while parsing defaults file for testing: %s", err)
 	}
 
+	portType, err := getPortType()
+	if err != nil {
+		t.Errorf("Couldn't get port type. Error: %s\n", err)
+		return
+	}
+
 	tests := make([]struct {
 		name         string
 		resetArgs    resetArgs
@@ -283,7 +300,7 @@ func TestResetAndDefaults(t *testing.T) {
 		}{
 			name: "Reset and apply defaults with verbose output",
 			resetArgs: resetArgs{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				backup: common.Backup{
 					Backup: false,
@@ -292,7 +309,7 @@ func TestResetAndDefaults(t *testing.T) {
 				progressDest: make(chan string),
 			},
 			defaultsArgs: defaultsArgs{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				config:       defaultsStruct,
 				debug:        true,
@@ -311,7 +328,7 @@ func TestResetAndDefaults(t *testing.T) {
 		}{
 			name: "Reset and apply defaults with limited output",
 			resetArgs: resetArgs{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				backup: common.Backup{
 					Backup: false,
@@ -320,7 +337,7 @@ func TestResetAndDefaults(t *testing.T) {
 				progressDest: make(chan string),
 			},
 			defaultsArgs: defaultsArgs{
-				SerialPort:   getPortType(),
+				SerialPort:   portType,
 				PortSettings: serial.Mode{BaudRate: 9600, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit},
 				config:       defaultsStruct,
 				progressDest: make(chan string),
