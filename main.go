@@ -21,16 +21,16 @@ func SetupSerial() (string, serial.Mode) {
 	var userInput string
 	var chosenPort string
 
-	log := crglogging.Instances[0].Instance
+	logger := crglogging.Instances[0].Instance
 
 	isValid := false
 	for !isValid {
 		ports, err := enumerator.GetDetailedPortsList()
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if len(ports) == 0 {
-			log.Fatal("No serial ports found!")
+			logger.Fatal("No serial ports found!")
 		}
 		for _, port := range ports {
 			fmt.Printf("Found port %v\n", port.Name)
@@ -44,7 +44,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Select a serial port ")
 		_, err = fmt.Scanln(&userInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		for _, port := range ports {
@@ -58,7 +58,7 @@ func SetupSerial() (string, serial.Mode) {
 	fmt.Println("Default settings are 9600 8N1. Would you like to change these? (y/N)")
 	_, err := fmt.Scanln(&userInput)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	settings := &serial.Mode{
@@ -80,7 +80,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired baud rate (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &baudRate)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if baudRate == 0 {
 			baudRate = 9600
@@ -90,7 +90,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired data bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &dataBits)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if dataBits == 0 {
 			dataBits = 8
@@ -101,7 +101,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired parity bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &parityBitInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		switch parityBitInput {
 		case 1:
@@ -121,7 +121,7 @@ func SetupSerial() (string, serial.Mode) {
 			parityBit = serial.SpaceParity
 			break
 		default:
-			log.Fatal("Invalid parity bit value provided")
+			logger.Fatal("Invalid parity bit value provided")
 		}
 
 		fmt.Println("Default value for stop bits is 1")
@@ -129,7 +129,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired stop bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%f\n", &stopBitsInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		switch stopBitsInput {
@@ -144,7 +144,7 @@ func SetupSerial() (string, serial.Mode) {
 			stopBits = serial.TwoStopBits
 			break
 		default:
-			log.Fatal("Invalid stop bits value provided")
+			logger.Fatal("Invalid stop bits value provided")
 		}
 
 		settings = &serial.Mode{
