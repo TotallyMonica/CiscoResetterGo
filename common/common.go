@@ -266,9 +266,6 @@ func IsSyslog(output string) bool {
 
 	// Handle debug
 	syslogParserLogger.SetLogLevel(4)
-	if debug {
-		syslogParserLogger.SetLogLevel(5)
-	}
 
 	compile, err := regexp.Compile(`\w{3}\s((\s\d|\d{2})\s)((\s\d|\d{2}):){2}\d{2}\.\d{3}:\s%(\w|-)*:\s.*`)
 	if err != nil {
