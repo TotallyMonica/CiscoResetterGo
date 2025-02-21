@@ -413,6 +413,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	LoggerName = fmt.Sprintf("RouterDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	defaultsLogger := crglogging.New(LoggerName)
 
+	// Handle debug
+	defaultsLogger.SetLogLevel(4)
+	if debug {
+		defaultsLogger.SetLogLevel(5)
+	}
+
 	if updateChan != nil {
 		common.SetOutputChannel(updateChan, LoggerName)
 	}
