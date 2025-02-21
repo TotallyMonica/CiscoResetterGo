@@ -2,10 +2,12 @@ package switches
 
 import (
 	"encoding/json"
+	"fmt"
 	"go.bug.st/serial"
 	"io"
 	"log"
 	"main/common"
+	"main/crglogging"
 	"math"
 	"os"
 	"runtime"
@@ -24,6 +26,24 @@ func getPortType() string {
 	}
 
 	return ""
+}
+
+func getLastLogLine() (string, error) {
+	logger := crglogging.GetLogger(LoggerName)
+	contents, err := logger.GetMemLogContents("WebHandler")
+	if err != nil {
+		return "", fmt.Errorf("could not get memory contents. error: %s\n", err)
+	}
+
+	line := ""
+
+	for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
+		if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
+			line = fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+		}
+	}
+
+	return line, nil
 }
 
 // TODO: Validate reset/defaults
@@ -92,17 +112,22 @@ func TestReset(t *testing.T) {
 		})
 	}
 	for _, tt := range tests {
-		start := time.Now()
-		timeout := time.After(20 * time.Minute)
 		go t.Run(tt.name, func(t *testing.T) {
 			Reset(tt.args.SerialPort, tt.args.PortSettings, tt.args.backup, tt.args.debug, tt.args.progressDest)
 		})
 
+		time.Sleep(5 * time.Second)
+		start := time.Now()
+		timeout := time.After(20 * time.Minute)
 		for {
 			canExit := false
 			select {
-			case msg := <-tt.args.progressDest:
-				if strings.Contains("msg", "--EOF--") {
+			case _ = <-tt.args.progressDest:
+				msg, err := getLastLogLine()
+				if err != nil {
+					t.Errorf("Error getting last log line: %s\n", err)
+				}
+				if strings.Contains(msg, "--EOF--") {
 					t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
@@ -214,8 +239,12 @@ func TestDefaults(t *testing.T) {
 		for {
 			canExit := false
 			select {
-			case msg := <-tt.args.progressDest:
-				if strings.Contains("msg", "--EOF--") {
+			case _ = <-tt.args.progressDest:
+				msg, err := getLastLogLine()
+				if err != nil {
+					t.Errorf("Error getting last log line: %s\n", err)
+				}
+				if strings.Contains(msg, "--EOF--") {
 					t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
@@ -349,8 +378,12 @@ func TestResetAndDefaults(t *testing.T) {
 		for {
 			canExit := false
 			select {
-			case msg := <-tt.resetArgs.progressDest:
-				if strings.Contains("msg", "--EOF--") {
+			case _ = <-tt.args.progressDest:
+				msg, err := getLastLogLine()
+				if err != nil {
+					t.Errorf("Error getting last log line: %s\n", err)
+				}
+				if strings.Contains(msg, "--EOF--") {
 					t.Logf("Reset test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
@@ -372,7 +405,11 @@ func TestResetAndDefaults(t *testing.T) {
 		for {
 			canExit := false
 			select {
-			case msg := <-tt.defaultsArgs.progressDest:
+			case _ = <-tt.args.progressDest:
+				msg, err := getLastLogLine()
+				if err != nil {
+					t.Errorf("Error getting last log line: %s\n", err)
+				}
 				if strings.Contains("msg", "--EOF--") {
 					t.Logf("Defaults test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
