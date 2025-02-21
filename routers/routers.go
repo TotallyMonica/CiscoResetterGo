@@ -86,12 +86,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	LoggerName = fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	resetterLog := crglogging.New(LoggerName)
 
-	if debug {
-		resetterLog.SetLogLevel(5)
-	} else {
-		resetterLog.SetLogLevel(4)
-	}
-
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
@@ -103,6 +97,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	if updateChan != nil {
 		common.SetOutputChannel(updateChan, LoggerName)
+	}
+
+	if debug {
+		resetterLog.SetLogLevel(5)
+	} else {
+		resetterLog.SetLogLevel(4)
 	}
 
 	currentTime := time.Now()
@@ -413,14 +413,14 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 	LoggerName = fmt.Sprintf("RouterDefaults%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	defaultsLogger := crglogging.New(LoggerName)
 
+	if updateChan != nil {
+		common.SetOutputChannel(updateChan, LoggerName)
+	}
+
 	// Handle debug
 	defaultsLogger.SetLogLevel(4)
 	if debug {
 		defaultsLogger.SetLogLevel(5)
-	}
-
-	if updateChan != nil {
-		common.SetOutputChannel(updateChan, LoggerName)
 	}
 
 	hostname := "Router"
