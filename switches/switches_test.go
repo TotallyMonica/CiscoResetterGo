@@ -230,12 +230,14 @@ func TestDefaults(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		start := time.Now()
-		timeout := time.After(20 * time.Minute)
-
 		go t.Run(tt.name, func(t *testing.T) {
 			Defaults(tt.args.SerialPort, tt.args.PortSettings, tt.args.config, tt.args.debug, tt.args.progressDest)
 		})
+
+		time.Sleep(5 * time.Second)
+		start := time.Now()
+		timeout := time.After(20 * time.Minute)
+
 		for {
 			canExit := false
 			select {
@@ -368,17 +370,18 @@ func TestResetAndDefaults(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		start := time.Now()
-		timeout := time.After(20 * time.Minute)
-
 		go t.Run(tt.name, func(t *testing.T) {
 			Reset(tt.resetArgs.SerialPort, tt.resetArgs.PortSettings, tt.resetArgs.backup, tt.resetArgs.debug, tt.resetArgs.progressDest)
 		})
 
+		time.Sleep(5 * time.Second)
+		start := time.Now()
+		timeout := time.After(20 * time.Minute)
+
 		for {
 			canExit := false
 			select {
-			case _ = <-tt.args.progressDest:
+			case _ = <-tt.resetArgs.progressDest:
 				msg, err := getLastLogLine()
 				if err != nil {
 					t.Errorf("Error getting last log line: %s\n", err)
@@ -405,7 +408,7 @@ func TestResetAndDefaults(t *testing.T) {
 		for {
 			canExit := false
 			select {
-			case _ = <-tt.args.progressDest:
+			case _ = <-tt.defaultsArgs.progressDest:
 				msg, err := getLastLogLine()
 				if err != nil {
 					t.Errorf("Error getting last log line: %s\n", err)
