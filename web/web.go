@@ -84,7 +84,7 @@ func snitchOutput(c chan bool, job int) {
 
 	jobLogger := crglogging.GetLogger(jobs[jobIdx].LoggerName)
 
-	for !strings.HasSuffix(strings.TrimSpace(jobs[jobIdx].Output), "---EOF---") {
+	for !strings.Contains(strings.TrimSpace(jobs[jobIdx].Output), "---EOF---") {
 		contents, err := jobLogger.GetMemLogContents("WebHandler")
 		if err != nil {
 			webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
