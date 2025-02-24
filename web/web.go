@@ -148,7 +148,7 @@ func runJob(rules RunParams, jobNum int) {
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = switches.LoggerName
 				go snitchOutput(updateChan, jobNum)
-				for !strings.Contains(strings.Split(jobs[jobIdx].Output, "\n")[len(strings.Split(jobs[jobIdx].Output, "\n"))-1], "---EOF---") {
+				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
 				jobs[jobIdx].Status = "Finished resetting"
@@ -168,7 +168,7 @@ func runJob(rules RunParams, jobNum int) {
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = switches.LoggerName
 			go snitchOutput(updateChan, jobNum)
-			for !strings.Contains(strings.Split(jobs[jobIdx].Output, "\n")[len(strings.Split(jobs[jobIdx].Output, "\n"))-1], "---EOF---") {
+			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
 			jobs[jobIdx].Status = "Finished resetting"
@@ -186,7 +186,7 @@ func runJob(rules RunParams, jobNum int) {
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = routers.LoggerName
 				go snitchOutput(updateChan, jobNum)
-				for !strings.Contains(strings.Split(jobs[jobIdx].Output, "\n")[len(strings.Split(jobs[jobIdx].Output, "\n"))-1], "---EOF---") {
+				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
 			}
@@ -205,7 +205,7 @@ func runJob(rules RunParams, jobNum int) {
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = routers.LoggerName
 			go snitchOutput(updateChan, jobNum)
-			for !strings.Contains(strings.Split(jobs[jobIdx].Output, "\n")[len(strings.Split(jobs[jobIdx].Output, "\n"))-1], "---EOF---") {
+			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
 		}
