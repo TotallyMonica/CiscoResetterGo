@@ -144,10 +144,10 @@ func runJob(rules RunParams, jobNum int) {
 				jobs[jobIdx].Status = "Errored"
 			} else {
 				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, updateChan)
-				jobs[jobIdx].Status = "Resetting"
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = switches.LoggerName
 				go snitchOutput(updateChan, jobNum)
+				jobs[jobIdx].Status = "Resetting"
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -164,10 +164,10 @@ func runJob(rules RunParams, jobNum int) {
 
 			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
-			jobs[jobIdx].Status = "Applying defaults"
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = switches.LoggerName
 			go snitchOutput(updateChan, jobNum)
+			jobs[jobIdx].Status = "Applying defaults"
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
@@ -182,10 +182,10 @@ func runJob(rules RunParams, jobNum int) {
 			if jobIdx == -1 {
 				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
 			} else {
-				jobs[jobIdx].Status = "Resetting"
 				time.Sleep(5 * time.Second)
 				jobs[jobIdx].LoggerName = routers.LoggerName
 				go snitchOutput(updateChan, jobNum)
+				jobs[jobIdx].Status = "Resetting"
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -201,10 +201,10 @@ func runJob(rules RunParams, jobNum int) {
 
 			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
-			jobs[jobIdx].Status = "Applying defaults"
 			time.Sleep(5 * time.Second)
 			jobs[jobIdx].LoggerName = routers.LoggerName
 			go snitchOutput(updateChan, jobNum)
+			jobs[jobIdx].Status = "Applying defaults"
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
