@@ -918,6 +918,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 				routerPorts = append(routerPorts, routerPort)
 			}
+			createdTemplate.Ports = routerPorts
 
 			// Build out the list of console lines
 			consoleLines := make([]routers.LineConfig, 0)
