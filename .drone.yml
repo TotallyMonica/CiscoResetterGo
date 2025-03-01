@@ -11,8 +11,8 @@ steps:
     commands:
       - apt update
       - apt install socat -y
-      - go build
-      - go test ./...
+      - go build -race
+      - go test -race ./...
     environment:
       ALLOWDEBUGENDPOINTS: 1
 
@@ -50,8 +50,8 @@ steps:
     commands:
       - apt update
       - apt install socat -y
-      - go build
-      - go test ./...
+      - go build -race
+      - go test -race ./...
     environment:
       GOOS: linux
       GOARCH: 386
