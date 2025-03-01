@@ -86,12 +86,6 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	LoggerName = fmt.Sprintf("RouterResetter%s%d%d%d", SerialPort, PortSettings.BaudRate, PortSettings.StopBits, PortSettings.DataBits)
 	resetterLog := crglogging.New(LoggerName)
 
-	if debug {
-		resetterLog.SetLogLevel(5)
-	} else {
-		resetterLog.SetLogLevel(4)
-	}
-
 	const BUFFER_SIZE = 4096
 	const SHELL_PROMPT = "router"
 	const ROMMON_PROMPT = "rommon"
@@ -103,6 +97,12 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 
 	if updateChan != nil {
 		common.SetOutputChannel(updateChan, LoggerName)
+	}
+
+	if debug {
+		resetterLog.SetLogLevel(5)
+	} else {
+		resetterLog.SetLogLevel(4)
 	}
 
 	currentTime := time.Now()
@@ -128,11 +128,11 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		resetterLog.Fatal(err)
 	}
 
-	common.OutputInfo("Trigger the recovery sequence by following these steps: \n")
-	common.OutputInfo("1. Turn off the router\n")
-	common.OutputInfo("2. After waiting for the lights to shut off, turn the router back on\n")
+	resetterLog.Infof("Trigger the recovery sequence by following these steps: \n")
+	resetterLog.Infof("1. Turn off the router\n")
+	resetterLog.Infof("2. After waiting for the lights to shut off, turn the router back on\n")
 
-	common.OutputInfo("Sending ^C until we get into ROMMON...\n")
+	resetterLog.Infof("Sending ^C until we get into ROMMON...\n")
 	var output []byte
 
 	// Get to ROMMON
@@ -155,7 +155,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	WriteConsoleOutput()
 
 	// In ROMMON
-	common.OutputInfo("We've entered ROMMON, setting the register to 0x2142.\n")
+	resetterLog.Infof("We've entered ROMMON, setting the register to 0x2142.\n")
 	commands := []string{"confreg " + RECOVERY_REGISTER, "reset"}
 
 	for idx, cmd := range commands {
@@ -191,7 +191,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 	if err != nil {
 		resetterLog.Fatal(err)
 	}
-	common.OutputInfo("We've finished with ROMMON, going back into the regular console\n")
+	resetterLog.Infof("We've finished with ROMMON, going back into the regular console\n")
 	WriteConsoleOutput()
 	resetterLog.Debugf("TO DEVICE: %s\n", "\\r\\n")
 	_, err = port.Write([]byte("\r\n"))
@@ -233,7 +233,7 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		consoleOutput = append(consoleOutput, output)
 	}
 
-	common.OutputInfo("We've made it into the regular console\n")
+	resetterLog.Infof("We've made it into the regular console\n")
 	WriteConsoleOutput()
 
 	closeTftpServer := make(chan bool)
@@ -243,15 +243,15 @@ func Reset(SerialPort string, PortSettings serial.Mode, backup common.Backup, de
 		if backup.Destination != "" || (backup.Source == "" && backup.SubnetMask != "") || (backup.Source != "" && backup.SubnetMask == "") {
 			backup.Backup = false
 		}
-		common.OutputInfo("Unable to back up the config due to missing values\n")
+		resetterLog.Infof("Unable to back up the config due to missing values\n")
 		if backup.Destination == "" {
-			common.OutputInfo("Backup destination is empty\n")
+			resetterLog.Infof("Backup destination is empty\n")
 		}
 		if backup.Source == "" {
-			common.OutputInfo("Backup source is empty\n")
+			resetterLog.Infof("Backup source is empty\n")
 		}
 		if backup.SubnetMask == "" {
-			common.OutputInfo("Subnet mask is empty\n")
+			resetterLog.Infof("Subnet mask is empty\n")
 		}
 	}
 
@@ -415,6 +415,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config RouterDefaults
 
 	if updateChan != nil {
 		common.SetOutputChannel(updateChan, LoggerName)
+	}
+
+	// Handle debug
+	defaultsLogger.SetLogLevel(4)
+	if debug {
+		defaultsLogger.SetLogLevel(5)
 	}
 
 	hostname := "Router"

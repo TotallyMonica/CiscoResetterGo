@@ -3,7 +3,6 @@ package common
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"github.com/pin/tftp/v3"
 	"go.bug.st/serial"
 	"io"
@@ -56,6 +55,8 @@ func SetReadLineTimeout(t time.Duration) {
 }
 
 func TftpWriteHandler(filename string, wt io.WriterTo) error {
+	tftpLogger := crglogging.GetLogger("TftpLogger")
+
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func TftpWriteHandler(filename string, wt io.WriterTo) error {
 		return err
 	}
 
-	fmt.Printf("TftpWriteHandler: Received %d bytes\n", recvd)
+	tftpLogger.Infof("TftpWriteHandler: Received %d bytes\n", recvd)
 
 	return nil
 }
@@ -92,6 +93,12 @@ func WaitForPrefix(port serial.Port, prompt string, debug bool) error {
 		prefixLogger = crglogging.New("prefixLogger")
 	}
 
+	// Handle debug
+	prefixLogger.SetLogLevel(4)
+	if debug {
+		prefixLogger.SetLogLevel(5)
+	}
+
 	var output []byte
 	for !strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt) {
 		prefixLogger.Debugf("Has prefix: %t\n", strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output[:]))), prompt))
@@ -116,6 +123,12 @@ func WaitForSubstring(port serial.Port, prompt string, debug bool) error {
 	substringLogger := crglogging.GetLogger("SubstringLogger")
 	if substringLogger == nil {
 		substringLogger = crglogging.New("SubstringLogger")
+	}
+
+	// Handle debug
+	substringLogger.SetLogLevel(4)
+	if debug {
+		substringLogger.SetLogLevel(5)
 	}
 
 	WriteLine(port, "", debug)
@@ -160,6 +173,12 @@ func WriteLine(port serial.Port, line string, debug bool) error {
 		writeLineLogger = crglogging.New("WriteLineLogger")
 	}
 
+	// Handle debug
+	writeLineLogger.SetLogLevel(4)
+	if debug {
+		writeLineLogger.SetLogLevel(5)
+	}
+
 	if line == "\r\n" || line == "\r" || line == "\n" || line == "" || line == "\n\r" {
 		//writeLineLogger.Debugf("Note: quietly discarding command\n")
 		//return
@@ -178,9 +197,6 @@ func ReadLine(port serial.Port, buffSize int, debug bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if debug {
-		fmt.Printf("FROM DEVICE: %s\n", line[0])
-	}
 	return line[0], err
 }
 
@@ -188,6 +204,12 @@ func ReadLines(port serial.Port, buffSize int, maxLines int, debug bool) ([][]by
 	readLinesLogger := crglogging.GetLogger("ReadLinesLogger")
 	if readLinesLogger == nil {
 		readLinesLogger = crglogging.New("ReadLinesLogger")
+	}
+
+	// Handle debug
+	readLinesLogger.SetLogLevel(4)
+	if debug {
+		readLinesLogger.SetLogLevel(5)
 	}
 
 	output := make([][]byte, maxLines)
@@ -241,6 +263,9 @@ func IsSyslog(output string) bool {
 	if syslogParserLogger == nil {
 		syslogParserLogger = crglogging.New("SyslogParserLogger")
 	}
+
+	// Handle debug
+	syslogParserLogger.SetLogLevel(4)
 
 	compile, err := regexp.Compile(`\w{3}\s((\s\d|\d{2})\s)((\s\d|\d{2}):){2}\d{2}\.\d{3}:\s%(\w|-)*:\s.*`)
 	if err != nil {

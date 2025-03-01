@@ -58,7 +58,6 @@ func makeDummySerial(stdout chan string, term chan bool) {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			fmt.Println(scanner.Text())
 			if strings.Contains(scanner.Text(), "/dev/") && !sentAlready {
 				delimited := strings.Split(scanner.Text(), " ")
 				for _, word := range delimited {
@@ -79,7 +78,6 @@ func makeDummySerial(stdout chan string, term chan bool) {
 	go func() {
 		switch {
 		case <-term:
-			fmt.Printf("Terminating\n")
 			cmd.Process.Kill()
 		}
 	}()
