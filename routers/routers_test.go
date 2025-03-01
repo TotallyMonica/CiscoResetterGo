@@ -111,7 +111,7 @@ func TestReset(t *testing.T) {
 					t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
-					t.Logf("Test %s: %s", tt.name, msg)
+					t.Logf("Test %s: %t", tt.name, msg)
 				}
 			case <-timeout:
 				t.Fatalf("Test %s timed out in 20 minutes.", tt.name)
@@ -226,7 +226,7 @@ func TestDefaults(t *testing.T) {
 					t.Logf("Test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
-					t.Logf("Test %s: %s", tt.name, msg)
+					t.Logf("Test %s: %t", tt.name, msg)
 				}
 			case <-timeout:
 				t.Fatalf("Test %s timed out in 20 minutes.", tt.name)
@@ -367,7 +367,7 @@ func TestResetAndDefaults(t *testing.T) {
 					t.Logf("Reset test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
-					t.Logf("Reset test %s: %s", tt.name, msg)
+					t.Logf("Reset test %s: %t", tt.name, msg)
 				}
 			case <-timeout:
 				t.Fatalf("Reset test %s timed out in 20 minutes.", tt.name)
@@ -390,7 +390,7 @@ func TestResetAndDefaults(t *testing.T) {
 					t.Logf("Defaults test %s passed in %d:%d", tt.name, int(math.Floor(time.Since(start).Minutes())), int(math.Floor(time.Since(start).Seconds()))%60)
 					canExit = true
 				} else {
-					t.Logf("Defaults test %s: %s", tt.name, msg)
+					t.Logf("Defaults test %s: %t", tt.name, msg)
 				}
 			case <-timeout:
 				t.Fatalf("Defaults test %s timed out in 20 minutes.", tt.name)
