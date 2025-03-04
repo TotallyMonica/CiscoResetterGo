@@ -899,13 +899,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			common.OutputInfo(fmt.Sprintf("Finished configuring port %s\n", switchPort.Port))
 			progress.CurrentStep += 1
-			common.OutputInfo(fmt.Sprintf("INPUT: %s\n", "exit"))
+			defaultsLogger.Debugf("INPUT: %s\n", "exit")
 			_, err = port.Write(common.FormatCommand("exit"))
 			if err != nil {
 				defaultsLogger.Fatal(err)
 			}
 			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
-			common.OutputInfo(fmt.Sprintf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line))))))
+			defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 
 			prompt = hostname + "(config)#"
 		}
