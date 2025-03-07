@@ -691,7 +691,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	common.SetReaderPort(port)
 
-	common.OutputInfo("Waiting for the switch to startup\n")
+	defaultsLogger.Infoln("Waiting for the switch to startup")
 
 	// Try to guess if we've started yet
 	output, err := common.ReadLine(port, BUFFER_SIZE, debug)
