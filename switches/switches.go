@@ -704,7 +704,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		// Sometimes this'll pop up, sometimes this won't, so we can't test exclusively on this
 		if strings.Contains(strings.ToLower(strings.TrimSpace(string(output[:]))), strings.ToLower("Would you like to enter the initial configuration dialog? [yes/no]:")) {
 			defaultsLogger.Debugf(fmt.Sprintf("TO DEVICE: %s\n", "no"))
-			common.OutputInfo("Getting out of initial configuration dialog\n")
+			defaultsLogger.Infof("Getting out of initial configuration dialog\n")
 			progress.CurrentStep += 1
 			_, err = port.Write(common.FormatCommand("no"))
 			if err != nil {
@@ -722,7 +722,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		defaultsLogger.Fatal(err)
 	}
 
-	common.OutputInfo("We have booted up now\n")
+	defaultsLogger.Info("We have booted up now\n")
 	progress.CurrentStep += 1
 	_, err = port.Write(common.FormatCommand(""))
 	if err != nil {
@@ -734,7 +734,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	defaultsLogger.Debugf("INPUT: %s\n", "enable")
 
 	// Elevate our privileges so we can run practical configuration commands
-	common.OutputInfo("Entering privileged exec.\n")
+	defaultsLogger.Info("Entering privileged exec.\n")
 	_, err = port.Write(common.FormatCommand("enable"))
 	if err != nil {
 		defaultsLogger.Fatal(err)
@@ -744,7 +744,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 	defaultsLogger.Debugf("INPUT: %s\n", "conf t")
-	common.OutputInfo("Entering global configuration mode for the switch\n")
+	defaultsLogger.Info("Entering global configuration mode for the switch\n")
 	progress.CurrentStep += 1
 	_, err = port.Write(common.FormatCommand("conf t"))
 	if err != nil {
@@ -755,7 +755,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	// Begin setting up Vlans
 	if len(config.Vlans) > 0 {
 		for _, vlan := range config.Vlans {
-			common.OutputInfo(fmt.Sprintf("Configuring vlan %d\n", vlan.Vlan))
+			defaultsLogger.Infof("Configuring vlan %d\n", vlan.Vlan)
 			progress.CurrentStep += 1
 
 			defaultsLogger.Debugf("INPUT: %s\n", "inter vlan "+strconv.Itoa(vlan.Vlan))
@@ -771,7 +771,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			// Assign a static IP
 			// TODO: handle DHCP
 			if vlan.IpAddress != "" && vlan.SubnetMask != "" {
-				common.OutputInfo(fmt.Sprintf("Assigning IP address %s with subnet mask %s to vlan %d\n", vlan.IpAddress, vlan.SubnetMask, vlan.Vlan))
+				defaultsLogger.Infof("Assigning IP address %s with subnet mask %s to vlan %d\n", vlan.IpAddress, vlan.SubnetMask, vlan.Vlan)
 				progress.CurrentStep += 1
 				defaultsLogger.Debugf("INPUT: %s\n", "ip addr "+vlan.IpAddress+" "+vlan.SubnetMask)
 				_, err = port.Write(common.FormatCommand("ip addr " + vlan.IpAddress + " " + vlan.SubnetMask))
@@ -784,7 +784,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			// Is this redundant?
 			if vlan.Shutdown {
-				common.OutputInfo(fmt.Sprintf("Shutting down vlan %d\n", vlan.Vlan))
+				defaultsLogger.Infof("Shutting down vlan %d\n", vlan.Vlan)
 				progress.CurrentStep += 1
 				defaultsLogger.Debugf("INPUT: %s\n", "shutdown")
 				_, err = port.Write(common.FormatCommand("shutdown"))
@@ -792,7 +792,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					defaultsLogger.Fatal(err)
 				}
 			} else {
-				common.OutputInfo(fmt.Sprintf("Bringing up vlan %d\n", vlan.Vlan))
+				defaultsLogger.Infof("Bringing up vlan %d\n", vlan.Vlan)
 				progress.CurrentStep += 1
 				defaultsLogger.Debugf("INPUT: %s\n", "no shutdown")
 				_, err = port.Write(common.FormatCommand("no shutdown"))
@@ -803,7 +803,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 			defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 
-			common.OutputInfo(fmt.Sprintf("Finished configuring vlan %d\n", vlan.Vlan))
+			defaultsLogger.Infof("Finished configuring vlan %d\n", vlan.Vlan)
 			defaultsLogger.Debugf("INPUT: %s\n", "exit")
 			_, err = port.Write(common.FormatCommand("exit"))
 			if err != nil {
@@ -814,13 +814,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config)#"
 		}
-		common.OutputInfo("Finished configuring vlans\n")
+		defaultsLogger.Info("Finished configuring vlans\n")
 	}
 
 	// Configure our physical ports
 	if len(config.Ports) != 0 {
 		for _, switchPort := range config.Ports {
-			common.OutputInfo(fmt.Sprintf("Configuring port %s\n", switchPort.Port))
+			defaultsLogger.Infof("Configuring port %s\n", switchPort.Port)
 			progress.CurrentStep += 1
 
 			defaultsLogger.Debugf("INPUT: %s\n", "inter "+switchPort.Port)
@@ -834,7 +834,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			// Setting intended functionality
 			if switchPort.SwitchportMode != "" {
-				common.OutputInfo(fmt.Sprintf("Setting the switchport mode on port %s to %s\n", switchPort.Port, switchPort.SwitchportMode))
+				defaultsLogger.Infof("Setting the switchport mode on port %s to %s\n", switchPort.Port, switchPort.SwitchportMode)
 				progress.CurrentStep += 1
 
 				defaultsLogger.Debugf("INPUT: %s\n", "switchport mode "+switchPort.SwitchportMode)
@@ -850,7 +850,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			// TODO: Possible voice vlan stuff? Should this just get pawned off to ansible?
 			if switchPort.Vlan != 0 && (strings.ToLower(switchPort.SwitchportMode) == "access" || strings.ToLower(switchPort.SwitchportMode) == "trunk") {
 				if strings.ToLower(switchPort.SwitchportMode) == "access" {
-					common.OutputInfo(fmt.Sprintf("Setting port %s to be an access port on vlan %d\n", switchPort.Port, switchPort.Vlan))
+					defaultsLogger.Infof("Setting port %s to be an access port on vlan %d\n", switchPort.Port, switchPort.Vlan)
 					progress.CurrentStep += 1
 					defaultsLogger.Debugf("INPUT: %s\n", "switchport access vlan "+strconv.Itoa(switchPort.Vlan))
 					_, err = port.Write(common.FormatCommand("switchport access vlan " + strconv.Itoa(switchPort.Vlan)))
@@ -860,7 +860,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 				} else if strings.ToLower(switchPort.SwitchportMode) == "trunk" {
-					common.OutputInfo(fmt.Sprintf("Setting port %s to be a trunk port with native vlan %d\n", switchPort.Port, switchPort.Vlan))
+					defaultsLogger.Infof("Setting port %s to be a trunk port with native vlan %d\n", switchPort.Port, switchPort.Vlan)
 					progress.CurrentStep += 1
 					defaultsLogger.Debugf("INPUT: %s\n", "switchport trunk native vlan "+strconv.Itoa(switchPort.Vlan))
 					_, err = port.Write(common.FormatCommand("switchport trunk native vlan " + strconv.Itoa(switchPort.Vlan)))
@@ -870,13 +870,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 					line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 					defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 				} else {
-					common.OutputInfo(fmt.Sprintf("Switch port mode %s is not supported for static vlan assignment\n", switchPort.SwitchportMode))
+					defaultsLogger.Infof("Switch port mode %s is not supported for static vlan assignment\n", switchPort.SwitchportMode)
 					progress.CurrentStep += 1
 				}
 			}
 
 			if switchPort.Shutdown {
-				common.OutputInfo(fmt.Sprintf("Shutting down port %s\n", switchPort.Port))
+				defaultsLogger.Infof("Shutting down port %s\n", switchPort.Port)
 				progress.CurrentStep += 1
 				defaultsLogger.Debugf("INPUT: %s\n", "shutdown")
 				_, err = port.Write(common.FormatCommand("shutdown"))
@@ -886,7 +886,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 				defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			} else {
-				common.OutputInfo(fmt.Sprintf("Bringing up port %s\n", switchPort.Port))
+				defaultsLogger.Infof("Bringing up port %s\n", switchPort.Port)
 				progress.CurrentStep += 1
 				defaultsLogger.Debugf("INPUT: %s\n", "no shutdown")
 				_, err = port.Write(common.FormatCommand("no shutdown"))
@@ -897,7 +897,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 			}
 
-			common.OutputInfo(fmt.Sprintf("Finished configuring port %s\n", switchPort.Port))
+			defaultsLogger.Infof("Finished configuring port %s\n", switchPort.Port)
 			progress.CurrentStep += 1
 			defaultsLogger.Debugf("INPUT: %s\n", "exit")
 			_, err = port.Write(common.FormatCommand("exit"))
@@ -909,13 +909,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 			prompt = hostname + "(config)#"
 		}
-		common.OutputInfo("Finished configuring ports\n")
+		defaultsLogger.Info("Finished configuring ports\n")
 		progress.CurrentStep += 1
 	}
 
 	// Set up the banner
 	if config.Banner != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the banner to %s\n", config.Banner))
+		defaultsLogger.Infof("Setting the banner to %s\n", config.Banner)
 		progress.CurrentStep += 1
 		defaultsLogger.Debugf("INPUT: %s\n", "banner motd \""+config.Banner+"\"")
 		_, err = port.Write(common.FormatCommand("banner motd \"" + config.Banner + "\""))
@@ -928,7 +928,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 	// Set up the console password (old templates only)
 	if config.Version < 0.02 && config.ConsolePassword != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the console password to %s\n", config.ConsolePassword))
+		defaultsLogger.Infof("Setting the console password to %s\n", config.ConsolePassword)
 		progress.CurrentStep += 1
 		defaultsLogger.Debugf("INPUT: %s\n", "line console 0")
 		_, err = port.Write(common.FormatCommand("line console 0"))
@@ -947,7 +947,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 
-		common.OutputInfo("Enabling login on the console port\n")
+		defaultsLogger.Info("Enabling login on the console port\n")
 		progress.CurrentStep += 1
 		defaultsLogger.Debugf("INPUT: %s\n", "login ")
 		_, err = port.Write(common.FormatCommand("login"))
@@ -965,13 +965,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
 		prompt = hostname + "(config)#"
 
-		common.OutputInfo("Finished configuring the console port\n")
+		defaultsLogger.Info("Finished configuring the console port\n")
 	}
 
 	// Enable password, defaulting to a secret rather than plain text
 	// TODO: Should plain text enable passwords be allowed? Our console passwords are plain text
 	if config.EnablePassword != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the privileged exec password to %s\n", config.EnablePassword))
+		defaultsLogger.Infof("Setting the privileged exec password to %s\n", config.EnablePassword)
 		progress.CurrentStep += 1
 		defaultsLogger.Debugf("INPUT: %s\n", "enable secret "+config.EnablePassword)
 		_, err = port.Write(common.FormatCommand("enable secret " + config.EnablePassword))
@@ -980,13 +980,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
-		common.OutputInfo("Finished setting the privileged exec password\n")
+		defaultsLogger.Info("Finished setting the privileged exec password\n")
 	}
 
 	// Default gateway
 	// TODO: Probably redundant if/when DHCP gets set up, logically speaking could get moved up near vlan configuration
 	if config.DefaultGateway != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the default gateway to %s\n", config.DefaultGateway))
+		defaultsLogger.Infof("Setting the default gateway to %s\n", config.DefaultGateway)
 		defaultsLogger.Debugf("INPUT: %s\n", "ip default-gateway "+config.DefaultGateway)
 		_, err = port.Write(common.FormatCommand("ip default-gateway " + config.DefaultGateway))
 		if err != nil {
@@ -994,12 +994,12 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
-		common.OutputInfo("Finished setting the default gateway\n")
+		defaultsLogger.Info("Finished setting the default gateway\n")
 	}
 
 	// Hostname configuration
 	if config.Hostname != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the hostname to %s\n", config.Hostname))
+		defaultsLogger.Infof("Setting the hostname to %s\n", config.Hostname)
 		defaultsLogger.Debugf("INPUT: %s\n", "hostname "+config.Hostname)
 		_, err = port.Write(common.FormatCommand("hostname " + config.Hostname))
 		if err != nil {
@@ -1010,13 +1010,13 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		hostname = config.Hostname
 		prompt = hostname + "(config)#"
 
-		common.OutputInfo("Finished setting the hostname.\n")
+		defaultsLogger.Info("Finished setting the hostname.\n")
 	}
 
 	// Domain name configuration
 	// TODO: Should any sort of validation be done for this? Or do we just want to make the switch responsible for this?
 	if config.DomainName != "" {
-		common.OutputInfo(fmt.Sprintf("Setting the domain name of the switch to %s\n", config.DomainName))
+		defaultsLogger.Infof("Setting the domain name of the switch to %s\n", config.DomainName)
 		defaultsLogger.Debugf("INPUT: %s\n", "ip domain-name "+config.DomainName)
 		_, err = port.Write(common.FormatCommand("ip domain-name " + config.DomainName))
 		if err != nil {
@@ -1024,32 +1024,32 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		}
 		line, err = common.ReadLine(port, BUFFER_SIZE, debug)
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(line)))))
-		common.OutputInfo("Finished setting the domain name.\n")
+		defaultsLogger.Info("Finished setting the domain name.\n")
 	}
 
 	if config.Ssh.Enable {
 		allowSSH := true
 		// Ensure SSH prereqs are met
 		if config.Ssh.Username == "" {
-			common.OutputInfo("WARNING: SSH username not specified.\n")
+			defaultsLogger.Info("WARNING: SSH username not specified.\n")
 			allowSSH = false
 		}
 		if config.Ssh.Password == "" {
-			common.OutputInfo("WARNING: SSH password not specified.\n")
+			defaultsLogger.Info("WARNING: SSH password not specified.\n")
 			allowSSH = false
 		}
 		if config.DomainName == "" {
-			common.OutputInfo("WARNING: Domain name not specified.\n")
+			defaultsLogger.Info("WARNING: Domain name not specified.\n")
 			allowSSH = false
 		}
 		if config.Hostname == "" {
-			common.OutputInfo("WARNING: Hostname not specified.\n")
+			defaultsLogger.Info("WARNING: Hostname not specified.\n")
 			allowSSH = false
 		}
 
 		// Prereqs are met, so we can proceed
 		if allowSSH {
-			common.OutputInfo(fmt.Sprintf("Enabling SSH with username %s and password %s\n", config.Ssh.Username, config.Ssh.Password))
+			defaultsLogger.Infof("Enabling SSH with username %s and password %s\n", config.Ssh.Username, config.Ssh.Password)
 			progress.CurrentStep += 1
 			defaultsLogger.Debugf("INPUT: %s\n", "username "+config.Ssh.Username+" password "+config.Ssh.Password)
 			_, err = port.Write(common.FormatCommand("username " + config.Ssh.Username + " password " + config.Ssh.Password))
@@ -1080,7 +1080,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				config.Ssh.Bits = 2048
 			}
 
-			common.OutputInfo(fmt.Sprintf("Generating an SSH key with %d bits big\n", config.Ssh.Bits))
+			defaultsLogger.Infof("Generating an SSH key with %d bits big\n", config.Ssh.Bits)
 			progress.CurrentStep += 1
 			defaultsLogger.Debugf("INPUT: %s\n", strconv.Itoa(config.Ssh.Bits))
 			_, err = port.Write(common.FormatCommand(strconv.Itoa(config.Ssh.Bits)))
@@ -1114,7 +1114,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			if err != nil {
 				defaultsLogger.Fatal(err)
 			}
-			common.OutputInfo("Finished generating the SSH key.\n")
+			defaultsLogger.Info("Finished generating the SSH key.\n")
 			progress.CurrentStep += 1
 		}
 	}
@@ -1123,15 +1123,15 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 	if len(config.Lines) != 0 {
 		for _, line := range config.Lines {
 			if line.Type != "" {
-				common.OutputInfo(fmt.Sprintf("Configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine))
+				defaultsLogger.Infof("Configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 				progress.CurrentStep += 1
 				// Ensure both lines are <= 15
 				if line.StartLine > 15 {
-					common.OutputInfo(fmt.Sprintf("Starting line of %d is invalid, defaulting back to 15\n", line.StartLine))
+					defaultsLogger.Infof("Starting line of %d is invalid, defaulting back to 15\n", line.StartLine)
 					line.StartLine = 15
 				}
 				if line.EndLine > 15 {
-					common.OutputInfo(fmt.Sprintf("Ending line of %d is invalid, defaulting back to 15\n", line.EndLine))
+					defaultsLogger.Infof("Ending line of %d is invalid, defaulting back to 15\n", line.EndLine)
 					line.EndLine = 15
 				}
 
@@ -1156,7 +1156,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 				// Set the line password
 				if line.Password != "" {
-					common.OutputInfo(fmt.Sprintf("Setting the %s lines %d to %d password to %s\n", line.Type, line.StartLine, line.EndLine, line.Password))
+					defaultsLogger.Infof("Setting the %s lines %d to %d password to %s\n", line.Type, line.StartLine, line.EndLine, line.Password)
 					progress.CurrentStep += 1
 					defaultsLogger.Debugf("INPUT: %s\n", "password "+line.Password)
 					_, err = port.Write(common.FormatCommand("password " + line.Password))
@@ -1173,7 +1173,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 
 				// Set login method (empty string is valid for line console 0)
 				if line.Login != "" || (line.Type == "console" && line.Password != "") {
-					common.OutputInfo(fmt.Sprintf("Enabling login for %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine))
+					defaultsLogger.Infof("Enabling login for %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 					progress.CurrentStep += 1
 					defaultsLogger.Debugf("INPUT: %s\n", "login "+line.Login)
 					_, err = port.Write(common.FormatCommand("login " + line.Login))
@@ -1188,7 +1188,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 
 				if line.Transport != "" && line.Type == "vty" { // console 0 can't use telnet or ssh
-					common.OutputInfo(fmt.Sprintf("Setting transport input for %s lines %d to %d to %s\n", line.Type, line.StartLine, line.EndLine, line.Transport))
+					defaultsLogger.Infof("Setting transport input for %s lines %d to %d to %s\n", line.Type, line.StartLine, line.EndLine, line.Transport)
 					progress.CurrentStep += 1
 					defaultsLogger.Debugf("INPUT: %s\n", "transport input "+line.Transport)
 					_, err = port.Write(common.FormatCommand("transport input " + line.Transport))
@@ -1205,7 +1205,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 				}
 			}
 
-			common.OutputInfo(fmt.Sprintf("Finished configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine))
+			defaultsLogger.Infof("Finished configuring %s lines %d to %d\n", line.Type, line.StartLine, line.EndLine)
 			progress.CurrentStep += 1
 
 			defaultsLogger.Debugf("INPUT: %s\n", "exit")
@@ -1223,7 +1223,7 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 			common.WaitForSubstring(port, prompt, debug)
 
 		}
-		common.OutputInfo("Finished configuring console lines.\n")
+		defaultsLogger.Info("Finished configuring console lines.\n")
 		progress.CurrentStep += 1
 		_, err = port.Write(common.FormatCommand("end"))
 		if err != nil {
@@ -1236,8 +1236,8 @@ func Defaults(SerialPort string, PortSettings serial.Mode, config SwitchConfig, 
 		defaultsLogger.Debugf("OUTPUT: %s\n", strings.ToLower(strings.TrimSpace(string(common.TrimNull(output)))))
 	}
 
-	common.OutputInfo("Settings applied!\n")
-	common.OutputInfo("Note: Settings have not been made persistent and will be lost upon reboot.\n")
-	common.OutputInfo("To fix this, run `wr` on the target device.\n") // Should this be ran automatically?
-	common.OutputInfo("---EOF---")
+	defaultsLogger.Info("Settings applied!\n")
+	defaultsLogger.Info("Note: Settings have not been made persistent and will be lost upon reboot.\n")
+	defaultsLogger.Info("To fix this, run `wr` on the target device.\n") // Should this be ran automatically?
+	defaultsLogger.Info("---EOF---")
 }
