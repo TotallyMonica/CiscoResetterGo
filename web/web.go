@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"html/template"
 	"io"
 	"main/common"
+	"main/crglogging"
 	"main/routers"
 	"main/switches"
 	"main/templates"
@@ -23,15 +23,16 @@ import (
 	"time"
 )
 
-var log = logging.MustGetLogger("")
 var server = &http.Server{}
 
 type Job struct {
-	Number    int
-	Output    string
-	Status    string
-	Initiator string
-	Params    RunParams
+	Number     int
+	Output     string
+	Status     string
+	Initiator  string
+	Params     RunParams
+	LoggerName string
+	MemLog     string
 }
 
 type IndexHelper struct {
@@ -59,8 +60,10 @@ type SerialConfiguration struct {
 	ShortHand string
 }
 
+const WEB_LOGGER_NAME = "WebLogger"
+
 var jobs []Job
-var output = make(chan string)
+var updateChan = make(chan bool)
 
 func findJob(num int) int {
 	for i, job := range jobs {
@@ -71,22 +74,41 @@ func findJob(num int) int {
 	return -1
 }
 
-func snitchOutput(c chan string, job int) {
-	serialOutput := <-c
+func snitchOutput(c chan bool, job int) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	jobIdx := findJob(job)
 	if jobIdx == -1 {
-		log.Fatalf("snitchOutput: Could not find job %d\n", job)
+		webLogger.Errorf("snitchOutput: Could not find job %d\n", job)
 	}
-	for !strings.HasSuffix(strings.TrimSpace(serialOutput), "---EOF---") {
-		jobs[jobIdx].Output += serialOutput
+
+	jobLogger := crglogging.GetLogger(jobs[jobIdx].LoggerName)
+
+	for !strings.Contains(strings.TrimSpace(jobs[jobIdx].Output), "---EOF---") {
+		contents, err := jobLogger.GetMemLogContents("WebHandler")
+		if err != nil {
+			webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
+		}
+
+		jobs[jobIdx].Output = ""
+
+		for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
+			if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
+				jobs[jobIdx].Output += fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+			}
+		}
+
 		delimited := strings.Split(jobs[jobIdx].Output, "\n")
-		fmt.Printf("Line count on job %d: %d\n", job, len(delimited))
-		serialOutput = <-c
+		webLogger.Infof("Line count on job %d: %d\n", job, len(delimited))
+		webLogger.Infof("snitchOutput: Serial output on job %d: %s\n", jobs[jobIdx].Number, jobs[jobIdx].Output)
+		<-c
 	}
 	jobs[jobIdx].Status = "EOF"
 }
 
 func runJob(rules RunParams, jobNum int) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	mode := &serial.Mode{
 		BaudRate: rules.PortConfig.BaudRate,
 		DataBits: rules.PortConfig.DataBits,
@@ -118,12 +140,14 @@ func runJob(rules RunParams, jobNum int) {
 		if rules.Reset {
 			jobIdx := findJob(jobNum)
 			if jobIdx == -1 {
-				log.Warningf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
+				webLogger.Errorf("How did we get here?\nJob number for switch requested: %d\nGot index %d\n", jobNum, jobIdx)
 				jobs[jobIdx].Status = "Errored"
 			} else {
-				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
+				go switches.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, updateChan)
+				time.Sleep(5 * time.Second)
+				jobs[jobIdx].LoggerName = switches.LoggerName
+				go snitchOutput(updateChan, jobNum)
 				jobs[jobIdx].Status = "Resetting"
-				go snitchOutput(output, jobNum)
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -134,14 +158,16 @@ func runJob(rules RunParams, jobNum int) {
 			var defaults switches.SwitchConfig
 			err := json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
 			if err != nil {
-				log.Warningf("Job %d failed: %s\n", jobNum, err)
+				webLogger.Warningf("Job %d failed: %s\n", jobNum, err)
 				return
 			}
 
-			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			go switches.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
+			time.Sleep(5 * time.Second)
+			jobs[jobIdx].LoggerName = switches.LoggerName
+			go snitchOutput(updateChan, jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
-			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
@@ -151,13 +177,15 @@ func runJob(rules RunParams, jobNum int) {
 		jobs[jobIdx].Status = "Done"
 	} else if rules.DeviceType == "router" {
 		if rules.Reset {
-			go routers.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, output)
+			go routers.Reset(rules.PortConfig.Port, *mode, rules.BackupConfig, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
 			if jobIdx == -1 {
-				log.Warningf("How did we get here? Job number for switch requested: %d\n", jobNum)
+				webLogger.Errorf("How did we get here? Job number for switch requested: %d\n", jobNum)
 			} else {
-				jobs[jobIdx].Status = "Applying defaults"
-				go snitchOutput(output, jobNum)
+				time.Sleep(5 * time.Second)
+				jobs[jobIdx].LoggerName = routers.LoggerName
+				go snitchOutput(updateChan, jobNum)
+				jobs[jobIdx].Status = "Resetting"
 				for jobs[jobIdx].Status != "EOF" {
 					time.Sleep(1 * time.Minute)
 				}
@@ -167,14 +195,16 @@ func runJob(rules RunParams, jobNum int) {
 			var defaults routers.RouterDefaults
 			err := json.Unmarshal([]byte(rules.DefaultsContents), &defaults)
 			if err != nil {
-				log.Warningf("Job %d failed: %s\n", jobNum, err)
+				webLogger.Warningf("Job %d failed: %s\n", jobNum, err)
 				return
 			}
 
-			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, output)
+			go routers.Defaults(rules.PortConfig.Port, *mode, defaults, rules.Verbose, updateChan)
 			jobIdx := findJob(jobNum)
+			time.Sleep(5 * time.Second)
+			jobs[jobIdx].LoggerName = routers.LoggerName
+			go snitchOutput(updateChan, jobNum)
 			jobs[jobIdx].Status = "Applying defaults"
-			go snitchOutput(output, jobNum)
 			for jobs[jobIdx].Status != "EOF" {
 				time.Sleep(1 * time.Minute)
 			}
@@ -187,10 +217,12 @@ func runJob(rules RunParams, jobNum int) {
 
 // New Client API Endpoint
 func newClientApi(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -198,7 +230,7 @@ func newClientApi(w http.ResponseWriter, r *http.Request) {
 
 	var clientTemplate *template.Template
 	if os.Getenv("DEBUGHTTPPAGE") == "1" {
-		log.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
+		webLogger.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
 		pathTemplate := filepath.Join("templates", "api", "client.html")
 		clientTemplate, err = layoutTemplate.ParseFiles(pathTemplate)
 	} else {
@@ -206,40 +238,40 @@ func newClientApi(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		// Log the detailed error
-		log.Warningf("Error while parsing template: %s\n", err)
+		webLogger.Errorf("Error while parsing template: %s\n", err)
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("clientHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("clientHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	if r.Method == "POST" {
 		ports, err := enumerator.GetDetailedPortsList()
 		if err != nil {
 			// Log the detailed error
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			// Return a generic "Internal Server Error" message
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 		jsonPorts, err := json.Marshal(ports)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(jsonPorts)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 		return
 	} else if r.Method == "GET" {
 		err = clientTemplate.ExecuteTemplate(w, "layout", nil)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 	}
@@ -247,59 +279,61 @@ func newClientApi(w http.ResponseWriter, r *http.Request) {
 
 // Client job info
 func clientJobApi(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == "POST" {
 		rawBody, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(400), 400)
 			return
 		}
 
-		fmt.Printf("clientJobApi: %s sent data to %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+		webLogger.Infof("clientJobApi: %s sent data to %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 		var body Job
 		err = json.Unmarshal(rawBody, &body)
 		if err != nil {
-			log.Infof("clientJobApi: Error while unmarshalling data from %s: %s\n", r.RemoteAddr, err.Error())
+			webLogger.Errorf("clientJobApi: Error while unmarshalling data from %s: %s\n", r.RemoteAddr, err.Error())
 			http.Error(w, http.StatusText(400), 400)
 			return
 		}
 
 		jobIdx := findJob(body.Number)
 		if jobIdx == -1 {
-			log.Infof("Job %d could not be found.\n", body.Number)
+			webLogger.Errorf("Job %d could not be found.\n", body.Number)
 			http.Error(w, http.StatusText(404), 404)
 			return
 		}
 		jobs[jobIdx] = body
 
-		log.Infof("Updated job %d info from client %s\n", body.Number, r.RemoteAddr)
+		webLogger.Infof("Updated job %d info from client %s\n", body.Number, r.RemoteAddr)
 
 		jsonJob, err := json.Marshal(jobs)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(jsonJob)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 		return
 	} else if r.Method == "GET" {
 		jsonJob, err := json.Marshal(jobs)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(jsonJob)
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 		}
 		return
@@ -307,10 +341,12 @@ func clientJobApi(w http.ResponseWriter, r *http.Request) {
 }
 
 func portConfig(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -319,18 +355,18 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 	portTemplate, err := layoutTemplate.Parse(templates.Port)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("portConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	data, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -338,16 +374,18 @@ func portConfig(w http.ResponseWriter, r *http.Request) {
 
 	err = portTemplate.ExecuteTemplate(w, "layout", data)
 	if err != nil {
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		http.Error(w, http.StatusText(500), 500)
 	}
 }
 
 func jobListHandler(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		// TODO: We know *what* the error will likely be, should this be customized at all?
 		http.Error(w, http.StatusText(500), 500)
@@ -357,18 +395,18 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 	jobsTemplate, err := layoutTemplate.Parse(templates.Jobs)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("jobListHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	err = jobsTemplate.ExecuteTemplate(w, "layout", jobs)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -376,10 +414,12 @@ func jobListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func portListHandler(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -387,17 +427,17 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 	portsTemplate, err := layoutTemplate.Parse(templates.Ports)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
-	fmt.Printf("port: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("port: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -406,7 +446,7 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 	err = portsTemplate.ExecuteTemplate(w, "layout", ports)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -414,10 +454,12 @@ func portListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func jobHandler(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while parsing the layout for jobs: %s\n", err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -426,19 +468,19 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 	jobTemplate, err := layoutTemplate.Parse(templates.Job)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while parsing the job template: %s\n", err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("jobHandler: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	vars := mux.Vars(r)
 
 	reqJob, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		fmt.Printf("jobHandler: Requested job %s is invalid\n", vars["id"])
+		webLogger.Errorf("jobHandler: Requested job %s is invalid\n", vars["id"])
 		http.Error(w, "Invalid job given", http.StatusBadRequest)
 		return
 	}
@@ -447,11 +489,26 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 	jobIdx := findJob(reqJob)
 	if jobIdx == -1 {
-		fmt.Printf("jobHandler: Requested job %d not found\n", reqJob)
+		webLogger.Errorf("jobHandler: Requested job %d not found\n", reqJob)
 		http.Error(w, fmt.Sprintf("Job %d not found", reqJob), http.StatusTeapot)
 		return
 	}
 	job = jobs[jobIdx]
+
+	// Get job output from log buffer
+	// TODO: Is getting this at runtime better than storing it in the job contents?
+	jobLogger := crglogging.GetLogger(job.LoggerName)
+	job.Output = ""
+	contents, err := jobLogger.GetMemLogContents("WebHandler")
+	if err != nil {
+		webLogger.Errorf("Could not get web logger for job %d. Error: %s\n", jobs[jobIdx].Number, err)
+	}
+
+	for buffLine := contents.Buff.Head(); buffLine != nil; buffLine = buffLine.Next() {
+		if buffLine.Record.Formatted(0) != buffLine.Record.Message() {
+			job.Output += fmt.Sprintf("%s\n", buffLine.Record.Formatted(3))
+		}
+	}
 
 	// Determine the amount of lines to print out if requested
 	if len(r.URL.Query().Get("lines")) != 0 {
@@ -459,13 +516,13 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Ensure line count is an integer
 		if err != nil {
-			fmt.Printf("jobHandler: Requested line count is invalid: %s\n", r.URL.Query().Get("lines"))
+			webLogger.Errorf("jobHandler: Requested line count is invalid: %s\n", r.URL.Query().Get("lines"))
 			http.Error(w, "Invalid line count", http.StatusBadRequest)
 			return
 		}
 
 		// Only print the requested number of lines
-		fmt.Printf("jobHandler: Client %s requested %d line(s) from job %d\n", r.RemoteAddr, lineCount, reqJob)
+		webLogger.Infof("jobHandler: Client %s requested %d line(s) from job %d\n", r.RemoteAddr, lineCount, reqJob)
 		if len(strings.Split(job.Output, "\n")) > lineCount {
 			job.Output = strings.Join(strings.Split(job.Output, "\n")[len(strings.Split(job.Output, "\n"))-lineCount:], "\n")
 		}
@@ -474,7 +531,7 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 	err = jobTemplate.ExecuteTemplate(w, "layout", job)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while executing the template for job %d: %s\n", jobIdx, err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -482,10 +539,12 @@ func jobHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deviceConfig(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("template").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Warningf("Error while parsing template: %s\n", err)
+		webLogger.Errorf("Error while parsing template: %s\n", err)
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -493,7 +552,7 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 
 	var deviceTemplate *template.Template
 	if os.Getenv("DEBUGHTTPPAGE") == "1" {
-		log.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
+		webLogger.Info("Presenting raw file as environment variable DEBUGHTTPPAGE is set\n")
 		pathTemplate := filepath.Join("templates", "device.html")
 		deviceTemplate, err = layoutTemplate.ParseFiles(pathTemplate)
 	} else {
@@ -501,27 +560,27 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		// Log the detailed error
-		log.Warningf("Error while parsing template: %s\n", err)
+		webLogger.Errorf("Error while parsing template: %s\n", err)
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("deviceConfig: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	//port := r.PathValue("port")
 	//if port != "" {
-	//	fmt.Printf("%s requested port %s\n", r.RemoteAddr, port)
+	//	webLogger.Infof("%s requested port %s\n", r.RemoteAddr, port)
 	//}
 	//if r.PathValue("baud") != "" {
 	//	baud, err := strconv.Atoi(r.PathValue("baud"))
 	//	if err != nil {
-	//		log.Print(err.Error())
+	//		webLogger.Errorf(err.Error())
 	//		http.Error(w, fmt.Sprintf("Invalid baud %s\n", r.PathValue("baud")), http.StatusBadRequest)
 	//		return
 	//	}
 	//	if port != "" {
-	//		fmt.Printf("%s requested baud %d\n", r.RemoteAddr, baud)
+	//		webLogger.Infof("%s requested baud %d\n", r.RemoteAddr, baud)
 	//	}
 	//}
 
@@ -544,16 +603,18 @@ func deviceConfig(w http.ResponseWriter, r *http.Request) {
 
 	err = deviceTemplate.ExecuteTemplate(w, "layout", serialConf)
 	if err != nil {
-		log.Warningf("Error while executing template: %s\n", err)
+		webLogger.Errorf("Error while executing template: %s\n", err)
 		http.Error(w, http.StatusText(500), 500)
 	}
 }
 
 func resetDevice(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -561,12 +622,12 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	resetTemplate, err := layoutTemplate.Parse(templates.Reset)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
-	fmt.Printf("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("resetDevice: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	// Format form results
 	var rules RunParams
@@ -620,7 +681,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 		_, err = io.Copy(&buf, file)
 		if err != nil {
 			http.Error(w, http.StatusText(500), 500)
-			log.Fatal(err)
+			webLogger.Fatal(err)
 		}
 		rules.DefaultsContents = buf.String()
 		buf.Reset()
@@ -634,7 +695,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	rules.BackupConfig.Destination = r.PostFormValue("destination")
 	rules.BackupConfig.UseBuiltIn = r.PostFormValue("builtin") == "builtin"
 
-	log.Debugf("POST Data: %+v\n", rules)
+	webLogger.Debugf("POST Data: %+v\n", rules)
 
 	jobNum := len(jobs) + 1
 
@@ -653,7 +714,7 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 	err = resetTemplate.ExecuteTemplate(w, "layout", newJob)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -661,12 +722,14 @@ func resetDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func builderHome(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("builderHome: Client %s requested %s with method %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path), r.Method)
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
+	webLogger.Infof("builderHome: Client %s requested %s with method %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path), r.Method)
 	var builderPage *template.Template
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf(err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -681,14 +744,14 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 		err = r.ParseForm()
 		if err != nil {
-			log.Info(err.Error())
+			webLogger.Errorf(err.Error())
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 
-		fmt.Printf("Post form values:\n")
+		webLogger.Infof("Post form values:\n")
 		for key, value := range r.PostForm {
-			fmt.Printf("\t%s: %s\n", key, value)
+			webLogger.Infof("\t%s: %s\n", key, value)
 		}
 
 		var formattedJson []byte
@@ -709,7 +772,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			switchPorts := make([]switches.SwitchPortConfig, 0)
 			switchPortCount, err := strconv.Atoi(r.PostFormValue("switchports"))
 			if err != nil && r.PostFormValue("switchports") != "" {
-				log.Infof("Error while getting the number of switchports: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the number of switchports: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -722,7 +785,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				switchPort.SwitchportMode = r.PostFormValue(fmt.Sprintf("switchPortType%d", i))
 				switchPort.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)))
 				if err != nil && r.PostFormValue(fmt.Sprintf("switchPortVlan%d", i)) != "" {
-					log.Infof("Error while getting the vlan tag for port %s: %s\n", switchPort.Port, err.Error())
+					webLogger.Errorf("Error while getting the vlan tag for port %s: %s\n", switchPort.Port, err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
@@ -737,7 +800,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			vlans := make([]switches.VlanConfig, 0)
 			vlanCount, err := strconv.Atoi(r.PostFormValue("vlan"))
 			if err != nil && r.PostFormValue("vlan") != "" {
-				log.Infof("Error while getting the number of vlans: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the number of vlans: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -746,7 +809,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				var vlan switches.VlanConfig
 				vlan.Vlan, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("vlanTag%d", i)))
 				if err != nil {
-					log.Infof("Error while getting the vlan tag on key %s: %s\n", fmt.Sprintf("vlanTag%d", i), err.Error())
+					webLogger.Errorf("Error while getting the vlan tag on key %s: %s\n", fmt.Sprintf("vlanTag%d", i), err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
@@ -764,7 +827,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			consoleLines := make([]switches.LineConfig, 0)
 			consoleLineCount, err := strconv.Atoi(r.PostFormValue("physports"))
 			if err != nil && r.PostFormValue("physports") != "" {
-				log.Infof("Error while getting the number of console lines: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the number of console lines: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -773,14 +836,14 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				var consoleLine switches.LineConfig
 				consoleLine.StartLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeStart%d", i)))
 				if err != nil {
-					log.Infof("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
+					webLogger.Errorf("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
 
 				consoleLine.EndLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeEnd%d", i)))
 				if err != nil {
-					log.Infof("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
+					webLogger.Errorf("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
@@ -810,7 +873,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			var sshConfig switches.SshConfig
 			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
 			if err != nil && r.PostFormValue("sshbits") != "" {
-				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the ssh bits: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -822,7 +885,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 			formattedJson, err = json.Marshal(createdTemplate)
 			if err != nil {
-				log.Infof("%s\n", err.Error())
+				webLogger.Errorf("%s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -841,7 +904,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			routerPorts := make([]routers.RouterPorts, 0)
 			routerPortCount, err := strconv.Atoi(r.PostFormValue("physportcount"))
 			if err != nil && r.PostFormValue("physportcount") != "" {
-				log.Infof("Error while getting the number of router ports: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the number of router ports: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -855,12 +918,13 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 				routerPorts = append(routerPorts, routerPort)
 			}
+			createdTemplate.Ports = routerPorts
 
 			// Build out the list of console lines
 			consoleLines := make([]routers.LineConfig, 0)
 			consoleLineCount, err := strconv.Atoi(r.PostFormValue("consoleportcount"))
 			if err != nil && r.PostFormValue("consoleportcount") != "" {
-				log.Infof("Error while getting the number of console lines: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the number of console lines: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -870,14 +934,14 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 				var consoleLine routers.LineConfig
 				consoleLine.StartLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeStart%d", i)))
 				if err != nil {
-					log.Infof("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
+					webLogger.Errorf("Error while getting the starting line on key %s: %s\n", fmt.Sprintf("portRangeStart%d", i), err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
 
 				consoleLine.EndLine, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("portRangeEnd%d", i)))
 				if err != nil {
-					log.Infof("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
+					webLogger.Errorf("Error while getting the ending line on key %s: %s\n", fmt.Sprintf("portRangeEnd%d", i), err.Error())
 					http.Error(w, http.StatusText(500), 500)
 					return
 				}
@@ -906,7 +970,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 			var sshConfig routers.SshConfig
 			sshConfig.Bits, err = strconv.Atoi(r.PostFormValue(fmt.Sprintf("sshbits")))
 			if err != nil {
-				log.Infof("Error while getting the ssh bits: %s\n", err.Error())
+				webLogger.Errorf("Error while getting the ssh bits: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -918,7 +982,7 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 			formattedJson, err = json.Marshal(createdTemplate)
 			if err != nil {
-				log.Infof("Error while formatting json: %s\n", err.Error())
+				webLogger.Errorf("Error while formatting json: %s\n", err.Error())
 				http.Error(w, http.StatusText(500), 500)
 				return
 			}
@@ -945,18 +1009,18 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			// Log the detailed error
-			log.Info(err.Error())
+			webLogger.Errorf("An error occurred while parsing the builder template: %s\n", err.Error())
 			// Return a generic "Internal Server Error" message
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 
-		fmt.Printf("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+		webLogger.Infof("defaults: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 		err = builderPage.ExecuteTemplate(w, "layout", nil)
 		if err != nil {
 			// Log the detailed error
-			log.Info(err.Error())
+			webLogger.Errorf("An error occurred while executing the builder template: %s\n", err.Error())
 			// Return a generic "Internal Server Error" message
 			http.Error(w, http.StatusText(500), 500)
 			return
@@ -968,10 +1032,12 @@ func builderHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
+	webLogger := crglogging.GetLogger(WEB_LOGGER_NAME)
+
 	layoutTemplate, err := template.New("layout").Parse(templates.Layout)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while parsing the layout template in index: %s\n", err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -980,18 +1046,18 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	indexTemplate, err := layoutTemplate.Parse(templates.Index)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while parsing the index template: %s\n", err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	fmt.Printf("serveIndex: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
+	webLogger.Infof("serveIndex: %s requested %s\n", r.RemoteAddr, filepath.Clean(r.URL.Path))
 
 	serialPorts, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while getting the list of serial ports: %s\n", err.Error())
 	}
 
 	// Because templates have to only take one struct, we have to have a special struct just for it
@@ -1002,7 +1068,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	err = indexTemplate.ExecuteTemplate(w, "layout", indexHelper)
 	if err != nil {
 		// Log the detailed error
-		log.Info(err.Error())
+		webLogger.Errorf("An error occurred while executing the index template: %s\n", err.Error())
 		// Return a generic "Internal Server Error" message
 		http.Error(w, http.StatusText(500), 500)
 		return
@@ -1050,13 +1116,17 @@ func ServeWeb() {
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
 	}
-	fmt.Printf("Listening on %s\n", server.Addr)
+
+	webLogger := crglogging.New(WEB_LOGGER_NAME)
+
+	webLogger.Infof("Listening on %s\n", server.Addr)
+
 	err := server.ListenAndServe()
 	defer server.Close()
-	log.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
+	webLogger.Debugf("ALLOWDEBUGENDPOINTS: %s\n", os.Getenv("ALLOWDEBUGENDPOINTS"))
 	if os.Getenv("ALLOWDEBUGENDPOINTS") == "1" && errors.Is(err, http.ErrServerClosed) {
-		log.Error(err.Error())
+		webLogger.Errorf("An error occurred while serving the web server: %s\n", err)
 	} else {
-		log.Fatal(err.Error())
+		webLogger.Fatalf("An error occurred while serving the web server: %s\n", err)
 	}
 }

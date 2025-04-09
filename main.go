@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/op/go-logging"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 	"io"
 	"main/common"
+	"main/crglogging"
 	"main/routers"
 	"main/switches"
 	"main/web"
@@ -17,19 +17,20 @@ import (
 	"strings"
 )
 
-var log = logging.MustGetLogger("")
-
 func SetupSerial() (string, serial.Mode) {
 	var userInput string
 	var chosenPort string
+
+	logger := crglogging.Instances[0].Instance
+
 	isValid := false
 	for !isValid {
 		ports, err := enumerator.GetDetailedPortsList()
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if len(ports) == 0 {
-			log.Fatal("No serial ports found!")
+			logger.Fatal("No serial ports found!")
 		}
 		for _, port := range ports {
 			fmt.Printf("Found port %v\n", port.Name)
@@ -43,7 +44,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Select a serial port ")
 		_, err = fmt.Scanln(&userInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		for _, port := range ports {
@@ -57,7 +58,7 @@ func SetupSerial() (string, serial.Mode) {
 	fmt.Println("Default settings are 9600 8N1. Would you like to change these? (y/N)")
 	_, err := fmt.Scanln(&userInput)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	settings := &serial.Mode{
@@ -79,7 +80,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired baud rate (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &baudRate)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if baudRate == 0 {
 			baudRate = 9600
@@ -89,7 +90,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired data bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &dataBits)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		if dataBits == 0 {
 			dataBits = 8
@@ -100,7 +101,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired parity bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%d\n", &parityBitInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		switch parityBitInput {
 		case 1:
@@ -120,7 +121,7 @@ func SetupSerial() (string, serial.Mode) {
 			parityBit = serial.SpaceParity
 			break
 		default:
-			log.Fatal("Invalid parity bit value provided")
+			logger.Fatal("Invalid parity bit value provided")
 		}
 
 		fmt.Println("Default value for stop bits is 1")
@@ -128,7 +129,7 @@ func SetupSerial() (string, serial.Mode) {
 		fmt.Printf("Enter the desired stop bits (Empty for defaults): ")
 		_, err = fmt.Scanf("%f\n", &stopBitsInput)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		switch stopBitsInput {
@@ -143,7 +144,7 @@ func SetupSerial() (string, serial.Mode) {
 			stopBits = serial.TwoStopBits
 			break
 		default:
-			log.Fatal("Invalid stop bits value provided")
+			logger.Fatal("Invalid stop bits value provided")
 		}
 
 		settings = &serial.Mode{
@@ -170,6 +171,8 @@ func main() {
 	var version bool
 	var portSettings serial.Mode
 
+	logger := crglogging.New("main")
+
 	flag.BoolVar(&verboseOutput, "verboseOutput", false, "Show debugging messages")
 	flag.BoolVar(&resetRouter, "router", false, "Reset a router")
 	flag.BoolVar(&resetSwitch, "switch", false, "Reset a switch")
@@ -188,13 +191,13 @@ func main() {
 		if ok {
 			verboseBuildInfo, err := json.MarshalIndent(buildInfo, "", "\t")
 			if err != nil {
-				log.Fatalf("Couldn't marshal additional build information: %s\n", err)
+				logger.Fatalf("Couldn't marshal additional build information: %s\n", err)
 			}
 
 			var unmarshaledBuild debug.BuildInfo
 			err = json.Unmarshal(verboseBuildInfo, &unmarshaledBuild)
 			if err != nil {
-				log.Fatalf("Couldn't unmarshal additional build information: %s\n", err)
+				logger.Fatalf("Couldn't unmarshal additional build information: %s\n", err)
 			}
 
 			for _, setting := range unmarshaledBuild.Settings {
@@ -214,7 +217,7 @@ func main() {
 	if !(resetRouter || resetSwitch || webServer) {
 		_, err := fmt.Fprintf(os.Stderr, "Usage of %s\n", os.Args[0])
 		if err != nil {
-			log.Fatalf("Error while printing error message to Stderr: %s\n", err)
+			logger.Fatalf("Error while printing error message to Stderr: %s\n", err)
 		}
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -231,12 +234,12 @@ func main() {
 	} else {
 		backupConfigFile, err := os.Open(backupConfig)
 		if err != nil {
-			log.Fatalf("Error while opening file %s: %s\n", backupConfig, err)
+			logger.Fatalf("Error while opening file %s: %s\n", backupConfig, err)
 		}
 
 		err = json.Unmarshal(io.ReadAll(backupConfigFile))
 		if err != nil {
-			log.Fatalf("Error while unmarshalling %s: %s\n", backupConfig, err)
+			logger.Fatalf("Error while unmarshalling %s: %s\n", backupConfig, err)
 		}
 	}
 
@@ -253,14 +256,14 @@ func main() {
 		// Load the provided json file
 		file, err := os.ReadFile(routerDefaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		// Parse the provided json
 		var defaults routers.RouterDefaults
 		err = json.Unmarshal(file, &defaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		routers.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
@@ -271,17 +274,17 @@ func main() {
 		// Load the provided json file
 		file, err := os.ReadFile(switchDefaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		// Parse the provided json
 		var defaults switches.SwitchConfig
 		err = json.Unmarshal(file, &defaults)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		switches.Defaults(serialDevice, portSettings, defaults, verboseOutput, nil)
 	} else {
-		fmt.Println("File path not provided, not setting defaults on switch")
+		logger.Warnln("File path not provided, not setting defaults on switch")
 	}
 }
