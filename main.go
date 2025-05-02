@@ -187,7 +187,7 @@ func main() {
 	if version {
 		buildInfo, ok := debug.ReadBuildInfo()
 		fmt.Println("Cisco Resetter Go")
-		fmt.Println("Version: v0.0.0-beta1")
+		fmt.Println("Version: v0.0.0-beta6")
 		if ok {
 			verboseBuildInfo, err := json.MarshalIndent(buildInfo, "", "\t")
 			if err != nil {
